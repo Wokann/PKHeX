@@ -39,13 +39,17 @@ public static class StringConverter3
             else
             {
                 var c = GetG3Char(value, jp); // Convert to Unicode
-                if (c == Terminator)
+                if (c == Terminator) // Stop if Terminator/Invalid
                     break;
                 result[CharCounts] = c;
                 EngCounts++;
             }
         }
-        return new string(result[..CharCounts].ToArray());
+        if (i < data.Length)
+            i = CharCounts;
+        else
+            i = CharCounts + 1;
+        return new string(result[..i].ToArray());
     }
 
     /// <summary>
@@ -88,30 +92,32 @@ public static class StringConverter3
 
         int i = 0;
         int ValueCounts = 0;
-        int ChsCounts = 0;
-        int EngCounts = 0;
-        int JapCounts = 0;
+        int ChsChars = 0;
+        int EngChars = 0;
+        int JapChars = 0;
         for (; i < value.Length; i++)
         {
             var chr = value[i];
-            ValueCounts = ChsCounts + EngCounts + JapCounts;
-            if (!jp)
+            ValueCounts = (ChsChars * 2) + EngChars + JapChars;
+
+            if(!jp)
             {
                 var b0 = SetG3Char2(chr);
-                if (b0 == 0x00)
+                if (b0 == TerminatorByte)
+                    break;
+                if (b0 >= 0 && b0 < 256)
                 {
-                    var b = SetG3Char(chr, jp);
-                    if (b == TerminatorByte)
-                        break;
-                    buffer[ValueCounts] = b;
-                    EngCounts++;
+                    buffer[ValueCounts] = (byte)b0;
+                    EngChars++;
                 }
                 else
                 {
-                    buffer[ValueCounts] = (byte) (b0 >> 8);
+                    var b1 = b0 >> 8;
+                    var b2 = b0 & 0xff;
+                    buffer[ValueCounts] = (byte) b1;
                     ValueCounts++;
-                    buffer[ValueCounts] = (byte) (b0 & 0xff);
-                    ChsCounts +=2;
+                    buffer[ValueCounts] = (byte) b2;
+                    ChsChars++;
                 }
             }
             else
@@ -120,14 +126,15 @@ public static class StringConverter3
                 if (b == TerminatorByte)
                     break;
                 buffer[ValueCounts] = b;
-                JapCounts++;
+                JapChars++;
             }
         }
 
-        int count = ValueCounts;
+        int count = ValueCounts + 1;
         if (count < buffer.Length)
             buffer[count++] = TerminatorByte;
         return count;
+
     }
 
     /// <summary>
@@ -147,31 +154,30 @@ public static class StringConverter3
         return (byte)index;
     }
 
+
     private static Int16 SetG3Char2(char chr)
     {
-        if (chr == ' ')
-            return (byte)0x00;
+        if (chr == '\'') // ’
+            return (byte)0xB4;
         var table = G3_CH_C2V;
         var index = Array.IndexOf(table, chr);
         if (index == -1)
-            return (byte) 0x00;
-        else
-            return (short)index;
+            return TerminatorByte;
+        return (short)index;
     }
-
     private static readonly char[] G3_EN =
     {
-        ' ',  'À',  'Á',  'Â', 'Ç',  'È',  'É',  'Ê',  'Ë',  'Ì', ' ', 'Î',  'Ï',  'Ò',  'Ó',  'Ô',  // 0
-        'Œ',  'Ù',  'Ú',  'Û', 'Ñ',  'ß',  'à',  'á',  ' ', 'Ç',  'È', 'é',  'ê',  'ë',  'ì',  'í',  // 1
-        'î',  'ï',  'ò',  'ó', 'ô',  'œ',  'ù',  'ú',  'û',  'ñ',  'º', 'ª',  '⒅', '&',  '+',  ' ', // 2
-        ' ', ' ', ' ', ' ', ' ', '=',  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // 3
-        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',  // 4
-        ' ', '¿',  '¡',  '⒆', '⒇', ' ', ' ', ' ', ' ', ' ', 'Í',  ' ', ' ', ' ', ' ', ' ', // 5
-        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'â',  ' ', ' ', ' ', ' ', ' ', ' ', 'í',  // 6
-        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // 7
-        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // 8
-        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', // 9
-        ' ', '0',  '1',  '2', '3',  '4',  '5',  '6',  '7',  '8',  '9',  '!', '?',  '.',  '-',  '・',// A
+        ' ',  'À',  'Á',  'Â', 'Ç',  'È',  'É',  'Ê',  'Ë',  'Ì', 'こ', 'Î',  'Ï',  'Ò',  'Ó',  'Ô',  // 0
+        'Œ',  'Ù',  'Ú',  'Û', 'Ñ',  'ß',  'à',  'á',  'ね', 'Ç',  'È', 'é',  'ê',  'ë',  'ì',  'í',  // 1
+        'î',  'ï',  'ò',  'ó', 'ô',  'œ',  'ù',  'ú',  'û',  'ñ',  'º', 'ª',  '⒅', '&',  '+',  'あ', // 2
+        'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゃ', '=',  'ょ', 'が', 'ぎ', 'ぐ', 'げ', 'ご', 'ざ', 'じ', 'ず', 'ぜ', // 3
+        'ぞ', 'だ', 'ぢ', 'づ', 'で', 'ど', 'ば', 'び', 'ぶ', 'べ', 'ぼ', 'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ',  // 4
+        'っ', '¿',  '¡',  '⒆', '⒇', 'オ', 'カ', 'キ', 'ク', 'ケ', 'Í',  'コ', 'サ', 'ス', 'セ', 'ソ', // 5
+        'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ', 'ヌ', 'â',  'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'í',  // 6
+        'ミ', 'ム', 'メ', 'モ', 'ヤ', 'ユ', 'ヨ', 'ラ', 'リ', 'ル', 'レ', 'ロ', 'ワ', 'ヲ', 'ン', 'ァ', // 7
+        'ィ', 'ゥ', 'ェ', 'ォ', 'ャ', 'ュ', 'ョ', 'ガ', 'ギ', 'グ', 'ゲ', 'ゴ', 'ザ', 'ジ', 'ズ', 'ゼ', // 8
+        'ゾ', 'ダ', 'ヂ', 'ヅ', 'デ', 'ド', 'バ', 'ビ', 'ブ', 'ベ', 'ボ', 'パ', 'ピ', 'プ', 'ペ', 'ポ', // 9
+        'ッ', '0',  '1',  '2', '3',  '4',  '5',  '6',  '7',  '8',  '9',  '!', '?',  '.',  '-',  '・',// A
         '⑬',  '“',  '”',  '‘', '’',  '♂',  '♀',  '$',  ',',  '⑧',  '/',  'A', 'B',  'C',  'D',  'E', // B
         'F',  'G',  'H',  'I', 'J',  'K',  'L',  'M',  'N',  'O',  'P',  'Q', 'R',  'S',  'T',  'U', // C
         'V',  'W',  'X',  'Y', 'Z',  'a',  'b',  'c',  'd',  'e',  'f',  'g', 'h',  'i',  'j',  'k', // D
@@ -208,22 +214,25 @@ public static class StringConverter3
     private static readonly char[,] G3_CH = new char[31,256]
     {
         {
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        ' ',  'À',  'Á',  'Â', 'Ç',  'È',  'É',  'Ê',  'Ë',  'Ì', 'こ', 'Î',  'Ï',  'Ò',  'Ó',  'Ô',  // 0
+        'Œ',  'Ù',  'Ú',  'Û', 'Ñ',  'ß',  'à',  'á',  'ね', 'Ç',  'È', 'é',  'ê',  'ë',  'ì',  'í',  // 1
+        'î',  'ï',  'ò',  'ó', 'ô',  'œ',  'ù',  'ú',  'û',  'ñ',  'º', 'ª',  '⒅', '&',  '+',  'あ', // 2
+        'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゃ', '=',  'ょ', 'が', 'ぎ', 'ぐ', 'げ', 'ご', 'ざ', 'じ', 'ず', 'ぜ', // 3
+        'ぞ', 'だ', 'ぢ', 'づ', 'で', 'ど', 'ば', 'び', 'ぶ', 'べ', 'ぼ', 'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ',  // 4
+        'っ', '¿',  '¡',  '⒆', '⒇', 'オ', 'カ', 'キ', 'ク', 'ケ', 'Í',  'コ', 'サ', 'ス', 'セ', 'ソ', // 5
+        'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ', 'ヌ', 'â',  'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'í',  // 6
+        'ミ', 'ム', 'メ', 'モ', 'ヤ', 'ユ', 'ヨ', 'ラ', 'リ', 'ル', 'レ', 'ロ', 'ワ', 'ヲ', 'ン', 'ァ', // 7
+        'ィ', 'ゥ', 'ェ', 'ォ', 'ャ', 'ュ', 'ョ', 'ガ', 'ギ', 'グ', 'ゲ', 'ゴ', 'ザ', 'ジ', 'ズ', 'ゼ', // 8
+        'ゾ', 'ダ', 'ヂ', 'ヅ', 'デ', 'ド', 'バ', 'ビ', 'ブ', 'ベ', 'ボ', 'パ', 'ピ', 'プ', 'ペ', 'ポ', // 9
+        'ッ', '0',  '1',  '2', '3',  '4',  '5',  '6',  '7',  '8',  '9',  '!', '?',  '.',  '-',  '・',// A
+        '⑬',  '“',  '”',  '‘', '’',  '♂',  '♀',  '$',  ',',  '⑧',  '/',  'A', 'B',  'C',  'D',  'E', // B
+        'F',  'G',  'H',  'I', 'J',  'K',  'L',  'M',  'N',  'O',  'P',  'Q', 'R',  'S',  'T',  'U', // C
+        'V',  'W',  'X',  'Y', 'Z',  'a',  'b',  'c',  'd',  'e',  'f',  'g', 'h',  'i',  'j',  'k', // D
+        'l',  'm',  'n',  'o', 'p',  'q',  'r',  's',  't',  'u',  'v',  'w', 'x',  'y',  'z',  '0', // E
+        ':',  'Ä',  'Ö',  'Ü', 'ä',  'ö',  'ü',                                                      // F
+
+        // Make the total length 256 so that any byte access is always within the array
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -242,7 +251,7 @@ public static class StringConverter3
         '播',    '拨',    '钵',    '波',    '博',    '勃',    '搏',    '铂',    '箔',    '伯',    '帛',    '舶',    '脖',    '膊',    '渤',    '泊',
         '驳',    '捕',    '卜',    '哺',    '补',    '埠',    '不',    '布',    '步',    '簿',    '部',    '怖',    '擦',    '猜',    '裁',    '材',
         '才',    '财',    '睬',    '踩',    '采',    '彩',    '菜',    '蔡',    '餐',    '参',    '蚕',    '残',    '惭',    '惨',    '灿',    '苍',
-        '舱',    '仓',    '沧',    '藏',    '操',    '糙',    '槽',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '舱',    '仓',    '沧',    '藏',    '操',    '糙',    '槽',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -261,7 +270,7 @@ public static class StringConverter3
         '脆',    '瘁',    '粹',    '淬',    '翠',    '村',    '存',    '寸',    '磋',    '撮',    '搓',    '措',    '挫',    '错',    '搭',    '达',
         '答',    '瘩',    '打',    '大',    '呆',    '歹',    '傣',    '戴',    '带',    '殆',    '代',    '贷',    '袋',    '待',    '逮',    '怠',
         '耽',    '担',    '丹',    '单',    '郸',    '掸',    '胆',    '旦',    '氮',    '但',    '惮',    '淡',    '诞',    '弹',    '蛋',    '当',
-        '挡',    '党',    '荡',    '档',    '刀',    '捣',    '蹈',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '挡',    '党',    '荡',    '档',    '刀',    '捣',    '蹈',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -280,7 +289,7 @@ public static class StringConverter3
         '方',    '肪',    '房',    '防',    '妨',    '仿',    '访',    '纺',    '放',    '菲',    '非',    '啡',    '飞',    '肥',    '匪',    '诽',
         '吠',    '肺',    '废',    '沸',    '费',    '芬',    '酚',    '吩',    '氛',    '分',    '纷',    '坟',    '焚',    '汾',    '粉',    '奋',
         '份',    '忿',    '愤',    '粪',    '丰',    '封',    '枫',    '蜂',    '峰',    '锋',    '风',    '疯',    '烽',    '逢',    '冯',    '缝',
-        '讽',    '奉',    '凤',    '佛',    '否',    '夫',    '敷',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '讽',    '奉',    '凤',    '佛',    '否',    '夫',    '敷',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -299,7 +308,7 @@ public static class StringConverter3
         '锅',    '郭',    '国',    '果',    '裹',    '过',    '哈',    '骸',    '孩',    '海',    '氦',    '亥',    '害',    '骇',    '酣',    '憨',
         '邯',    '韩',    '含',    '涵',    '寒',    '函',    '喊',    '罕',    '翰',    '撼',    '捍',    '旱',    '憾',    '悍',    '焊',    '汗',
         '汉',    '夯',    '杭',    '航',    '壕',    '嚎',    '豪',    '毫',    '郝',    '好',    '耗',    '号',    '浩',    '呵',    '喝',    '荷',
-        '菏',    '核',    '禾',    '和',    '何',    '合',    '盒',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '菏',    '核',    '禾',    '和',    '何',    '合',    '盒',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -318,26 +327,26 @@ public static class StringConverter3
         '颊',    '贾',    '甲',    '钾',    '假',    '稼',    '价',    '架',    '驾',    '嫁',    '歼',    '监',    '坚',    '尖',    '笺',    '间',
         '煎',    '兼',    '肩',    '艰',    '奸',    '缄',    '茧',    '检',    '柬',    '碱',    '硷',    '拣',    '捡',    '简',    '俭',    '剪',
         '减',    '荐',    '槛',    '鉴',    '践',    '贱',    '见',    '键',    '箭',    '件',    '健',    '舰',    '剑',    '饯',    '渐',    '溅',
-        '涧',    '建',    '僵',    '姜',    '将',    '浆',    '江',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '涧',    '建',    '僵',    '姜',    '将',    '浆',    '江',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -356,7 +365,7 @@ public static class StringConverter3
         '坎',    '砍',    '看',    '康',    '慷',    '糠',    '扛',    '抗',    '亢',    '炕',    '考',    '拷',    '烤',    '靠',    '坷',    '苛',
         '柯',    '棵',    '磕',    '颗',    '科',    '壳',    '咳',    '可',    '渴',    '克',    '刻',    '客',    '课',    '肯',    '啃',    '垦',
         '恳',    '坑',    '吭',    '空',    '恐',    '孔',    '控',    '抠',    '口',    '扣',    '寇',    '枯',    '哭',    '窟',    '苦',    '酷',
-        '库',    '裤',    '夸',    '垮',    '挎',    '跨',    '胯',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '库',    '裤',    '夸',    '垮',    '挎',    '跨',    '胯',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -375,7 +384,7 @@ public static class StringConverter3
         '另',    '令',    '溜',    '琉',    '榴',    '硫',    '馏',    '留',    '刘',    '瘤',    '流',    '柳',    '六',    '龙',    '聋',    '咙',
         '笼',    '窿',    '隆',    '垄',    '拢',    '陇',    '楼',    '娄',    '搂',    '篓',    '漏',    '陋',    '芦',    '卢',    '颅',    '庐',
         '炉',    '掳',    '卤',    '虏',    '鲁',    '麓',    '碌',    '露',    '路',    '赂',    '鹿',    '潞',    '禄',    '录',    '陆',    '戮',
-        '驴',    '吕',    '铝',    '侣',    '旅',    '履',    '屡',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '驴',    '吕',    '铝',    '侣',    '旅',    '履',    '屡',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -394,7 +403,7 @@ public static class StringConverter3
         '氖',    '乃',    '奶',    '耐',    '奈',    '南',    '男',    '难',    '囊',    '挠',    '脑',    '恼',    '闹',    '淖',    '呢',    '馁',
         '内',    '嫩',    '能',    '妮',    '霓',    '倪',    '泥',    '尼',    '拟',    '你',    '匿',    '腻',    '逆',    '溺',    '蔫',    '拈',
         '年',    '碾',    '撵',    '捻',    '念',    '娘',    '酿',    '鸟',    '尿',    '捏',    '聂',    '孽',    '啮',    '镊',    '镍',    '涅',
-        '您',    '柠',    '狞',    '凝',    '宁',    '拧',    '泞',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '您',    '柠',    '狞',    '凝',    '宁',    '拧',    '泞',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -413,7 +422,7 @@ public static class StringConverter3
         '千',    '迁',    '签',    '仟',    '谦',    '乾',    '黔',    '钱',    '钳',    '前',    '潜',    '遣',    '浅',    '谴',    '堑',    '嵌',
         '欠',    '歉',    '枪',    '呛',    '腔',    '羌',    '墙',    '蔷',    '强',    '抢',    '橇',    '锹',    '敲',    '悄',    '桥',    '瞧',
         '乔',    '侨',    '巧',    '鞘',    '撬',    '翘',    '峭',    '俏',    '窍',    '切',    '茄',    '且',    '怯',    '窃',    '钦',    '侵',
-        '亲',    '秦',    '琴',    '勤',    '芹',    '擒',    '禽',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '亲',    '秦',    '琴',    '勤',    '芹',    '擒',    '禽',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -432,7 +441,7 @@ public static class StringConverter3
         '赦',    '摄',    '射',    '慑',    '涉',    '社',    '设',    '砷',    '申',    '呻',    '伸',    '身',    '深',    '娠',    '绅',    '神',
         '沈',    '审',    '婶',    '甚',    '肾',    '慎',    '渗',    '声',    '生',    '甥',    '牲',    '升',    '绳',    '省',    '盛',    '剩',
         '胜',    '圣',    '师',    '失',    '狮',    '施',    '湿',    '诗',    '尸',    '虱',    '十',    '石',    '拾',    '时',    '什',    '食',
-        '蚀',    '实',    '识',    '史',    '矢',    '使',    '屎',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '蚀',    '实',    '识',    '史',    '矢',    '使',    '屎',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -451,7 +460,7 @@ public static class StringConverter3
         '炭',    '汤',    '塘',    '搪',    '堂',    '棠',    '膛',    '唐',    '糖',    '倘',    '躺',    '淌',    '趟',    '烫',    '掏',    '涛',
         '滔',    '绦',    '萄',    '桃',    '逃',    '淘',    '陶',    '讨',    '套',    '特',    '藤',    '腾',    '疼',    '誊',    '梯',    '剔',
         '踢',    '锑',    '提',    '题',    '蹄',    '啼',    '体',    '替',    '嚏',    '惕',    '涕',    '剃',    '屉',    '天',    '添',    '填',
-        '田',    '甜',    '恬',    '舔',    '腆',    '挑',    '条',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '田',    '甜',    '恬',    '舔',    '腆',    '挑',    '条',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -470,7 +479,7 @@ public static class StringConverter3
         '晰',    '嘻',    '吸',    '锡',    '牺',    '稀',    '息',    '希',    '悉',    '膝',    '夕',    '惜',    '熄',    '烯',    '溪',    '汐',
         '犀',    '檄',    '袭',    '席',    '习',    '媳',    '喜',    '铣',    '洗',    '系',    '隙',    '戏',    '细',    '瞎',    '虾',    '匣',
         '霞',    '辖',    '暇',    '峡',    '侠',    '狭',    '下',    '厦',    '夏',    '吓',    '掀',    '锨',    '先',    '仙',    '鲜',    '纤',
-        '咸',    '贤',    '衔',    '舷',    '闲',    '涎',    '弦',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '咸',    '贤',    '衔',    '舷',    '闲',    '涎',    '弦',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -489,7 +498,7 @@ public static class StringConverter3
         '炎',    '沿',    '奄',    '掩',    '眼',    '衍',    '演',    '艳',    '堰',    '燕',    '厌',    '砚',    '雁',    '唁',    '彦',    '焰',
         '宴',    '谚',    '验',    '殃',    '央',    '鸯',    '秧',    '杨',    '扬',    '佯',    '疡',    '羊',    '洋',    '阳',    '氧',    '仰',
         '痒',    '养',    '样',    '漾',    '邀',    '腰',    '妖',    '瑶',    '摇',    '尧',    '遥',    '窑',    '谣',    '姚',    '咬',    '舀',
-        '药',    '要',    '耀',    '椰',    '噎',    '耶',    '爷',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '药',    '要',    '耀',    '椰',    '噎',    '耶',    '爷',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -508,7 +517,7 @@ public static class StringConverter3
         '源',    '缘',    '远',    '苑',    '愿',    '怨',    '院',    '曰',    '约',    '越',    '跃',    '钥',    '岳',    '粤',    '月',    '悦',
         '阅',    '耘',    '云',    '郧',    '匀',    '陨',    '允',    '运',    '蕴',    '酝',    '晕',    '韵',    '孕',    '匝',    '砸',    '杂',
         '栽',    '哉',    '灾',    '宰',    '载',    '再',    '在',    '咱',    '攒',    '暂',    '赞',    '赃',    '脏',    '葬',    '遭',    '糟',
-        '凿',    '藻',    '枣',    '早',    '澡',    '蚤',    '躁',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '凿',    '藻',    '枣',    '早',    '澡',    '蚤',    '躁',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -527,7 +536,7 @@ public static class StringConverter3
         '诛',    '逐',    '竹',    '烛',    '煮',    '拄',    '瞩',    '嘱',    '主',    '著',    '柱',    '助',    '蛀',    '贮',    '铸',    '筑',
         '住',    '注',    '祝',    '驻',    '抓',    '爪',    '拽',    '专',    '砖',    '转',    '撰',    '赚',    '篆',    '桩',    '庄',    '装',
         '妆',    '撞',    '壮',    '状',    '椎',    '锥',    '追',    '赘',    '坠',    '缀',    '谆',    '准',    '捉',    '拙',    '卓',    '桌',
-        '琢',    '茁',    '酌',    '啄',    '着',    '灼',    '浊',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '琢',    '茁',    '酌',    '啄',    '着',    '灼',    '浊',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -546,7 +555,7 @@ public static class StringConverter3
         '傺',    '僖',    '儆',    '僭',    '僬',    '僦',    '僮',    '儇',    '儋',    '仝',    '氽',    '佘',    '佥',    '俎',    '龠',    '汆',
         '籴',    '兮',    '巽',    '黉',    '馘',    '冁',    '夔',    '勹',    '匍',    '訇',    '匐',    '凫',    '夙',    '兕',    '亠',    '兖',
         '亳',    '衮',    '袤',    '亵',    '脔',    '裒',    '禀',    '嬴',    '蠃',    '羸',    '冫',    '冱',    '冽',    '冼',    '凇',    '冖',
-        '冢',    '冥',    '讠',    '讦',    '讧',    '讪',    '讴',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '冢',    '冥',    '讠',    '讦',    '讧',    '讪',    '讴',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -565,7 +574,7 @@ public static class StringConverter3
         '墚',    '墀',    '馨',    '鼙',    '懿',    '艹',    '艽',    '艿',    '芏',    '芊',    '芨',    '芄',    '芎',    '芑',    '芗',    '芙',
         '芫',    '芸',    '芾',    '芰',    '苈',    '苊',    '苣',    '芘',    '芷',    '芮',    '苋',    '苌',    '苁',    '芩',    '芴',    '芡',
         '芪',    '芟',    '苄',    '苎',    '芤',    '苡',    '茉',    '苷',    '苤',    '茏',    '茇',    '苜',    '苴',    '苒',    '苘',    '茌',
-        '苻',    '苓',    '茑',    '茚',    '茆',    '茔',    '茕',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '苻',    '苓',    '茑',    '茚',    '茆',    '茔',    '茕',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -584,7 +593,7 @@ public static class StringConverter3
         '揲',    '揸',    '揠',    '揿',    '揄',    '揞',    '揎',    '摒',    '揆',    '掾',    '摅',    '摁',    '搋',    '搛',    '搠',    '搌',
         '搦',    '搡',    '摞',    '撄',    '摭',    '撖',    '摺',    '撷',    '撸',    '撙',    '撺',    '擀',    '擐',    '擗',    '擤',    '擢',
         '攉',    '攥',    '攮',    '弋',    '忒',    '甙',    '弑',    '卟',    '叱',    '叽',    '叩',    '叨',    '叻',    '吒',    '吖',    '吆',
-        '呋',    '呒',    '呓',    '呔',    '呖',    '呃',    '吡',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '呋',    '呒',    '呓',    '呔',    '呖',    '呃',    '吡',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -603,7 +612,7 @@ public static class StringConverter3
         '崞',    '崆',    '崛',    '嵘',    '崾',    '崴',    '崽',    '嵬',    '嵛',    '嵯',    '嵝',    '嵫',    '嵋',    '嵊',    '嵩',    '嵴',
         '嶂',    '嶙',    '嶝',    '豳',    '嶷',    '巅',    '彳',    '彷',    '徂',    '徇',    '徉',    '後',    '徕',    '徙',    '徜',    '徨',
         '徭',    '徵',    '徼',    '衢',    '彡',    '犭',    '犰',    '犴',    '犷',    '犸',    '狃',    '狁',    '狎',    '狍',    '狒',    '狨',
-        '狯',    '狩',    '狲',    '狴',    '狷',    '猁',    '狳',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '狯',    '狩',    '狲',    '狴',    '狷',    '猁',    '狳',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -622,7 +631,7 @@ public static class StringConverter3
         '洌',    '浃',    '浈',    '洇',    '洄',    '洙',    '洎',    '洫',    '浍',    '洮',    '洵',    '洚',    '浏',    '浒',    '浔',    '洳',
         '涑',    '浯',    '涞',    '涠',    '浞',    '涓',    '涔',    '浜',    '浠',    '浼',    '浣',    '渚',    '淇',    '淅',    '淞',    '渎',
         '涿',    '淠',    '渑',    '淦',    '淝',    '淙',    '渖',    '涫',    '渌',    '涮',    '渫',    '湮',    '湎',    '湫',    '溲',    '湟',
-        '溆',    '湓',    '湔',    '渲',    '渥',    '湄',    '滟',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '溆',    '湓',    '湔',    '渲',    '渥',    '湄',    '滟',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -641,7 +650,7 @@ public static class StringConverter3
         '孓',    '孢',    '驵',    '驷',    '驸',    '驺',    '驿',    '驽',    '骀',    '骁',    '骅',    '骈',    '骊',    '骐',    '骒',    '骓',
         '骖',    '骘',    '骛',    '骜',    '骝',    '骟',    '骠',    '骢',    '骣',    '骥',    '骧',    '纟',    '纡',    '纣',    '纥',    '纨',
         '纩',    '纭',    '纰',    '纾',    '绀',    '绁',    '绂',    '绉',    '绋',    '绌',    '绐',    '绔',    '绗',    '绛',    '绠',    '绡',
-        '绨',    '绫',    '绮',    '绯',    '绱',    '绲',    '缍',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '绨',    '绫',    '绮',    '绯',    '绱',    '绲',    '缍',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -660,7 +669,7 @@ public static class StringConverter3
         '榛',    '榧',    '榻',    '榫',    '榭',    '槔',    '榱',    '槁',    '槊',    '槟',    '榕',    '槠',    '榍',    '槿',    '樯',    '槭',
         '樗',    '樘',    '橥',    '槲',    '橄',    '樾',    '檠',    '橐',    '橛',    '樵',    '檎',    '橹',    '樽',    '樨',    '橘',    '橼',
         '檑',    '檐',    '檩',    '檗',    '檫',    '猷',    '獒',    '殁',    '殂',    '殇',    '殄',    '殒',    '殓',    '殍',    '殚',    '殛',
-        '殡',    '殪',    '轫',    '轭',    '轱',    '轲',    '轳',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '殡',    '殪',    '轫',    '轭',    '轱',    '轲',    '轳',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -679,7 +688,7 @@ public static class StringConverter3
         '膂',    '膑',    '滕',    '膣',    '膪',    '臌',    '朦',    '臊',    '膻',    '臁',    '膦',    '欤',    '欷',    '欹',    '歃',    '歆',
         '歙',    '飑',    '飒',    '飓',    '飕',    '飙',    '飚',    '殳',    '彀',    '毂',    '觳',    '斐',    '齑',    '斓',    '於',    '旆',
         '旄',    '旃',    '旌',    '旎',    '旒',    '旖',    '炀',    '炜',    '炖',    '炝',    '炻',    '烀',    '炷',    '炫',    '炱',    '烨',
-        '烊',    '焐',    '焓',    '焖',    '焯',    '焱',    '煳',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '烊',    '焐',    '焓',    '焖',    '焯',    '焱',    '煳',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -698,7 +707,7 @@ public static class StringConverter3
         '钣',    '钤',    '钫',    '钪',    '钭',    '钬',    '钯',    '钰',    '钲',    '钴',    '钶',    '钷',    '钸',    '钹',    '钺',    '钼',
         '钽',    '钿',    '铄',    '铈',    '铉',    '铊',    '铋',    '铌',    '铍',    '铎',    '铐',    '铑',    '铒',    '铕',    '铖',    '铗',
         '铙',    '铘',    '铛',    '铞',    '铟',    '铠',    '铢',    '铤',    '铥',    '铧',    '铨',    '铪',    '铩',    '铫',    '铮',    '铯',
-        '铳',    '铴',    '铵',    '铷',    '铹',    '铼',    '铽',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '铳',    '铴',    '铵',    '铷',    '铹',    '铼',    '铽',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -717,26 +726,26 @@ public static class StringConverter3
         '癜',    '癖',    '癫',    '癯',    '翊',    '竦',    '穸',    '穹',    '窀',    '窆',    '窈',    '窕',    '窦',    '窠',    '窬',    '窨',
         '窭',    '窳',    '衤',    '衩',    '衲',    '衽',    '衿',    '袂',    '袢',    '裆',    '袷',    '袼',    '裉',    '裢',    '裎',    '裣',
         '裥',    '裱',    '褚',    '裼',    '裨',    '裾',    '裰',    '褡',    '褙',    '褓',    '褛',    '褊',    '褴',    '褫',    '褶',    '襁',
-        '襦',    '襻',    '疋',    '胥',    '皲',    '皴',    '矜',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '襦',    '襻',    '疋',    '胥',    '皲',    '皴',    '矜',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -755,7 +764,7 @@ public static class StringConverter3
         '箅',    '箪',    '箜',    '箢',    '箫',    '箴',    '篑',    '篁',    '篌',    '篝',    '篚',    '篥',    '篦',    '篪',    '簌',    '篾',
         '篼',    '簏',    '簖',    '簋',    '簟',    '簪',    '簦',    '簸',    '籁',    '籀',    '臾',    '舁',    '舂',    '舄',    '臬',    '衄',
         '舡',    '舢',    '舣',    '舭',    '舯',    '舨',    '舫',    '舸',    '舻',    '舳',    '舴',    '舾',    '艄',    '艉',    '艋',    '艏',
-        '艚',    '艟',    '艨',    '衾',    '袅',    '袈',    '裘',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '艚',    '艟',    '艨',    '衾',    '袅',    '袈',    '裘',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -774,7 +783,7 @@ public static class StringConverter3
         '鋈',    '錾',    '鍪',    '鏊',    '鎏',    '鐾',    '鑫',    '鱿',    '鲂',    '鲅',    '鲆',    '鲇',    '鲈',    '稣',    '鲋',    '鲎',
         '鲐',    '鲑',    '鲒',    '鲔',    '鲕',    '鲚',    '鲛',    '鲞',    '鲟',    '鲠',    '鲡',    '鲢',    '鲣',    '鲥',    '鲦',    '鲧',
         '鲨',    '鲩',    '鲫',    '鲭',    '鲮',    '鲰',    '鲱',    '鲲',    '鲳',    '鲴',    '鲵',    '鲶',    '鲷',    '鲺',    '鲻',    '鲼',
-        '鲽',    '鳄',    '鳅',    '鳆',    '鳇',    '鳊',    '鳋',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '鲽',    '鳄',    '鳅',    '鳆',    '鳇',    '鳊',    '鳋',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         },
 
         {
@@ -784,37 +793,40 @@ public static class StringConverter3
         '餮',    '饕',    '饔',    '髟',    '髡',    '髦',    '髯',    '髫',    '髻',    '髭',    '髹',    '鬈',    '鬏',    '鬓',    '鬟',    '鬣',
         '麽',    '麾',    '縻',    '麂',    '麇',    '麈',    '麋',    '麒',    '鏖',    '麝',    '麟',    '黛',    '黜',    '黝',    '黠',    '黟',
         '黢',    '黩',    '黧',    '黥',    '黪',    '黯',    '鼢',    '鼬',    '鼯',    '鼹',    '鼷',    '鼽',    '鼾',    '齄',    '祐',    '咲',
-        '冴',    '広',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '冴',    '広',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         'Ａ',    'Ｂ',    'Ｃ',    'Ｄ',    'Ｅ',    'Ｆ',    'Ｇ',    'Ｈ',    'Ｉ',    'Ｊ',    'Ｋ',    'Ｌ',    'Ｍ',    'Ｎ',    'Ｏ',    'Ｐ',
         'Ｑ',    'Ｒ',    'Ｓ',    'Ｔ',    'Ｕ',    'Ｖ',    'Ｗ',    'Ｘ',    'Ｙ',    'Ｚ',    'ａ',    'ｂ',    'ｃ',    'ｄ',    'ｅ',    'ｆ',
         'ｇ',    'ｈ',    'ｉ',    'ｊ',    'ｋ',    'ｌ',    'ｍ',    'ｎ',    'ｏ',    'ｐ',    'ｑ',    'ｒ',    'ｓ',    'ｔ',    'ｕ',    'ｖ',
         'ｗ',    'ｘ',    'ｙ',    'ｚ',    '０',    '１',    '２',    '３',    '４',    '５',    '６',    '７',    '８',    '９',    'Ⅰ',    'Ⅱ',
         'Ⅲ',    'Ⅳ',    'Ⅴ',    'Ⅵ',    'Ⅶ',    'Ⅷ',    'Ⅸ',    'Ⅹ',    'Ⅺ',    'Ⅻ',    '，',    '、',    '：',    '；',    '。',    '！',
-        '？',    '•',    '～',    '—',    ' ', ' ', '（',    '）',    '【',    '】',    '《',    '》',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '？',    '•',    '～',    '—', Terminator, Terminator, '（',    '）',    '【',    '】',    '《',    '》', Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         }
     };
 
     private static readonly char[] G3_CH_C2V = new char[7936]
     {
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        ' ', Terminator, Terminator, Terminator, Terminator, Terminator, 'É', Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, // 0
+         Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, 'é',Terminator, Terminator, Terminator, 'í',  // 1
+        'î',  'ï',  'ò',  'ó', 'ô',  'œ',  'ù',  'ú',  'û',  'ñ',  'º', 'ª',  '⒅', '&',  '+',  'あ', // 2
+        'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゃ', '=',  'ょ', 'が', 'ぎ', 'ぐ', 'げ', 'ご', 'ざ', 'じ', 'ず', 'ぜ', // 3
+        'ぞ', 'だ', 'ぢ', 'づ', 'で', 'ど', 'ば', 'び', 'ぶ', 'べ', 'ぼ', 'ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ',  // 4
+        'っ', '¿',  '¡',  '⒆', '⒇', 'オ', 'カ', 'キ', 'ク', 'ケ', 'Í',  'コ', 'サ', 'ス', 'セ', 'ソ', // 5
+        'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ', 'ヌ', 'â',  'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'í',  // 6
+        'ミ', 'ム', 'メ', 'モ', 'ヤ', 'ユ', 'ヨ', 'ラ', 'リ', 'ル', 'レ', 'ロ', 'ワ', 'ヲ', 'ン', 'ァ', // 7
+        'ィ', 'ゥ', 'ェ', 'ォ', 'ャ', 'ュ', 'ョ', 'ガ', 'ギ', 'グ', 'ゲ', 'ゴ', 'ザ', 'ジ', 'ズ', 'ゼ', // 8
+        'ゾ', 'ダ', 'ヂ', 'ヅ', 'デ', 'ド', 'バ', 'ビ', 'ブ', 'ベ', 'ボ', 'パ', 'ピ', 'プ', 'ペ', 'ポ', // 9
+        'ッ', '0',  '1',  '2', '3',  '4',  '5',  '6',  '7',  '8',  '9',  '!', '?',  '.',  '-',  '・',// A
+        '⑬',  '“',  '”',  '‘', '’',  '♂',  '♀',  '$',  ',',  '⑧',  '/',  'A', 'B',  'C',  'D',  'E', // B
+        'F',  'G',  'H',  'I', 'J',  'K',  'L',  'M',  'N',  'O',  'P',  'Q', 'R',  'S',  'T',  'U', // C
+        'V',  'W',  'X',  'Y', 'Z',  'a',  'b',  'c',  'd',  'e',  'f',  'g', 'h',  'i',  'j',  'k', // D
+        'l',  'm',  'n',  'o', 'p',  'q',  'r',  's',  't',  'u',  'v',  'w', 'x',  'y',  'z',  '0', // E
+        ':',  'Ä',  'Ö',  'Ü', 'ä',  'ö',  'ü',                                                      // F
+
+        // Make the total length 256 so that any byte access is always within the array
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '啊',    '阿',    '埃',    '挨',    '哎',    '唉',    '哀',    '皑',    '癌',    '蔼',    '矮',    '艾',    '碍',    '爱',    '隘',    '鞍',
         '氨',    '安',    '俺',    '按',    '暗',    '岸',    '胺',    '案',    '肮',    '昂',    '盎',    '凹',    '敖',    '熬',    '翱',    '袄',
@@ -831,7 +843,7 @@ public static class StringConverter3
         '播',    '拨',    '钵',    '波',    '博',    '勃',    '搏',    '铂',    '箔',    '伯',    '帛',    '舶',    '脖',    '膊',    '渤',    '泊',
         '驳',    '捕',    '卜',    '哺',    '补',    '埠',    '不',    '布',    '步',    '簿',    '部',    '怖',    '擦',    '猜',    '裁',    '材',
         '才',    '财',    '睬',    '踩',    '采',    '彩',    '菜',    '蔡',    '餐',    '参',    '蚕',    '残',    '惭',    '惨',    '灿',    '苍',
-        '舱',    '仓',    '沧',    '藏',    '操',    '糙',    '槽',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '舱',    '仓',    '沧',    '藏',    '操',    '糙',    '槽',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '曹',    '草',    '厕',    '策',    '侧',    '册',    '测',    '层',    '蹭',    '插',    '叉',    '茬',    '茶',    '查',    '碴',    '搽',
         '察',    '岔',    '差',    '诧',    '拆',    '柴',    '豺',    '搀',    '掺',    '蝉',    '馋',    '谗',    '缠',    '铲',    '产',    '阐',
@@ -848,7 +860,7 @@ public static class StringConverter3
         '脆',    '瘁',    '粹',    '淬',    '翠',    '村',    '存',    '寸',    '磋',    '撮',    '搓',    '措',    '挫',    '错',    '搭',    '达',
         '答',    '瘩',    '打',    '大',    '呆',    '歹',    '傣',    '戴',    '带',    '殆',    '代',    '贷',    '袋',    '待',    '逮',    '怠',
         '耽',    '担',    '丹',    '单',    '郸',    '掸',    '胆',    '旦',    '氮',    '但',    '惮',    '淡',    '诞',    '弹',    '蛋',    '当',
-        '挡',    '党',    '荡',    '档',    '刀',    '捣',    '蹈',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '挡',    '党',    '荡',    '档',    '刀',    '捣',    '蹈',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '倒',    '岛',    '祷',    '导',    '到',    '稻',    '悼',    '道',    '盗',    '德',    '得',    '的',    '蹬',    '灯',    '登',    '等',
         '瞪',    '凳',    '邓',    '堤',    '低',    '滴',    '迪',    '敌',    '笛',    '狄',    '涤',    '翟',    '嫡',    '抵',    '底',    '地',
@@ -865,7 +877,7 @@ public static class StringConverter3
         '方',    '肪',    '房',    '防',    '妨',    '仿',    '访',    '纺',    '放',    '菲',    '非',    '啡',    '飞',    '肥',    '匪',    '诽',
         '吠',    '肺',    '废',    '沸',    '费',    '芬',    '酚',    '吩',    '氛',    '分',    '纷',    '坟',    '焚',    '汾',    '粉',    '奋',
         '份',    '忿',    '愤',    '粪',    '丰',    '封',    '枫',    '蜂',    '峰',    '锋',    '风',    '疯',    '烽',    '逢',    '冯',    '缝',
-        '讽',    '奉',    '凤',    '佛',    '否',    '夫',    '敷',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '讽',    '奉',    '凤',    '佛',    '否',    '夫',    '敷',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '肤',    '孵',    '扶',    '拂',    '辐',    '幅',    '氟',    '符',    '伏',    '俘',    '服',    '浮',    '涪',    '福',    '袱',    '弗',
         '甫',    '抚',    '辅',    '俯',    '釜',    '斧',    '脯',    '腑',    '府',    '腐',    '赴',    '副',    '覆',    '赋',    '复',    '傅',
@@ -882,7 +894,7 @@ public static class StringConverter3
         '锅',    '郭',    '国',    '果',    '裹',    '过',    '哈',    '骸',    '孩',    '海',    '氦',    '亥',    '害',    '骇',    '酣',    '憨',
         '邯',    '韩',    '含',    '涵',    '寒',    '函',    '喊',    '罕',    '翰',    '撼',    '捍',    '旱',    '憾',    '悍',    '焊',    '汗',
         '汉',    '夯',    '杭',    '航',    '壕',    '嚎',    '豪',    '毫',    '郝',    '好',    '耗',    '号',    '浩',    '呵',    '喝',    '荷',
-        '菏',    '核',    '禾',    '和',    '何',    '合',    '盒',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '菏',    '核',    '禾',    '和',    '何',    '合',    '盒',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '貉',    '阂',    '河',    '涸',    '赫',    '褐',    '鹤',    '贺',    '嘿',    '黑',    '痕',    '很',    '狠',    '恨',    '哼',    '亨',
         '横',    '衡',    '恒',    '轰',    '哄',    '烘',    '虹',    '鸿',    '洪',    '宏',    '弘',    '红',    '喉',    '侯',    '猴',    '吼',
@@ -899,24 +911,24 @@ public static class StringConverter3
         '颊',    '贾',    '甲',    '钾',    '假',    '稼',    '价',    '架',    '驾',    '嫁',    '歼',    '监',    '坚',    '尖',    '笺',    '间',
         '煎',    '兼',    '肩',    '艰',    '奸',    '缄',    '茧',    '检',    '柬',    '碱',    '硷',    '拣',    '捡',    '简',    '俭',    '剪',
         '减',    '荐',    '槛',    '鉴',    '践',    '贱',    '见',    '键',    '箭',    '件',    '健',    '舰',    '剑',    '饯',    '渐',    '溅',
-        '涧',    '建',    '僵',    '姜',    '将',    '浆',    '江',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '涧',    '建',    '僵',    '姜',    '将',    '浆',    '江',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '疆',    '蒋',    '桨',    '奖',    '讲',    '匠',    '酱',    '降',    '蕉',    '椒',    '礁',    '焦',    '胶',    '交',    '郊',    '浇',
         '骄',    '娇',    '嚼',    '搅',    '铰',    '矫',    '侥',    '脚',    '狡',    '角',    '饺',    '缴',    '绞',    '剿',    '教',    '酵',
@@ -933,7 +945,7 @@ public static class StringConverter3
         '坎',    '砍',    '看',    '康',    '慷',    '糠',    '扛',    '抗',    '亢',    '炕',    '考',    '拷',    '烤',    '靠',    '坷',    '苛',
         '柯',    '棵',    '磕',    '颗',    '科',    '壳',    '咳',    '可',    '渴',    '克',    '刻',    '客',    '课',    '肯',    '啃',    '垦',
         '恳',    '坑',    '吭',    '空',    '恐',    '孔',    '控',    '抠',    '口',    '扣',    '寇',    '枯',    '哭',    '窟',    '苦',    '酷',
-        '库',    '裤',    '夸',    '垮',    '挎',    '跨',    '胯',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '库',    '裤',    '夸',    '垮',    '挎',    '跨',    '胯',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '块',    '筷',    '侩',    '快',    '宽',    '款',    '匡',    '筐',    '狂',    '框',    '矿',    '眶',    '旷',    '况',    '亏',    '盔',
         '岿',    '窥',    '葵',    '奎',    '魁',    '傀',    '馈',    '愧',    '溃',    '坤',    '昆',    '捆',    '困',    '括',    '扩',    '廓',
@@ -950,7 +962,7 @@ public static class StringConverter3
         '另',    '令',    '溜',    '琉',    '榴',    '硫',    '馏',    '留',    '刘',    '瘤',    '流',    '柳',    '六',    '龙',    '聋',    '咙',
         '笼',    '窿',    '隆',    '垄',    '拢',    '陇',    '楼',    '娄',    '搂',    '篓',    '漏',    '陋',    '芦',    '卢',    '颅',    '庐',
         '炉',    '掳',    '卤',    '虏',    '鲁',    '麓',    '碌',    '露',    '路',    '赂',    '鹿',    '潞',    '禄',    '录',    '陆',    '戮',
-        '驴',    '吕',    '铝',    '侣',    '旅',    '履',    '屡',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '驴',    '吕',    '铝',    '侣',    '旅',    '履',    '屡',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '缕',    '虑',    '氯',    '律',    '率',    '滤',    '绿',    '峦',    '挛',    '孪',    '滦',    '卵',    '乱',    '掠',    '略',    '抡',
         '轮',    '伦',    '仑',    '沦',    '纶',    '论',    '萝',    '螺',    '罗',    '逻',    '锣',    '箩',    '骡',    '裸',    '落',    '洛',
@@ -967,7 +979,7 @@ public static class StringConverter3
         '氖',    '乃',    '奶',    '耐',    '奈',    '南',    '男',    '难',    '囊',    '挠',    '脑',    '恼',    '闹',    '淖',    '呢',    '馁',
         '内',    '嫩',    '能',    '妮',    '霓',    '倪',    '泥',    '尼',    '拟',    '你',    '匿',    '腻',    '逆',    '溺',    '蔫',    '拈',
         '年',    '碾',    '撵',    '捻',    '念',    '娘',    '酿',    '鸟',    '尿',    '捏',    '聂',    '孽',    '啮',    '镊',    '镍',    '涅',
-        '您',    '柠',    '狞',    '凝',    '宁',    '拧',    '泞',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '您',    '柠',    '狞',    '凝',    '宁',    '拧',    '泞',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '牛',    '扭',    '钮',    '纽',    '脓',    '浓',    '农',    '弄',    '奴',    '努',    '怒',    '女',    '暖',    '虐',    '疟',    '挪',
         '懦',    '糯',    '诺',    '哦',    '欧',    '鸥',    '殴',    '藕',    '呕',    '偶',    '沤',    '啪',    '趴',    '爬',    '帕',    '怕',
@@ -984,7 +996,7 @@ public static class StringConverter3
         '千',    '迁',    '签',    '仟',    '谦',    '乾',    '黔',    '钱',    '钳',    '前',    '潜',    '遣',    '浅',    '谴',    '堑',    '嵌',
         '欠',    '歉',    '枪',    '呛',    '腔',    '羌',    '墙',    '蔷',    '强',    '抢',    '橇',    '锹',    '敲',    '悄',    '桥',    '瞧',
         '乔',    '侨',    '巧',    '鞘',    '撬',    '翘',    '峭',    '俏',    '窍',    '切',    '茄',    '且',    '怯',    '窃',    '钦',    '侵',
-        '亲',    '秦',    '琴',    '勤',    '芹',    '擒',    '禽',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '亲',    '秦',    '琴',    '勤',    '芹',    '擒',    '禽',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '寝',    '沁',    '青',    '轻',    '氢',    '倾',    '卿',    '清',    '擎',    '晴',    '氰',    '情',    '顷',    '请',    '庆',    '琼',
         '穷',    '秋',    '丘',    '邱',    '球',    '求',    '囚',    '酋',    '泅',    '趋',    '区',    '蛆',    '曲',    '躯',    '屈',    '驱',
@@ -1001,7 +1013,7 @@ public static class StringConverter3
         '赦',    '摄',    '射',    '慑',    '涉',    '社',    '设',    '砷',    '申',    '呻',    '伸',    '身',    '深',    '娠',    '绅',    '神',
         '沈',    '审',    '婶',    '甚',    '肾',    '慎',    '渗',    '声',    '生',    '甥',    '牲',    '升',    '绳',    '省',    '盛',    '剩',
         '胜',    '圣',    '师',    '失',    '狮',    '施',    '湿',    '诗',    '尸',    '虱',    '十',    '石',    '拾',    '时',    '什',    '食',
-        '蚀',    '实',    '识',    '史',    '矢',    '使',    '屎',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '蚀',    '实',    '识',    '史',    '矢',    '使',    '屎',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '驶',    '始',    '式',    '示',    '士',    '世',    '柿',    '事',    '拭',    '誓',    '逝',    '势',    '是',    '嗜',    '噬',    '适',
         '仕',    '侍',    '释',    '饰',    '氏',    '市',    '恃',    '室',    '视',    '试',    '收',    '手',    '首',    '守',    '寿',    '授',
@@ -1018,7 +1030,7 @@ public static class StringConverter3
         '炭',    '汤',    '塘',    '搪',    '堂',    '棠',    '膛',    '唐',    '糖',    '倘',    '躺',    '淌',    '趟',    '烫',    '掏',    '涛',
         '滔',    '绦',    '萄',    '桃',    '逃',    '淘',    '陶',    '讨',    '套',    '特',    '藤',    '腾',    '疼',    '誊',    '梯',    '剔',
         '踢',    '锑',    '提',    '题',    '蹄',    '啼',    '体',    '替',    '嚏',    '惕',    '涕',    '剃',    '屉',    '天',    '添',    '填',
-        '田',    '甜',    '恬',    '舔',    '腆',    '挑',    '条',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '田',    '甜',    '恬',    '舔',    '腆',    '挑',    '条',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '迢',    '眺',    '跳',    '贴',    '铁',    '帖',    '厅',    '听',    '烃',    '汀',    '廷',    '停',    '亭',    '庭',    '挺',    '艇',
         '通',    '桐',    '酮',    '瞳',    '同',    '铜',    '彤',    '童',    '桶',    '捅',    '筒',    '统',    '痛',    '偷',    '投',    '头',
@@ -1035,7 +1047,7 @@ public static class StringConverter3
         '晰',    '嘻',    '吸',    '锡',    '牺',    '稀',    '息',    '希',    '悉',    '膝',    '夕',    '惜',    '熄',    '烯',    '溪',    '汐',
         '犀',    '檄',    '袭',    '席',    '习',    '媳',    '喜',    '铣',    '洗',    '系',    '隙',    '戏',    '细',    '瞎',    '虾',    '匣',
         '霞',    '辖',    '暇',    '峡',    '侠',    '狭',    '下',    '厦',    '夏',    '吓',    '掀',    '锨',    '先',    '仙',    '鲜',    '纤',
-        '咸',    '贤',    '衔',    '舷',    '闲',    '涎',    '弦',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '咸',    '贤',    '衔',    '舷',    '闲',    '涎',    '弦',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '嫌',    '显',    '险',    '现',    '献',    '县',    '腺',    '馅',    '羡',    '宪',    '陷',    '限',    '线',    '相',    '厢',    '镶',
         '香',    '箱',    '襄',    '湘',    '乡',    '翔',    '祥',    '详',    '想',    '响',    '享',    '项',    '巷',    '橡',    '像',    '向',
@@ -1052,7 +1064,7 @@ public static class StringConverter3
         '炎',    '沿',    '奄',    '掩',    '眼',    '衍',    '演',    '艳',    '堰',    '燕',    '厌',    '砚',    '雁',    '唁',    '彦',    '焰',
         '宴',    '谚',    '验',    '殃',    '央',    '鸯',    '秧',    '杨',    '扬',    '佯',    '疡',    '羊',    '洋',    '阳',    '氧',    '仰',
         '痒',    '养',    '样',    '漾',    '邀',    '腰',    '妖',    '瑶',    '摇',    '尧',    '遥',    '窑',    '谣',    '姚',    '咬',    '舀',
-        '药',    '要',    '耀',    '椰',    '噎',    '耶',    '爷',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '药',    '要',    '耀',    '椰',    '噎',    '耶',    '爷',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '野',    '冶',    '也',    '页',    '掖',    '业',    '叶',    '曳',    '腋',    '夜',    '液',    '一',    '壹',    '医',    '揖',    '铱',
         '依',    '伊',    '衣',    '颐',    '夷',    '遗',    '移',    '仪',    '胰',    '疑',    '沂',    '宜',    '姨',    '彝',    '椅',    '蚁',
@@ -1069,7 +1081,7 @@ public static class StringConverter3
         '源',    '缘',    '远',    '苑',    '愿',    '怨',    '院',    '曰',    '约',    '越',    '跃',    '钥',    '岳',    '粤',    '月',    '悦',
         '阅',    '耘',    '云',    '郧',    '匀',    '陨',    '允',    '运',    '蕴',    '酝',    '晕',    '韵',    '孕',    '匝',    '砸',    '杂',
         '栽',    '哉',    '灾',    '宰',    '载',    '再',    '在',    '咱',    '攒',    '暂',    '赞',    '赃',    '脏',    '葬',    '遭',    '糟',
-        '凿',    '藻',    '枣',    '早',    '澡',    '蚤',    '躁',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '凿',    '藻',    '枣',    '早',    '澡',    '蚤',    '躁',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '噪',    '造',    '皂',    '灶',    '燥',    '责',    '择',    '则',    '泽',    '贼',    '怎',    '增',    '憎',    '曾',    '赠',    '扎',
         '喳',    '渣',    '札',    '轧',    '铡',    '闸',    '眨',    '栅',    '榨',    '咋',    '乍',    '炸',    '诈',    '摘',    '斋',    '宅',
@@ -1086,7 +1098,7 @@ public static class StringConverter3
         '诛',    '逐',    '竹',    '烛',    '煮',    '拄',    '瞩',    '嘱',    '主',    '著',    '柱',    '助',    '蛀',    '贮',    '铸',    '筑',
         '住',    '注',    '祝',    '驻',    '抓',    '爪',    '拽',    '专',    '砖',    '转',    '撰',    '赚',    '篆',    '桩',    '庄',    '装',
         '妆',    '撞',    '壮',    '状',    '椎',    '锥',    '追',    '赘',    '坠',    '缀',    '谆',    '准',    '捉',    '拙',    '卓',    '桌',
-        '琢',    '茁',    '酌',    '啄',    '着',    '灼',    '浊',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '琢',    '茁',    '酌',    '啄',    '着',    '灼',    '浊',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '兹',    '咨',    '资',    '姿',    '滋',    '淄',    '孜',    '紫',    '仔',    '籽',    '滓',    '子',    '自',    '渍',    '字',    '鬃',
         '棕',    '踪',    '宗',    '综',    '总',    '纵',    '邹',    '走',    '奏',    '揍',    '租',    '足',    '卒',    '族',    '祖',    '诅',
@@ -1103,7 +1115,7 @@ public static class StringConverter3
         '傺',    '僖',    '儆',    '僭',    '僬',    '僦',    '僮',    '儇',    '儋',    '仝',    '氽',    '佘',    '佥',    '俎',    '龠',    '汆',
         '籴',    '兮',    '巽',    '黉',    '馘',    '冁',    '夔',    '勹',    '匍',    '訇',    '匐',    '凫',    '夙',    '兕',    '亠',    '兖',
         '亳',    '衮',    '袤',    '亵',    '脔',    '裒',    '禀',    '嬴',    '蠃',    '羸',    '冫',    '冱',    '冽',    '冼',    '凇',    '冖',
-        '冢',    '冥',    '讠',    '讦',    '讧',    '讪',    '讴',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '冢',    '冥',    '讠',    '讦',    '讧',    '讪',    '讴',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '讵',    '讷',    '诂',    '诃',    '诋',    '诏',    '诎',    '诒',    '诓',    '诔',    '诖',    '诘',    '诙',    '诜',    '诟',    '诠',
         '诤',    '诨',    '诩',    '诮',    '诰',    '诳',    '诶',    '诹',    '诼',    '诿',    '谀',    '谂',    '谄',    '谇',    '谌',    '谏',
@@ -1120,7 +1132,7 @@ public static class StringConverter3
         '墚',    '墀',    '馨',    '鼙',    '懿',    '艹',    '艽',    '艿',    '芏',    '芊',    '芨',    '芄',    '芎',    '芑',    '芗',    '芙',
         '芫',    '芸',    '芾',    '芰',    '苈',    '苊',    '苣',    '芘',    '芷',    '芮',    '苋',    '苌',    '苁',    '芩',    '芴',    '芡',
         '芪',    '芟',    '苄',    '苎',    '芤',    '苡',    '茉',    '苷',    '苤',    '茏',    '茇',    '苜',    '苴',    '苒',    '苘',    '茌',
-        '苻',    '苓',    '茑',    '茚',    '茆',    '茔',    '茕',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '苻',    '苓',    '茑',    '茚',    '茆',    '茔',    '茕',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '苠',    '苕',    '茜',    '荑',    '荛',    '荜',    '茈',    '莒',    '茼',    '茴',    '茱',    '莛',    '荞',    '茯',    '荏',    '荇',
         '荃',    '荟',    '荀',    '茗',    '荠',    '茭',    '茺',    '茳',    '荦',    '荥',    '荨',    '茛',    '荩',    '荬',    '荪',    '荭',
@@ -1137,7 +1149,7 @@ public static class StringConverter3
         '揲',    '揸',    '揠',    '揿',    '揄',    '揞',    '揎',    '摒',    '揆',    '掾',    '摅',    '摁',    '搋',    '搛',    '搠',    '搌',
         '搦',    '搡',    '摞',    '撄',    '摭',    '撖',    '摺',    '撷',    '撸',    '撙',    '撺',    '擀',    '擐',    '擗',    '擤',    '擢',
         '攉',    '攥',    '攮',    '弋',    '忒',    '甙',    '弑',    '卟',    '叱',    '叽',    '叩',    '叨',    '叻',    '吒',    '吖',    '吆',
-        '呋',    '呒',    '呓',    '呔',    '呖',    '呃',    '吡',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '呋',    '呒',    '呓',    '呔',    '呖',    '呃',    '吡',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '呗',    '呙',    '吣',    '吲',    '咂',    '咔',    '呷',    '呱',    '呤',    '咚',    '咛',    '咄',    '呶',    '呦',    '咝',    '哐',
         '咭',    '哂',    '咴',    '哒',    '咧',    '咦',    '哓',    '哔',    '呲',    '咣',    '哕',    '咻',    '咿',    '哌',    '哙',    '哚',
@@ -1154,7 +1166,7 @@ public static class StringConverter3
         '崞',    '崆',    '崛',    '嵘',    '崾',    '崴',    '崽',    '嵬',    '嵛',    '嵯',    '嵝',    '嵫',    '嵋',    '嵊',    '嵩',    '嵴',
         '嶂',    '嶙',    '嶝',    '豳',    '嶷',    '巅',    '彳',    '彷',    '徂',    '徇',    '徉',    '後',    '徕',    '徙',    '徜',    '徨',
         '徭',    '徵',    '徼',    '衢',    '彡',    '犭',    '犰',    '犴',    '犷',    '犸',    '狃',    '狁',    '狎',    '狍',    '狒',    '狨',
-        '狯',    '狩',    '狲',    '狴',    '狷',    '猁',    '狳',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '狯',    '狩',    '狲',    '狴',    '狷',    '猁',    '狳',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '猃',    '狺',    '狻',    '猗',    '猓',    '猡',    '猊',    '猞',    '猝',    '猕',    '猢',    '猹',    '猥',    '猬',    '猸',    '猱',
         '獐',    '獍',    '獗',    '獠',    '獬',    '獯',    '獾',    '舛',    '夥',    '飧',    '夤',    '夂',    '饣',    '饧',    '饨',    '饩',
@@ -1171,7 +1183,7 @@ public static class StringConverter3
         '洌',    '浃',    '浈',    '洇',    '洄',    '洙',    '洎',    '洫',    '浍',    '洮',    '洵',    '洚',    '浏',    '浒',    '浔',    '洳',
         '涑',    '浯',    '涞',    '涠',    '浞',    '涓',    '涔',    '浜',    '浠',    '浼',    '浣',    '渚',    '淇',    '淅',    '淞',    '渎',
         '涿',    '淠',    '渑',    '淦',    '淝',    '淙',    '渖',    '涫',    '渌',    '涮',    '渫',    '湮',    '湎',    '湫',    '溲',    '湟',
-        '溆',    '湓',    '湔',    '渲',    '渥',    '湄',    '滟',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '溆',    '湓',    '湔',    '渲',    '渥',    '湄',    '滟',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '溱',    '溘',    '滠',    '漭',    '滢',    '溥',    '溧',    '溽',    '溻',    '溷',    '滗',    '溴',    '滏',    '溏',    '滂',    '溟',
         '潢',    '潆',    '潇',    '漤',    '漕',    '滹',    '漯',    '漶',    '潋',    '潴',    '漪',    '漉',    '漩',    '澉',    '澍',    '澌',
@@ -1188,7 +1200,7 @@ public static class StringConverter3
         '孓',    '孢',    '驵',    '驷',    '驸',    '驺',    '驿',    '驽',    '骀',    '骁',    '骅',    '骈',    '骊',    '骐',    '骒',    '骓',
         '骖',    '骘',    '骛',    '骜',    '骝',    '骟',    '骠',    '骢',    '骣',    '骥',    '骧',    '纟',    '纡',    '纣',    '纥',    '纨',
         '纩',    '纭',    '纰',    '纾',    '绀',    '绁',    '绂',    '绉',    '绋',    '绌',    '绐',    '绔',    '绗',    '绛',    '绠',    '绡',
-        '绨',    '绫',    '绮',    '绯',    '绱',    '绲',    '缍',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '绨',    '绫',    '绮',    '绯',    '绱',    '绲',    '缍',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '绶',    '绺',    '绻',    '绾',    '缁',    '缂',    '缃',    '缇',    '缈',    '缋',    '缌',    '缏',    '缑',    '缒',    '缗',    '缙',
         '缜',    '缛',    '缟',    '缡',    '缢',    '缣',    '缤',    '缥',    '缦',    '缧',    '缪',    '缫',    '缬',    '缭',    '缯',    '缰',
@@ -1205,7 +1217,7 @@ public static class StringConverter3
         '榛',    '榧',    '榻',    '榫',    '榭',    '槔',    '榱',    '槁',    '槊',    '槟',    '榕',    '槠',    '榍',    '槿',    '樯',    '槭',
         '樗',    '樘',    '橥',    '槲',    '橄',    '樾',    '檠',    '橐',    '橛',    '樵',    '檎',    '橹',    '樽',    '樨',    '橘',    '橼',
         '檑',    '檐',    '檩',    '檗',    '檫',    '猷',    '獒',    '殁',    '殂',    '殇',    '殄',    '殒',    '殓',    '殍',    '殚',    '殛',
-        '殡',    '殪',    '轫',    '轭',    '轱',    '轲',    '轳',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '殡',    '殪',    '轫',    '轭',    '轱',    '轲',    '轳',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '轵',    '轶',    '轸',    '轷',    '轹',    '轺',    '轼',    '轾',    '辁',    '辂',    '辄',    '辇',    '辋',    '辍',    '辎',    '辏',
         '辘',    '辚',    '軎',    '戋',    '戗',    '戛',    '戟',    '戢',    '戡',    '戥',    '戤',    '戬',    '臧',    '瓯',    '瓴',    '瓿',
@@ -1222,7 +1234,7 @@ public static class StringConverter3
         '膂',    '膑',    '滕',    '膣',    '膪',    '臌',    '朦',    '臊',    '膻',    '臁',    '膦',    '欤',    '欷',    '欹',    '歃',    '歆',
         '歙',    '飑',    '飒',    '飓',    '飕',    '飙',    '飚',    '殳',    '彀',    '毂',    '觳',    '斐',    '齑',    '斓',    '於',    '旆',
         '旄',    '旃',    '旌',    '旎',    '旒',    '旖',    '炀',    '炜',    '炖',    '炝',    '炻',    '烀',    '炷',    '炫',    '炱',    '烨',
-        '烊',    '焐',    '焓',    '焖',    '焯',    '焱',    '煳',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '烊',    '焐',    '焓',    '焖',    '焯',    '焱',    '煳',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '煜',    '煨',    '煅',    '煲',    '煊',    '煸',    '煺',    '熘',    '熳',    '熵',    '熨',    '熠',    '燠',    '燔',    '燧',    '燹',
         '爝',    '爨',    '灬',    '焘',    '煦',    '熹',    '戾',    '戽',    '扃',    '扈',    '扉',    '礻',    '祀',    '祆',    '祉',    '祛',
@@ -1239,7 +1251,7 @@ public static class StringConverter3
         '钣',    '钤',    '钫',    '钪',    '钭',    '钬',    '钯',    '钰',    '钲',    '钴',    '钶',    '钷',    '钸',    '钹',    '钺',    '钼',
         '钽',    '钿',    '铄',    '铈',    '铉',    '铊',    '铋',    '铌',    '铍',    '铎',    '铐',    '铑',    '铒',    '铕',    '铖',    '铗',
         '铙',    '铘',    '铛',    '铞',    '铟',    '铠',    '铢',    '铤',    '铥',    '铧',    '铨',    '铪',    '铩',    '铫',    '铮',    '铯',
-        '铳',    '铴',    '铵',    '铷',    '铹',    '铼',    '铽',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '铳',    '铴',    '铵',    '铷',    '铹',    '铼',    '铽',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '铿',    '锃',    '锂',    '锆',    '锇',    '锉',    '锊',    '锍',    '锎',    '锏',    '锒',    '锓',    '锔',    '锕',    '锖',    '锘',
         '锛',    '锝',    '锞',    '锟',    '锢',    '锪',    '锫',    '锩',    '锬',    '锱',    '锲',    '锴',    '锶',    '锷',    '锸',    '锼',
@@ -1256,24 +1268,24 @@ public static class StringConverter3
         '癜',    '癖',    '癫',    '癯',    '翊',    '竦',    '穸',    '穹',    '窀',    '窆',    '窈',    '窕',    '窦',    '窠',    '窬',    '窨',
         '窭',    '窳',    '衤',    '衩',    '衲',    '衽',    '衿',    '袂',    '袢',    '裆',    '袷',    '袼',    '裉',    '裢',    '裎',    '裣',
         '裥',    '裱',    '褚',    '裼',    '裨',    '裾',    '裰',    '褡',    '褙',    '褓',    '褛',    '褊',    '褴',    '褫',    '褶',    '襁',
-        '襦',    '襻',    '疋',    '胥',    '皲',    '皴',    '矜',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '襦',    '襻',    '疋',    '胥',    '皲',    '皴',    '矜',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '耒',    '耔',    '耖',    '耜',    '耠',    '耢',    '耥',    '耦',    '耧',    '耩',    '耨',    '耱',    '耋',    '耵',    '聃',    '聆',
         '聍',    '聒',    '聩',    '聱',    '覃',    '顸',    '颀',    '颃',    '颉',    '颌',    '颍',    '颏',    '颔',    '颚',    '颛',    '颞',
@@ -1290,7 +1302,7 @@ public static class StringConverter3
         '箅',    '箪',    '箜',    '箢',    '箫',    '箴',    '篑',    '篁',    '篌',    '篝',    '篚',    '篥',    '篦',    '篪',    '簌',    '篾',
         '篼',    '簏',    '簖',    '簋',    '簟',    '簪',    '簦',    '簸',    '籁',    '籀',    '臾',    '舁',    '舂',    '舄',    '臬',    '衄',
         '舡',    '舢',    '舣',    '舭',    '舯',    '舨',    '舫',    '舸',    '舻',    '舳',    '舴',    '舾',    '艄',    '艉',    '艋',    '艏',
-        '艚',    '艟',    '艨',    '衾',    '袅',    '袈',    '裘',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '艚',    '艟',    '艨',    '衾',    '袅',    '袈',    '裘',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '裟',    '襞',    '羝',    '羟',    '羧',    '羯',    '羰',    '羲',    '籼',    '敉',    '粑',    '粝',    '粜',    '粞',    '粢',    '粲',
         '粼',    '粽',    '糁',    '糇',    '糌',    '糍',    '糈',    '糅',    '糗',    '糨',    '艮',    '暨',    '羿',    '翎',    '翕',    '翥',
@@ -1307,7 +1319,7 @@ public static class StringConverter3
         '鋈',    '錾',    '鍪',    '鏊',    '鎏',    '鐾',    '鑫',    '鱿',    '鲂',    '鲅',    '鲆',    '鲇',    '鲈',    '稣',    '鲋',    '鲎',
         '鲐',    '鲑',    '鲒',    '鲔',    '鲕',    '鲚',    '鲛',    '鲞',    '鲟',    '鲠',    '鲡',    '鲢',    '鲣',    '鲥',    '鲦',    '鲧',
         '鲨',    '鲩',    '鲫',    '鲭',    '鲮',    '鲰',    '鲱',    '鲲',    '鲳',    '鲴',    '鲵',    '鲶',    '鲷',    '鲺',    '鲻',    '鲼',
-        '鲽',    '鳄',    '鳅',    '鳆',    '鳇',    '鳊',    '鳋',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '鲽',    '鳄',    '鳅',    '鳆',    '鳇',    '鳊',    '鳋',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
 
         '鳌',    '鳍',    '鳎',    '鳏',    '鳐',    '鳓',    '鳔',    '鳕',    '鳗',    '鳘',    '鳙',    '鳜',    '鳝',    '鳟',    '鳢',    '靼',
         '鞅',    '鞑',    '鞒',    '鞔',    '鞯',    '鞫',    '鞣',    '鞲',    '鞴',    '骱',    '骰',    '骷',    '鹘',    '骶',    '骺',    '骼',
@@ -1315,16 +1327,16 @@ public static class StringConverter3
         '餮',    '饕',    '饔',    '髟',    '髡',    '髦',    '髯',    '髫',    '髻',    '髭',    '髹',    '鬈',    '鬏',    '鬓',    '鬟',    '鬣',
         '麽',    '麾',    '縻',    '麂',    '麇',    '麈',    '麋',    '麒',    '鏖',    '麝',    '麟',    '黛',    '黜',    '黝',    '黠',    '黟',
         '黢',    '黩',    '黧',    '黥',    '黪',    '黯',    '鼢',    '鼬',    '鼯',    '鼹',    '鼷',    '鼽',    '鼾',    '齄',    '祐',    '咲',
-        '冴',    '広',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '冴',    '広',    Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
         'Ａ',    'Ｂ',    'Ｃ',    'Ｄ',    'Ｅ',    'Ｆ',    'Ｇ',    'Ｈ',    'Ｉ',    'Ｊ',    'Ｋ',    'Ｌ',    'Ｍ',    'Ｎ',    'Ｏ',    'Ｐ',
         'Ｑ',    'Ｒ',    'Ｓ',    'Ｔ',    'Ｕ',    'Ｖ',    'Ｗ',    'Ｘ',    'Ｙ',    'Ｚ',    'ａ',    'ｂ',    'ｃ',    'ｄ',    'ｅ',    'ｆ',
         'ｇ',    'ｈ',    'ｉ',    'ｊ',    'ｋ',    'ｌ',    'ｍ',    'ｎ',    'ｏ',    'ｐ',    'ｑ',    'ｒ',    'ｓ',    'ｔ',    'ｕ',    'ｖ',
         'ｗ',    'ｘ',    'ｙ',    'ｚ',    '０',    '１',    '２',    '３',    '４',    '５',    '６',    '７',    '８',    '９',    'Ⅰ',    'Ⅱ',
         'Ⅲ',    'Ⅳ',    'Ⅴ',    'Ⅵ',    'Ⅶ',    'Ⅷ',    'Ⅸ',    'Ⅹ',    'Ⅺ',    'Ⅻ',    '，',    '、',    '：',    '；',    '。',    '！',
-        '？',    '•',    '～',    '—',    ' ', ' ', '（',    '）',    '【',    '】',    '《',    '》',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-        ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
+        '？',    '•',    '～',    '—', Terminator, Terminator, '（',    '）',    '【',    '】',    '《',    '》', Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
+        Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator, Terminator,
     };
 
 }
