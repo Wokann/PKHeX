@@ -50,7 +50,7 @@ namespace PKHeX.WinForms
 
             if (HaX)
             {
-                EntityConverter.AllowIncompatibleConversion = true;
+                PKMConverter.AllowIncompatibleConversion = true;
                 WinFormsUtil.Alert(MsgProgramIllegalModeActive, MsgProgramIllegalModeBehave);
             }
             else if (showChangelog)
@@ -105,7 +105,7 @@ namespace PKHeX.WinForms
         private static readonly string TemplatePath = Path.Combine(WorkingDirectory, "template");
         private static readonly string TrainerPath = Path.Combine(WorkingDirectory, "trainers");
         private static readonly string PluginPath = Path.Combine(WorkingDirectory, "plugins");
-        private const string ThreadPath = "https://projectpokemon.org/pkhex/";
+        private const string ThreadPath = "https://wokann.github.io/Tool/pkhex/index.html";
 
         public static readonly PKHeXSettings Settings = PKHeXSettings.GetSettings(ConfigPath);
 
@@ -401,7 +401,7 @@ namespace PKHeX.WinForms
             C_SAV.M.Hover.GlowHover = settings.Hover.HoverSlotGlowEdges;
             ParseSettings.InitFromSettings(settings.Legality);
             PKME_Tabs.HideSecretValues = C_SAV.HideSecretDetails = settings.Privacy.HideSecretDetails;
-            EntityConverter.AllowIncompatibleConversion = settings.Advanced.AllowIncompatibleConversion;
+            PKMConverter.AllowIncompatibleConversion = settings.Advanced.AllowIncompatibleConversion;
             WinFormsUtil.DetectSaveFileOnFileOpen = settings.Startup.TryDetectRecentSave;
 
             SpriteBuilder.LoadSettings(settings.Sprite);
@@ -588,9 +588,8 @@ namespace PKHeX.WinForms
 
         private bool OpenPKM(PKM pk)
         {
-            var destType = C_SAV.SAV.PKMType;
-            var tmp = EntityConverter.ConvertToType(pk, destType, out var c);
-            Debug.WriteLine(c.GetDisplayString(pk, destType));
+            var tmp = PKMConverter.ConvertToType(pk, C_SAV.SAV.PKMType, out string c);
+            Debug.WriteLine(c);
             if (tmp == null)
                 return false;
             C_SAV.SAV.AdaptPKM(tmp);
@@ -616,12 +615,11 @@ namespace PKHeX.WinForms
             }
 
             var temp = tg.ConvertToPKM(C_SAV.SAV);
-            var destType = C_SAV.SAV.PKMType;
-            var pk = EntityConverter.ConvertToType(temp, destType, out var c);
+            var pk = PKMConverter.ConvertToType(temp, C_SAV.SAV.PKMType, out string c);
 
             if (pk == null)
             {
-                WinFormsUtil.Alert(c.GetDisplayString(temp, destType));
+                WinFormsUtil.Alert(MsgPKMConvertFail, c);
                 return true;
             }
 
@@ -726,7 +724,7 @@ namespace PKHeX.WinForms
 
             PKME_Tabs.Focus(); // flush any pending changes
             StoreLegalSaveGameData(sav);
-            RecentTrainerCache.SetRecentTrainer(sav);
+            PKMConverter.SetPrimaryTrainer(sav);
             SpriteUtil.Initialize(sav); // refresh sprite generator
             dragout.Size = new Size(SpriteUtil.Spriter.Width, SpriteUtil.Spriter.Height);
 
@@ -826,17 +824,7 @@ namespace PKHeX.WinForms
             {
                 var src = sav.Metadata.FilePath;
                 if (src is { } x && File.Exists(x))
-                {
-                    try
-                    {
-                        File.Copy(x, backupName);
-                    }
-                    catch (Exception ex)
-                    {
-                        WinFormsUtil.Error(MsgBackupUnable, ex);
-                        return false;
-                    }
-                }
+                    File.Copy(x, backupName);
             }
             if (!FileUtil.IsFileLocked(path))
                 return true;
@@ -1064,8 +1052,8 @@ namespace PKHeX.WinForms
             dragout.ContextMenuStrip.Enabled = pk.Species != 0 || HaX; // Species
 
             pb.Image = pk.Sprite(C_SAV.SAV, -1, -1, flagIllegal: false);
-            if (pb.BackColor == SlotUtil.BadDataColor)
-                pb.BackColor = SlotUtil.GoodDataColor;
+            if (pb.BackColor == Color.Red)
+                pb.BackColor = Color.Transparent;
         }
 
         private void PKME_Tabs_UpdatePreviewSprite(object sender, EventArgs e) => GetPreview(dragout);
@@ -1108,7 +1096,7 @@ namespace PKHeX.WinForms
             e.Effect = DragDropEffects.Copy;
         }
 
-        private async void Dragout_MouseDown(object sender, MouseEventArgs e)
+        private void Dragout_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left)
                 return;
@@ -1122,41 +1110,26 @@ namespace PKHeX.WinForms
             if (!PKME_Tabs.EditsComplete)
                 return;
 
-            // Gather data
+            // Create Temp File to Drag
             var pk = PreparePKM();
             var encrypt = ModifierKeys == Keys.Control;
-            var data = encrypt ? pk.EncryptedPartyData : pk.DecryptedPartyData;
-
-            // Create Temp File to Drag
             var newfile = FileUtil.GetPKMTempFileName(pk, encrypt);
+            var data = encrypt ? pk.EncryptedPartyData : pk.DecryptedPartyData;
+            // Make file
             try
             {
                 File.WriteAllBytes(newfile, data);
 
                 var pb = (PictureBox)sender;
-                if (pb.Image is Bitmap img)
-                    C_SAV.M.Drag.Info.Cursor = Cursor = new Cursor(img.GetHicon());
-
-                DoDragDrop(new DataObject(DataFormats.FileDrop, new[] { newfile }), DragDropEffects.Copy);
+                if (pb.Image != null)
+                    C_SAV.M.Drag.Info.Cursor = Cursor = new Cursor(((Bitmap)pb.Image).GetHicon());
+                DoDragDrop(new DataObject(DataFormats.FileDrop, new[] { newfile }), DragDropEffects.Move);
             }
             // Tons of things can happen with drag & drop; don't try to handle things, just indicate failure.
             catch (Exception x)
             { WinFormsUtil.Error("Drag && Drop Error", x); }
-            finally
-            {
-                C_SAV.M.Drag.ResetCursor(this);
-                await DeleteAsync(newfile, 20_000).ConfigureAwait(false);
-            }
-        }
-
-        private static async Task DeleteAsync(string path, int delay)
-        {
-            await Task.Delay(delay).ConfigureAwait(true);
-            if (!File.Exists(path))
-                return;
-
-            try { File.Delete(path); }
-            catch (Exception ex) { Debug.WriteLine(ex.Message); }
+            C_SAV.M.Drag.ResetCursor(this);
+            File.Delete(newfile);
         }
 
         private void Dragout_DragOver(object sender, DragEventArgs e) => e.Effect = DragDropEffects.Move;
