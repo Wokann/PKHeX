@@ -115,10 +115,11 @@ public static class StringConverter
 
     public static bool HasEastAsianScriptCharacters(ReadOnlySpan<char> str)
     {
+
         foreach (var c in str)
         {
             if (c is >= '\u4E00' and <= '\u9FFF')
-                return true;
+                return false;
         }
         return false;
     }
