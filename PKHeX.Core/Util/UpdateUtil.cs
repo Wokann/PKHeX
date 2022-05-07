@@ -10,7 +10,7 @@ namespace PKHeX.Core
         /// <returns>A version representing the latest available version of PKHeX, or null if the latest version could not be determined</returns>
         public static Version? GetLatestPKHeXVersion()
         {
-            const string apiEndpoint = "https://api.github.com/repos/kwsch/pkhex/releases/latest";
+            const string apiEndpoint = "https://api.github.com/repos/Wokann/pkhex/releases/latest";
             var responseJson = NetUtil.GetStringFromURL(apiEndpoint);
             if (responseJson is null)
                 return null;
