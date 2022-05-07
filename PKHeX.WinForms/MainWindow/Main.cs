@@ -105,7 +105,7 @@ namespace PKHeX.WinForms
         private static readonly string TemplatePath = Path.Combine(WorkingDirectory, "template");
         private static readonly string TrainerPath = Path.Combine(WorkingDirectory, "trainers");
         private static readonly string PluginPath = Path.Combine(WorkingDirectory, "plugins");
-        private const string ThreadPath = "https://wokann.github.io/Tool/pkhex/index.html";
+        private const string ThreadPath = "https://wokann.github.io/2021/12/14/hello-world/";
 
         public static readonly PKHeXSettings Settings = PKHeXSettings.GetSettings(ConfigPath);
 
