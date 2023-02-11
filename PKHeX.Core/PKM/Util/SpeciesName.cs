@@ -39,8 +39,8 @@ public static class SpeciesName
     /// <remarks>Indexing matches <see cref="SpeciesLang"/>.</remarks>
     private static readonly string[] EggNames =
     [
-        "タマゴ",
-        "タマゴ",
+        "蛋",
+        "蛋",
         "Egg",
         "Œuf",
         "Uovo",

@@ -108,7 +108,7 @@ public partial class Main : Form
     private static readonly string TemplatePath = Path.Combine(WorkingDirectory, "template");
     private static readonly string TrainerPath = Path.Combine(WorkingDirectory, "trainers");
     private static readonly string PluginPath = Path.Combine(WorkingDirectory, "plugins");
-    private const string ThreadPath = "https://projectpokemon.org/pkhex/";
+    private const string ThreadPath = "https://xzonn.top/PokemonChineseTranslationRevise/PKHeX.html";
 
     public static readonly PKHeXSettings Settings = PKHeXSettings.GetSettings(ConfigPath);
 
