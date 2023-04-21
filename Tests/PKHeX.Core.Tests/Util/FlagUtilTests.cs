@@ -35,7 +35,7 @@ public class FlagUtilTests
         // does nothing on empty
         Span<byte> copy = stackalloc byte[data.Length];
         FlagUtil.SetFlag(copy, byteIndex, bitIndex, false);
-        copy.IndexOfAnyExcept<byte>(0).Should().Be(-1);
+        copy.Count((byte)0).Should().Be(copy.Length);
 
         // doesn't clear any other flag
         data.CopyTo(copy);

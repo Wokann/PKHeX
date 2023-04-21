@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 
 namespace PKHeX.Core;
@@ -15,33 +16,12 @@ public static class EntityBlank
     /// <returns>New instance of a blank <see cref="PKM"/> object.</returns>
     public static PKM GetBlank(Type type)
     {
-        var typeInfo = type.GetTypeInfo();
-        return GetBlank(typeInfo);
-    }
-
-    /// <inheritdoc cref="GetBlank(Type)"/>
-    public static PKM GetBlank(TypeInfo type)
-    {
         // Not all derived types have a parameter-less constructor, so find the minimal constructor and use that.
-        ConstructorInfo? info = null;
-        int count = int.MaxValue;
-        foreach (var ctor in type.DeclaredConstructors)
-        {
-            if (ctor.IsStatic)
-                continue;
-            var parameters = ctor.GetParameters();
-            int length = parameters.Length;
-            if (length >= count)
-                continue;
-            count = length;
-            info = ctor;
-        }
-
-        ArgumentNullException.ThrowIfNull(info);
-        var result = info.Invoke(new object?[count]);
-        if (result is not PKM x)
-            throw new InvalidCastException($"Unable to cast {result} to {typeof(PKM)}");
-        return x;
+        var constructors = type.GetTypeInfo().DeclaredConstructors.Where(z => !z.IsStatic);
+        var argCount = constructors.Min(z => z.GetParameters().Length);
+        var pk = Activator.CreateInstance(type, new object[argCount]) as PKM;
+        ArgumentNullException.ThrowIfNull(pk);
+        return pk;
     }
 
     public static PKM GetBlank(int gen, GameVersion ver) => gen switch
@@ -70,7 +50,8 @@ public static class EntityBlank
     public static PKM GetBlank(int gen)
     {
         var type = Type.GetType($"PKHeX.Core.PK{gen}");
-        ArgumentNullException.ThrowIfNull(type);
+        if (type is null)
+            throw new InvalidCastException($"Unable to get the type for PK{gen}.");
 
         return GetBlank(type);
     }

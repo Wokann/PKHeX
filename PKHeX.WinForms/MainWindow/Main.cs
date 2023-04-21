@@ -1063,7 +1063,7 @@ public partial class Main : Form
             if (dr != DialogResult.Yes)
                 return;
 #if DEBUG
-            var enc = la.EncounterOriginal.GetTextLines();
+            var enc = SummaryPreviewer.GetTextLines(la.EncounterOriginal);
             report += Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, enc);
 #endif
             WinFormsUtil.SetClipboardText(report);

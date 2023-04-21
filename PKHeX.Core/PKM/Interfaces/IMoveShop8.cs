@@ -76,7 +76,7 @@ public static class MoveShop8MasteryExtensions
             var move = permit[i];
 
             // Can only purchase a move if it is not already in the available learnset.
-            var learnLevel = learn.GetLevelLearnMove(move);
+            var learnLevel = learn.GetMoveLevel(move);
             if ((uint)learnLevel <= level)
                 return false;
 
@@ -101,7 +101,7 @@ public static class MoveShop8MasteryExtensions
             bool purchased = shop.GetPurchasedRecordFlag(index);
             bool mastered = shop.GetMasteredRecordFlag(index);
 
-            var masteryLevel = mastery.GetLevelLearnMove(move);
+            var masteryLevel = mastery.GetMoveLevel(move);
             if (masteryLevel > metLevel && move != alphaMove) // no master flag set
             {
                 if (!mastered)
@@ -109,7 +109,7 @@ public static class MoveShop8MasteryExtensions
                 if (purchased)
                     continue;
                 // Check for seed of mastery usage
-                if (learn.GetLevelLearnMove(move) > metLevel)
+                if (learn.GetMoveLevel(move) > metLevel)
                     return false;
             }
             else

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;

@@ -48,7 +48,7 @@ public partial class SAV_Wondercard : Form
                     return;
 
                 var enc = mga.Gifts[index];
-                pb.AccessibleDescription = string.Join(Environment.NewLine, enc.GetTextLines());
+                pb.AccessibleDescription = string.Join(Environment.NewLine, SummaryPreviewer.GetTextLines(enc));
             };
         }
 

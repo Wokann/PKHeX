@@ -56,10 +56,9 @@ public partial class PKMEditor
 
     private void LoadPKRS(PKM pk)
     {
-        CHK_Infected.Checked = Label_PKRS.Visible = Label_PKRSdays.Visible = CB_PKRSStrain.Visible = CB_PKRSDays.Visible = pk.PKRS_Infected;
-        CHK_Cured.Checked = pk.PKRS_Cured;
-        ChangePKRSstrainDropDownLists(CB_PKRSStrain.SelectedIndex, pk.PKRS_Strain, 0);
+        Label_PKRS.Visible = CB_PKRSStrain.Visible = CHK_Infected.Checked = Label_PKRSdays.Visible = CB_PKRSDays.Visible = pk.PKRS_Infected;
         LoadClamp(CB_PKRSStrain, pk.PKRS_Strain);
+        CHK_Cured.Checked = pk.PKRS_Cured;
         LoadClamp(CB_PKRSDays, pk.PKRS_Days); // clamp to valid day values for the current strain
     }
 

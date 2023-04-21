@@ -154,7 +154,7 @@ public static class MoveBreed6
             if (baseEgg.IndexOf(move) != -1)
                 possible[i] |= 1 << (int)Base;
 
-            if (inheritLevelUp && learn.GetIsLearn(move))
+            if (inheritLevelUp && learn.GetLevelLearnMove(move) != -1)
                 possible[i] |= 1 << (int)ParentLevelUp;
 
             if (eggMoves.Contains(move))

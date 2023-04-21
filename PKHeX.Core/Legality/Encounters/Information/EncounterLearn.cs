@@ -75,7 +75,7 @@ public static class EncounterLearn
     {
         if (species == 0)
             return Array.Empty<IEncounterable>();
-        if (moves.AsSpan().Contains<ushort>(0))
+        if (Array.Exists(moves, z => z == 0))
             return Array.Empty<IEncounterable>();
 
         var vers = GameUtil.GameVersions;

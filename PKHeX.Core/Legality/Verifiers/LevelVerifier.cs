@@ -1,3 +1,4 @@
+using System;
 using static PKHeX.Core.LegalityCheckStrings;
 
 namespace PKHeX.Core;
@@ -130,9 +131,9 @@ public sealed class LevelVerifier : Verifier
         var moves = data.Info.Moves;
         // Gen2 stuff can be traded between Gen2 games holding an Everstone, assuming it hasn't been transferred to Gen1 for special moves.
         if (enc.Generation == 2)
-            return MoveInfo.IsAnyFromGeneration(1, moves);
+            return Array.Exists(moves, z => z.Generation == 1);
         // Gen1 stuff can only be un-evolved if it was never traded from the OT.
-        if (MoveInfo.IsAnyFromGeneration(2, moves))
+        if (Array.Exists(moves, z => z.Generation == 2))
             return true; // traded to Gen2 for special moves
         if (pk.Format != 1)
             return true; // traded to Gen2 (current state)

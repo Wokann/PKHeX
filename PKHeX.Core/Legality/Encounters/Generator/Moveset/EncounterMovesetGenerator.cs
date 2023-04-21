@@ -2,6 +2,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using static PKHeX.Core.EncounterTypeGroup;
 
@@ -171,7 +172,7 @@ public static class EncounterMovesetGenerator
     /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
     /// <param name="version">Specific version to iterate for.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    private static IEnumerable<IEncounterable> GenerateVersionEncounters(PKM pk, ushort[] moves, GameVersion version)
+    private static IEnumerable<IEncounterable> GenerateVersionEncounters(PKM pk, ReadOnlySpan<ushort> moves, GameVersion version)
     {
         pk.Version = (int)version;
 
@@ -184,11 +185,7 @@ public static class EncounterMovesetGenerator
         var needs = GetNeededMoves(pk, moves, version);
         var generator = EncounterGenerator.GetGenerator(version);
 
-        foreach (var type in PriorityList)
-        {
-            foreach (var enc in GetPossibleOfType(pk, needs, version, type, chain, generator))
-                yield return enc;
-        }
+        return PriorityList.SelectMany(type => GetPossibleOfType(pk, needs, version, type, chain, generator));
     }
 
     private static bool IsSane(PKM pk, ReadOnlySpan<ushort> moves)

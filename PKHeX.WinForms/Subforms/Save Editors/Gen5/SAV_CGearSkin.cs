@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using PKHeX.Core;
 
@@ -37,7 +38,8 @@ public partial class SAV_CGearSkin : Form
         if (ofd.ShowDialog() != DialogResult.OK)
             return;
 
-        using var img = (Bitmap)Image.FromFile(ofd.FileName);
+        Bitmap img = (Bitmap)Image.FromFile(ofd.FileName);
+
         try
         {
             bg = CGearImage.GetCGearBackground(img);
@@ -104,7 +106,7 @@ public partial class SAV_CGearSkin : Form
     private void B_Save_Click(object sender, EventArgs e)
     {
         byte[] bgdata = bg.GetSkin(SAV is SAV5B2W2);
-        if (bgdata.AsSpan().IndexOfAnyExcept<byte>(0) != -1)
+        if (bgdata.Any(z => z != 0))
         {
             SAV.CGearSkinData = bgdata;
             Origin.CopyChangesFrom(SAV);

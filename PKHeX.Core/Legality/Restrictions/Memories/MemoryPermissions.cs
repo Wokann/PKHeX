@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using static PKHeX.Core.Encounters6XY;
 using static PKHeX.Core.Encounters6AO;
@@ -183,7 +184,7 @@ public static class MemoryPermissions
         },
         EntityContext.Gen8 => version switch
         {
-            GameVersion.Any => GetCanBeCaptured(species, SlotsSW, StaticSW) || GetCanBeCaptured(species, SlotsSH, StaticSH),
+            GameVersion.Any => GetCanBeCaptured(species, SlotsSW.Concat(SlotsSH), StaticSW.Concat(StaticSH)),
             GameVersion.SW => GetCanBeCaptured(species, SlotsSW, StaticSW),
             GameVersion.SH => GetCanBeCaptured(species, SlotsSH, StaticSH),
             _ => false,
@@ -191,18 +192,12 @@ public static class MemoryPermissions
         _ => false,
     };
 
-    private static bool GetCanBeCaptured<TArea, TStatic>(ushort species, TArea[] areas, TStatic[] statics) where TArea : IMemorySpeciesArea where TStatic : IEncounterTemplate
+    private static bool GetCanBeCaptured(ushort species, IEnumerable<EncounterArea> area, IEnumerable<EncounterStatic> statics)
     {
-        foreach (var area in areas)
-        {
-            if (area.HasSpecies(species))
-                return true;
-        }
-        foreach (var s in statics)
-        {
-            if (s.Species == species)
-                return true;
-        }
+        if (area.Any(loc => loc.HasSpecies(species)))
+            return true;
+        if (statics.Any(enc => enc.Species == species && !enc.Gift))
+            return true;
         return false;
     }
 

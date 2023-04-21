@@ -155,9 +155,9 @@ public sealed class LegendsArceusVerifier : Verifier
 
             // Check if we can swap it into the moveset after it evolves.
             var move = purchased[i];
-            var baseLevel = baseLearn.GetLevelLearnMove(move);
+            var baseLevel = baseLearn.GetMoveLevel(move);
             var mustKnow = baseLevel is not -1 && baseLevel <= pa.Met_Level;
-            if (!mustKnow && currentLearn.GetLevelLearnMove(move) != level)
+            if (!mustKnow && currentLearn.GetMoveLevel(move) != level)
                 continue;
 
             if (current.IndexOf(move) == -1)

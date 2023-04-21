@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -36,13 +36,20 @@ public sealed class MyItem8b : MyItem
         item.Write(span);
     }
 
-    public static InventoryType GetType(ushort itemIndex) => ItemStorage8BDSP.GetInventoryPouch(itemIndex);
+    public static InventoryType GetType(ushort itemIndex)
+    {
+        var types = new[]
+        {
+            InventoryType.Items, InventoryType.KeyItems, InventoryType.TMHMs, InventoryType.Medicine,
+            InventoryType.Berries, InventoryType.Balls, InventoryType.BattleItems, InventoryType.Treasure,
+        };
+        return Array.Find(types, z => GetLegal(z).Contains(itemIndex));
+    }
 
     public ushort GetNextSortIndex(InventoryType type)
     {
-        var legal = ItemStorage8BDSP.GetLegal(type);
         ushort max = 0;
-        foreach (var itemID in legal)
+        foreach (var itemID in GetLegal(type))
         {
             var ofs = InventoryPouch8b.GetItemOffset(itemID, Offset);
             var span = Data.AsSpan(ofs, InventoryItem8b.SIZE);
@@ -59,14 +66,14 @@ public sealed class MyItem8b : MyItem
     {
         var pouches = new[]
         {
-            MakePouch(InventoryType.Items),
+            MakePouch(InventoryType.Items, IsHeldItemLegal),
             MakePouch(InventoryType.KeyItems),
-            MakePouch(InventoryType.TMHMs),
-            MakePouch(InventoryType.Medicine),
-            MakePouch(InventoryType.Berries),
-            MakePouch(InventoryType.Balls),
-            MakePouch(InventoryType.BattleItems),
-            MakePouch(InventoryType.Treasure),
+            MakePouch(InventoryType.TMHMs, IsHeldItemLegal),
+            MakePouch(InventoryType.Medicine, IsHeldItemLegal),
+            MakePouch(InventoryType.Berries, IsHeldItemLegal),
+            MakePouch(InventoryType.Balls, IsHeldItemLegal),
+            MakePouch(InventoryType.BattleItems, IsHeldItemLegal),
+            MakePouch(InventoryType.Treasure, IsHeldItemLegal),
         };
         return pouches.LoadAll(Data);
     }
@@ -79,15 +86,19 @@ public sealed class MyItem8b : MyItem
 
     private void CleanIllegalSlots()
     {
-        var types = ItemStorage8BDSP.ValidTypes;
-        var hashSet = new HashSet<ushort>(Legal.MaxItemID_8b);
-        foreach (var type in types)
+        var all = new[]
         {
-            var items = ItemStorage8BDSP.GetLegal(type);
-            foreach (var item in items)
-                hashSet.Add(item);
-        }
+            GetLegal(InventoryType.Items),
+            GetLegal(InventoryType.KeyItems),
+            GetLegal(InventoryType.TMHMs),
+            GetLegal(InventoryType.Medicine),
+            GetLegal(InventoryType.Berries),
+            GetLegal(InventoryType.Balls),
+            GetLegal(InventoryType.BattleItems),
+            GetLegal(InventoryType.Treasure),
+        }.SelectMany(z => z).Distinct();
 
+        var hashSet = new HashSet<ushort>(all);
         for (ushort i = 0; i < (ushort)SAV.MaxItemID; i++) // even though there are 3000, just overwrite the ones that people will mess up.
         {
             if (!hashSet.Contains(i))
@@ -95,12 +106,38 @@ public sealed class MyItem8b : MyItem
         }
     }
 
-    private InventoryPouch8b MakePouch(InventoryType type)
+    private InventoryPouch8b MakePouch(InventoryType type, Func<ushort, bool>? isLegal = null)
     {
-        var info = ItemStorage8BDSP.Instance;
-        var max = info.GetMax(type);
-        return new InventoryPouch8b(type, info, max, Offset);
+        ushort[] legal = GetLegal(type);
+        var max = GetMax(type);
+        return new InventoryPouch8b(type, legal, max, Offset, isLegal);
     }
 
     public static bool IsHeldItemLegal(ushort item) => !Legal.HeldItems_BS.Contains(item) || Legal.ReleasedHeldItems_8b[item];
+
+    private static int GetMax(InventoryType type) => type switch
+    {
+        InventoryType.Items => 999,
+        InventoryType.KeyItems => 1,
+        InventoryType.TMHMs => 999,
+        InventoryType.Medicine => 999,
+        InventoryType.Berries => 999,
+        InventoryType.Balls => 999,
+        InventoryType.BattleItems => 999,
+        InventoryType.Treasure => 999,
+        _ => throw new ArgumentOutOfRangeException(nameof(type)),
+    };
+
+    private static ushort[] GetLegal(InventoryType type) => type switch
+    {
+        InventoryType.Items => Legal.Pouch_Regular_BS,
+        InventoryType.KeyItems => Legal.Pouch_Key_BS,
+        InventoryType.TMHMs => Legal.Pouch_TMHM_BS,
+        InventoryType.Medicine => Legal.Pouch_Medicine_BS,
+        InventoryType.Berries => Legal.Pouch_Berries_BS,
+        InventoryType.Balls => Legal.Pouch_Ball_BS,
+        InventoryType.BattleItems => Legal.Pouch_Battle_BS,
+        InventoryType.Treasure => Legal.Pouch_Treasure_BS,
+        _ => throw new ArgumentOutOfRangeException(nameof(type)),
+    };
 }

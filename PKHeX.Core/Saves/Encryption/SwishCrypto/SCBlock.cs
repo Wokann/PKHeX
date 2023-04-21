@@ -118,11 +118,10 @@ public sealed class SCBlock
     /// <summary>
     /// Encrypts the <see cref="Data"/> according to the <see cref="Type"/> and <see cref="SubType"/>.
     /// </summary>
-    public void WriteBlock(BinaryWriter bw, bool writeKey = true)
+    public void WriteBlock(BinaryWriter bw)
     {
-        if (writeKey)
-            bw.Write(Key);
         var xk = new SCXorShift32(Key);
+        bw.Write(Key);
         bw.Write((byte)((byte)Type ^ xk.Next()));
 
         if (Type == SCTypeCode.Object)
@@ -136,28 +135,20 @@ public sealed class SCBlock
             bw.Write((byte)((byte)SubType ^ xk.Next()));
         }
 
-        foreach (ref var b in Data.AsSpan())
+        foreach (var b in Data)
             bw.Write((byte)(b ^ xk.Next()));
-    }
-
-    /// <inheritdoc cref="GetTotalLength(ReadOnlySpan{byte},uint,int)"/>
-    public static int GetTotalLength(ReadOnlySpan<byte> data)
-    {
-        int offset = 0;
-        var key = ReadUInt32LittleEndian(data);
-        offset += 4;
-        return GetTotalLength(data, key, offset);
     }
 
     /// <summary>
     /// Gets the total length of an encoded data block. The input <see cref="data"/> must be at least 10 bytes long to ensure all block types are correctly parsed.
     /// </summary>
     /// <param name="data">Data the header exists in.</param>
-    /// <param name="key">Key to decrypt with</param>
-    /// <param name="offset">Offset the block is to be read from (modified to offset by the amount of bytes consumed).</param>
     /// <remarks>This method is useful if you do not know the exact size of a block yet; e.g. fetching the data is an expensive operation.</remarks>
-    public static int GetTotalLength(ReadOnlySpan<byte> data, uint key, int offset = 0)
+    public static int GetTotalLength(ReadOnlySpan<byte> data)
     {
+        int offset = 0;
+        var key = ReadUInt32LittleEndian(data[offset..]);
+        offset += 4;
         var xk = new SCXorShift32(key);
         var type = (SCTypeCode)(data[offset++] ^ xk.Next());
 
@@ -185,25 +176,17 @@ public sealed class SCBlock
         }
     }
 
-    /// <inheritdoc cref="ReadFromOffset(ReadOnlySpan{byte},uint,ref int)"/>
-    public static SCBlock ReadFromOffset(ReadOnlySpan<byte> data, ref int offset)
-    {
-        // Get key
-        var key = ReadUInt32LittleEndian(data[offset..]);
-        offset += 4;
-        return ReadFromOffset(data, key, ref offset);
-    }
-
     /// <summary>
     /// Reads a new <see cref="SCBlock"/> object from the <see cref="data"/>, determining the <see cref="Type"/> and <see cref="SubType"/> during read.
     /// </summary>
     /// <param name="data">Decrypted data</param>
-    /// <param name="key">Key to decrypt with</param>
     /// <param name="offset">Offset the block is to be read from (modified to offset by the amount of bytes consumed).</param>
     /// <returns>New object containing all info for the block.</returns>
-    public static SCBlock ReadFromOffset(ReadOnlySpan<byte> data, uint key, ref int offset)
+    public static SCBlock ReadFromOffset(ReadOnlySpan<byte> data, ref int offset)
     {
-        // initialize xorshift to decrypt
+        // Get key, initialize xorshift to decrypt
+        var key = ReadUInt32LittleEndian(data[offset..]);
+        offset += 4;
         var xk = new SCXorShift32(key);
 
         // Parse the block's type

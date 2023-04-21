@@ -170,8 +170,6 @@ public static class MoveInfo
 
     public static byte GetType(ushort move, EntityContext context) => context switch
     {
-        Gen1 => GetType(move, MoveInfo1.MoveType_RBY), // Bite, Gust, Karate Chop, Sand Attack
-        >= Gen2 and <= Gen5 => GetType(move, MoveInfo5.MoveType_BW), // Charm, Moonlight, Sweet Kiss
         _ => GetType(move, MoveInfo9.MoveType_SV),
     };
 
@@ -180,15 +178,5 @@ public static class MoveInfo
         if (move >= types.Length)
             return 0;
         return types[move];
-    }
-
-    public static bool IsAnyFromGeneration(int generation, ReadOnlySpan<MoveResult> moves)
-    {
-        foreach (var move in moves)
-        {
-            if (move.Generation == generation)
-                return true;
-        }
-        return false;
     }
 }
