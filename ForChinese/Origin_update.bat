@@ -1,3 +1,6 @@
+cd /d %~dp0
+rmdir /s /q ".\Origin_update"
+mkdir ".\Origin_update"
 xcopy "..\PKHeX.Core\PKM\PK2.cs" ".\Origin_update\PKHeX.Core\PKM\PK2.cs" /s /e /y
 xcopy "..\PKHeX.Core\PKM\Shared\GBPKML.cs" ".\Origin_update\PKHeX.Core\PKM\Shared\GBPKML.cs" /s /e /y
 xcopy "..\PKHeX.Core\PKM\Strings\StringConverter.cs" ".\Origin_update\PKHeX.Core\PKM\Strings\StringConverter.cs" /s /e /y
