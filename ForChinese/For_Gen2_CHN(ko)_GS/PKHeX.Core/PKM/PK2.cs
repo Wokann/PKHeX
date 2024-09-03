@@ -13,7 +13,7 @@ public sealed class PK2 : GBPKML, ICaughtData2
 
     public override int SIZE_PARTY => PokeCrypto.SIZE_2PARTY;
     public override int SIZE_STORED => PokeCrypto.SIZE_2STORED;
-    public override bool Korean => !Japanese && OT_Trash[0] <= 0xB;
+    public override bool Korean => !Japanese;
 
     public override EntityContext Context => EntityContext.Gen2;
 

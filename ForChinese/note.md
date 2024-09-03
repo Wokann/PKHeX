@@ -3,7 +3,7 @@
 ### \PKHeX.Core\PKM\Shared\GBPKML.cs
 函数 protected override void GetNonNickname(int language, Span<byte> data)
 -       if (Korean)
-+       if (Korean || language == (int)LanguageID.English)
++       //if (Korean)
 此程序会将0xF2转码为0xE8，由于ckn版皮卡丘美版汉化编码不兼容原编码，故直接跳过该判定。
 ### \PKHeX.Core\PKM\Strings\StringConverter12.cs
 汉字识别及输入的主程序部分
@@ -39,6 +39,10 @@
 汉字识别及输入的主程序部分
 
 ## For_Gen2_CHN(ko)_GS:
+### \PKHeX.Core\PKM\PK2.cs
+-   public override bool Korean => !Japanese && OT_Trash[0] <= 0xB;
++   public override bool Korean => !Japanese;
+正常情况韩版无法出现同时存在单双混合字节的昵称，会对来源语言判定存在混乱（海外及韩版），为方便测试输入，强制改为始终为韩版（海外与韩版判定）。
 ### \PKHeX.Core\PKM\Strings\StringConverter2KOR.cs
 汉字识别及输入的主程序部分
 

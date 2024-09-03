@@ -49,7 +49,7 @@ public abstract class GBPKML : GBPKM
     {
         var name = SpeciesName.GetSpeciesNameGeneration(Species, language, Format);
         SetString(name, data, data.Length, StringConverterOption.Clear50);
-        if (Korean || language == (int)LanguageID.English)
+        //if (Korean)
             return;
 
         // Decimal point<->period fix
