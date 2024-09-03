@@ -233,8 +233,9 @@ public static class StringConverter12
             }
         }
 
-        if (ctr < value.Length)
-            destBuffer[ctr++] = G1TerminatorCode;
+        if (ctr == destBuffer.Length)
+            return ctr;
+        destBuffer[ctr++] = G1TerminatorCode;
         return ctr;
     }
 
