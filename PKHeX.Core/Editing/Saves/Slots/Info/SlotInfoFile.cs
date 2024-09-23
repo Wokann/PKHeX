@@ -1,12 +1,12 @@
 namespace PKHeX.Core;
 
 /// <summary>
-/// Records data for an <see cref="ISlotInfo"/> that originates from an external file.
+/// Records data for <see cref="ISlotInfo"/> that originates from an external file.
 /// </summary>
-/// <param name="Path"></param>
+/// <param name="Path">Path the file was loaded from.</param>
 public sealed record SlotInfoFile(string Path) : ISlotInfo
 {
-    public SlotOrigin Origin => SlotOrigin.Party;
+    public StorageSlotType Type => StorageSlotType.Party;
     public int Slot => 0;
 
     public bool CanWriteTo(SaveFile sav) => false;

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace PKHeX.Core;
 
@@ -9,7 +10,7 @@ public static class GameLanguage
 {
     public const string DefaultLanguage = "en"; // English
     public static int DefaultLanguageIndex => Array.IndexOf(LanguageCodes, DefaultLanguage);
-    public static string Language2Char(int lang) => lang > LanguageCodes.Length ? DefaultLanguage : LanguageCodes[lang];
+    public static string Language2Char(int lang) => (uint)lang >= LanguageCodes.Length ? DefaultLanguage : LanguageCodes[lang];
 
     public static int LanguageCount => LanguageCodes.Length;
 
@@ -28,12 +29,12 @@ public static class GameLanguage
     /// Language codes supported for loading string resources
     /// </summary>
     /// <see cref="ProgramLanguage"/>
-    private static readonly string[] LanguageCodes = { "ja", "en", "fr", "it", "de", "es", "ko", "zh", "zh2" };
+    private static readonly string[] LanguageCodes = ["ja", "en", "fr", "it", "de", "es", "ko", "zh", "zh2"];
 
     /// <summary>
     /// Pokétransporter location names, ordered per index of <see cref="LanguageCodes"/>
     /// </summary>
-    private static readonly string[] ptransp = { "ポケシフター", "Poké Transfer", "Poké Fret", "Pokétrasporto", "Poképorter", "Pokétransfer", "포케시프터", "宝可传送", "寶可傳送" };
+    private static readonly string[] ptransp = ["ポケシフター", "Poké Transfer", "Poké Fret", "Pokétrasporto", "Poképorter", "Pokétransfer", "포케시프터", "宝可传送", "寶可傳送"];
 
     /// <summary>
     /// Gets the Met Location display name for the Pokétransporter.
@@ -53,7 +54,7 @@ public static class GameLanguage
     /// <summary>
     /// Gets a list of strings for the specified language and file type.
     /// </summary>
-    public static string[] GetStrings(string ident, string lang, string type = "text")
+    public static string[] GetStrings(string ident, string lang, [ConstantExpected] string type = "text")
     {
         string[] data = Util.GetStringList(ident, lang, type);
         if (data.Length == 0)
@@ -61,55 +62,4 @@ public static class GameLanguage
 
         return data;
     }
-}
-
-/// <summary>
-/// Program Languages supported; mirrors <see cref="GameLanguage.LanguageCodes"/>.
-/// </summary>
-public enum ProgramLanguage
-{
-    /// <summary>
-    /// Japanese
-    /// </summary>
-    日本語,
-
-    /// <summary>
-    /// English
-    /// </summary>
-    English,
-
-    /// <summary>
-    /// French
-    /// </summary>
-    Français,
-
-    /// <summary>
-    /// Italian
-    /// </summary>
-    Italiano,
-
-    /// <summary>
-    /// German
-    /// </summary>
-    Deutsch,
-
-    /// <summary>
-    /// Spanish
-    /// </summary>
-    Español,
-
-    /// <summary>
-    /// Korean
-    /// </summary>
-    한국어,
-
-    /// <summary>
-    /// Simplified Chinese
-    /// </summary>
-    简体中文,
-
-    /// <summary>
-    /// Traditional Chinese
-    /// </summary>
-    繁體中文,
 }

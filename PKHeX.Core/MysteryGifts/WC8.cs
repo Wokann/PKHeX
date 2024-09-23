@@ -7,13 +7,16 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 8 Mystery Gift Template File
 /// </summary>
-public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDynamaxLevel, IRibbonIndex, IMemoryOT, ILangNicknamedTemplate, IEncounterServerDate,
-    IRibbonSetEvent3, IRibbonSetEvent4, IRibbonSetCommon3, IRibbonSetCommon4, IRibbonSetCommon6, IRibbonSetCommon7, IRibbonSetCommon8, IRibbonSetMark8
+public sealed class WC8(byte[] Data) : DataMysteryGift(Data), ILangNick, INature, IGigantamax, IDynamaxLevel, IRibbonIndex, IMemoryOT,
+    ILangNicknamedTemplate, IRelearn, IEncounterServerDate, IRestrictVersion, IMetLevel,
+    IRibbonSetEvent3, IRibbonSetEvent4, IRibbonSetCommon3, IRibbonSetCommon4, IRibbonSetCommon6, IRibbonSetCommon7, IRibbonSetCommon8, IRibbonSetMark8, ITrashUnderlaySpecies
 {
+    public WC8() : this(new byte[Size]) { }
+
     public const int Size = 0x2D0;
     public const int CardStart = 0x0;
 
-    public override int Generation => 8;
+    public override byte Generation => 8;
     public override EntityContext Context => EntityContext.Gen8;
     public override bool FatefulEncounter => true;
 
@@ -26,17 +29,14 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         Clothing = 4,
     }
 
-    public WC8() : this(new byte[Size]) { }
-    public WC8(byte[] data) : base(data) { }
-
     public byte RestrictVersion { get => Data[0xE]; set => Data[0xE] = value; }
 
-    public bool CanBeReceivedByVersion(int v) => RestrictVersion switch
+    public bool CanBeReceivedByVersion(GameVersion version) => RestrictVersion switch
     {
         0 when !IsEntity => true, // Whatever, essentially unrestricted for SW/SH receipt. No Entity gifts are 0.
-        1 => v is (int)GameVersion.SW,
-        2 => v is (int)GameVersion.SH,
-        3 => v is (int)GameVersion.SW or (int)GameVersion.SH,
+        1 => version is GameVersion.SW,
+        2 => version is GameVersion.SH,
+        3 => version is GameVersion.SW or GameVersion.SH,
         _ => throw new ArgumentOutOfRangeException(nameof(RestrictVersion), RestrictVersion, null),
     };
 
@@ -153,13 +153,13 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
     }
 
     // Nicknames, OT Names 0x30 - 0x228
-    public override int EggLocation { get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x228)); set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x228), (ushort)value); }
-    public int MetLocation { get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x22A)); set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x22A), (ushort)value); }
+    public override ushort EggLocation { get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x228)); set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x228), value); }
+    public override ushort Location { get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x22A)); set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x22A), value); }
 
-    public override int Ball
+    public override byte Ball
     {
-        get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x22C));
-        set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x22C), (ushort)value);
+        get => (byte)ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x22C));
+        set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x22C), value);
     }
 
     public override int HeldItem
@@ -179,15 +179,15 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
 
     public override ushort Species { get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x240)); set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x240), value); }
     public override byte Form { get => Data[CardStart + 0x242]; set => Data[CardStart + 0x242] = value; }
-    public override int Gender { get => Data[CardStart + 0x243]; set => Data[CardStart + 0x243] = (byte)value; }
+    public override byte Gender { get => Data[CardStart + 0x243]; set => Data[CardStart + 0x243] = value; }
     public override byte Level { get => Data[CardStart + 0x244]; set => Data[CardStart + 0x244] = value; }
     public override bool IsEgg { get => Data[CardStart + 0x245] == 1; set => Data[CardStart + 0x245] = value ? (byte)1 : (byte)0; }
-    public int Nature { get => (sbyte)Data[CardStart + 0x246]; set => Data[CardStart + 0x246] = (byte)value; }
+    public Nature Nature { get => (Nature)Data[CardStart + 0x246]; set => Data[CardStart + 0x246] = (byte)value; }
     public override int AbilityType { get => Data[CardStart + 0x247]; set => Data[CardStart + 0x247] = (byte)value; }
 
     public ShinyType8 PIDType { get => (ShinyType8)Data[CardStart + 0x248]; set => Data[CardStart + 0x248] = (byte)value; }
 
-    public int MetLevel { get => Data[CardStart + 0x249]; set => Data[CardStart + 0x249] = (byte)value; }
+    public byte MetLevel { get => Data[CardStart + 0x249]; set => Data[CardStart + 0x249] = value; }
     public byte DynamaxLevel { get => Data[CardStart + 0x24A]; set => Data[CardStart + 0x24A] = value; }
     public bool CanGigantamax { get => Data[CardStart + 0x24B] != 0; set => Data[CardStart + 0x24B] = value ? (byte)1 : (byte)0; }
 
@@ -196,16 +196,17 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
     private const int RibbonBytesCount = 0x20;
     private const int RibbonByteNone = 0xFF; // signed -1
 
+    private ReadOnlySpan<byte> RibbonSpan => Data.AsSpan(RibbonBytesOffset, RibbonBytesCount);
+
     public bool HasMarkEncounter8
     {
         get
         {
-            for (int i = 0; i < RibbonBytesCount; i++)
+            foreach (var value in RibbonSpan)
             {
-                var value = Data[RibbonBytesOffset + i];
                 if (value == RibbonByteNone)
-                    return false;
-                if ((RibbonIndex)value is >= MarkLunchtime and <= MarkSlump)
+                    return false; // end
+                if (((RibbonIndex)value).IsEncounterMark8())
                     return true;
             }
 
@@ -215,15 +216,13 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
 
     public byte GetRibbonAtIndex(int byteIndex)
     {
-        if ((uint)byteIndex >= RibbonBytesCount)
-            throw new ArgumentOutOfRangeException(nameof(byteIndex));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual<uint>((uint)byteIndex, RibbonBytesCount);
         return Data[RibbonBytesOffset + byteIndex];
     }
 
     public void SetRibbonAtIndex(int byteIndex, byte ribbonIndex)
     {
-        if ((uint)byteIndex >= RibbonBytesCount)
-            throw new ArgumentOutOfRangeException(nameof(byteIndex));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual<uint>((uint)byteIndex, RibbonBytesCount);
         Data[RibbonBytesOffset + byteIndex] = ribbonIndex;
     }
 
@@ -234,7 +233,7 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
     public int IV_SPA { get => Data[CardStart + 0x270]; set => Data[CardStart + 0x270] = (byte)value; }
     public int IV_SPD { get => Data[CardStart + 0x271]; set => Data[CardStart + 0x271] = (byte)value; }
 
-    public int OTGender { get => Data[CardStart + 0x272]; set => Data[CardStart + 0x272] = (byte)value; }
+    public byte OTGender { get => Data[CardStart + 0x272]; set => Data[CardStart + 0x272] = value; }
 
     public int EV_HP  { get => Data[CardStart + 0x273]; set => Data[CardStart + 0x273] = (byte)value; }
     public int EV_ATK { get => Data[CardStart + 0x274]; set => Data[CardStart + 0x274] = (byte)value; }
@@ -243,18 +242,21 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
     public int EV_SPA { get => Data[CardStart + 0x277]; set => Data[CardStart + 0x277] = (byte)value; }
     public int EV_SPD { get => Data[CardStart + 0x278]; set => Data[CardStart + 0x278] = (byte)value; }
 
-    public byte OT_Intensity { get => Data[CardStart + 0x279]; set => Data[CardStart + 0x279] = value; }
-    public byte OT_Memory { get => Data[CardStart + 0x27A]; set => Data[CardStart + 0x27A] = value; }
-    public byte OT_Feeling { get => Data[CardStart + 0x27B]; set => Data[CardStart + 0x27B] = value; }
-    public ushort OT_TextVar { get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x27C)); set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x27C), value); }
+    public byte OriginalTrainerMemoryIntensity { get => Data[CardStart + 0x279]; set => Data[CardStart + 0x279] = value; }
+    public byte OriginalTrainerMemory { get => Data[CardStart + 0x27A]; set => Data[CardStart + 0x27A] = value; }
+    public byte OriginalTrainerMemoryFeeling { get => Data[CardStart + 0x27B]; set => Data[CardStart + 0x27B] = value; }
+    public ushort OriginalTrainerMemoryVariable { get => ReadUInt16LittleEndian(Data.AsSpan(CardStart + 0x27C)); set => WriteUInt16LittleEndian(Data.AsSpan(CardStart + 0x27C), value); }
+
+    public ushort Checksum => ReadUInt16LittleEndian(Data.AsSpan(0x2CC));
 
     // Meta Accessible Properties
-    public override int[] IVs
+    public int[] IVs
     {
-        get => new[] { IV_HP, IV_ATK, IV_DEF, IV_SPE, IV_SPA, IV_SPD };
+        get => [IV_HP, IV_ATK, IV_DEF, IV_SPE, IV_SPA, IV_SPD];
         set
         {
-            if (value.Length != 6) return;
+            if (value.Length != 6)
+                return;
             IV_HP = value[0]; IV_ATK = value[1]; IV_DEF = value[2];
             IV_SPE = value[3]; IV_SPA = value[4]; IV_SPD = value[5];
         }
@@ -274,10 +276,11 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
 
     public int[] EVs
     {
-        get => new[] { EV_HP, EV_ATK, EV_DEF, EV_SPE, EV_SPA, EV_SPD };
+        get => [EV_HP, EV_ATK, EV_DEF, EV_SPE, EV_SPA, EV_SPD];
         set
         {
-            if (value.Length != 6) return;
+            if (value.Length != 6)
+                return;
             EV_HP = value[0]; EV_ATK = value[1]; EV_DEF = value[2];
             EV_SPE = value[3]; EV_SPA = value[4]; EV_SPD = value[5];
         }
@@ -328,8 +331,6 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         return lang < LanguageID.UNUSED_6 ? language - 1 : language - 2;
     }
 
-    public override int Location { get => MetLocation; set => MetLocation = (ushort)value; }
-
     public override Moveset Moves
     {
         get => new(Move1, Move2, Move3, Move4);
@@ -342,7 +343,7 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         }
     }
 
-    public override Moveset Relearn
+    public Moveset Relearn
     {
         get => new(RelearnMove1, RelearnMove2, RelearnMove3, RelearnMove4);
         set
@@ -354,7 +355,7 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         }
     }
 
-    public override string OT_Name
+    public override string OriginalTrainerName
     {
         get => GetOT(Language);
         set
@@ -391,35 +392,33 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
     public bool IsHOMEGift => CardID >= 9000;
 
     public bool CanHandleOT(int language) => !GetHasOT(language);
+    public bool IsTrashUnderlaySpecies(PKM pk) => GetIsNicknamed(pk.Language);
 
-    public override GameVersion Version
-    {
-        get => OriginGame != 0 ? (GameVersion)OriginGame : GameVersion.SWSH;
-        set { }
-    }
+    public override GameVersion Version => OriginGame != 0 ? (GameVersion)OriginGame : GameVersion.SWSH;
 
     public override PK8 ConvertToPKM(ITrainerInfo tr, EncounterCriteria criteria)
     {
         if (!IsEntity)
             throw new ArgumentException(nameof(IsEntity));
 
-        int currentLevel = Level > 0 ? Level : 1 + Util.Rand.Next(100);
-        int metLevel = MetLevel > 0 ? MetLevel : currentLevel;
+        var rnd = Util.Rand;
+        byte currentLevel = Level > 0 ? Level : (byte)(1 + rnd.Next(100));
+        var metLevel = MetLevel > 0 ? MetLevel : currentLevel;
         var pi = PersonalTable.SWSH.GetFormEntry(Species, Form);
-        var language = tr.Language;
+        var version = OriginGame != 0 ? (GameVersion)OriginGame : this.GetCompatibleVersion(tr.Version);
+        var language = (int)Core.Language.GetSafeLanguage(Generation, (LanguageID)tr.Language, version);
         bool hasOT = GetHasOT(language);
-        var version = OriginGame != 0 ? OriginGame : (int)this.GetCompatibleVersion((GameVersion)tr.Game);
 
         var pk = new PK8
         {
-            EncryptionConstant = EncryptionConstant != 0 || IsHOMEGift ? EncryptionConstant : Util.Rand32(),
+            EncryptionConstant = EncryptionConstant != 0 ? EncryptionConstant : Util.Rand32(),
             TID16 = TID16,
             SID16 = SID16,
             Species = Species,
             Form = Form,
             CurrentLevel = currentLevel,
-            Ball = Ball != 0 ? Ball : 4, // Default is Pokeball
-            Met_Level = metLevel,
+            Ball = Ball != 0 ? Ball : (byte)4, // Default is Pokeball
+            MetLevel = metLevel,
             HeldItem = HeldItem,
 
             EXP = Experience.GetEXP(currentLevel, pi.EXPGrowth),
@@ -435,18 +434,18 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
 
             Version = version,
 
-            OT_Name = hasOT ? GetOT(language) : tr.OT,
-            OT_Gender = OTGender < 2 ? OTGender : tr.Gender,
-            HT_Name = hasOT ? tr.OT : string.Empty,
-            HT_Gender = hasOT ? tr.Gender : 0,
-            HT_Language = (byte)(hasOT ? language : 0),
-            CurrentHandler = hasOT ? 1 : 0,
-            OT_Friendship = pi.BaseFriendship,
+            OriginalTrainerName = hasOT ? GetOT(language) : tr.OT,
+            OriginalTrainerGender = OTGender < 2 ? OTGender : tr.Gender,
+            HandlingTrainerName = hasOT ? tr.OT : string.Empty,
+            HandlingTrainerGender = hasOT ? tr.Gender : default,
+            HandlingTrainerLanguage = (byte)(hasOT ? language : default),
+            CurrentHandler = hasOT ? (byte)1 : (byte)0,
+            OriginalTrainerFriendship = pi.BaseFriendship,
 
-            OT_Intensity = OT_Intensity,
-            OT_Memory = OT_Memory,
-            OT_TextVar = OT_TextVar,
-            OT_Feeling = OT_Feeling,
+            OriginalTrainerMemoryIntensity = OriginalTrainerMemoryIntensity,
+            OriginalTrainerMemory = OriginalTrainerMemory,
+            OriginalTrainerMemoryVariable = OriginalTrainerMemoryVariable,
+            OriginalTrainerMemoryFeeling = OriginalTrainerMemoryFeeling,
             FatefulEncounter = true,
 
             EV_HP = EV_HP,
@@ -459,16 +458,15 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
             CanGigantamax = CanGigantamax,
             DynamaxLevel = DynamaxLevel,
 
-            Met_Location = MetLocation,
-            Egg_Location = EggLocation,
+            MetLocation = Location,
+            EggLocation = EggLocation,
         };
         pk.SetMaximumPPCurrent();
 
         if ((tr.Generation > Generation && OriginGame == 0) || !CanBeReceivedByVersion(pk.Version))
         {
             // give random valid game
-            var rnd = Util.Rand;
-            do { pk.Version = (int)GameVersion.SW + rnd.Next(2); }
+            do { pk.Version = GameVersion.SW + (byte)rnd.Next(2); }
             while (!CanBeReceivedByVersion(pk.Version));
         }
 
@@ -489,12 +487,18 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         if (pk.Species == (int)Core.Species.Meowstic)
             pk.Form = (byte)(pk.Gender & 1);
 
-        pk.MetDate = IsDateRestricted && EncounterServerDate.WC8Gifts.TryGetValue(CardID, out var dt) ? dt : DateOnly.FromDateTime(DateTime.Now);
+        var date = GetSuggestedDate();
+        pk.MetDate = date;
+
+        // Prior to 3.0.0, HOME would set the Encryption Constant exactly and not give a random value if it was 0.
+        if (IsHOMEGiftOld(date))
+            pk.EncryptionConstant = EncryptionConstant;
 
         var nickname_language = GetLanguage(language);
         pk.Language = nickname_language != 0 ? nickname_language : tr.Language;
-        pk.IsNicknamed = GetIsNicknamed(language);
-        pk.Nickname = pk.IsNicknamed ? GetNickname(language) : SpeciesName.GetSpeciesNameGeneration(Species, pk.Language, Generation);
+        pk.Nickname = SpeciesName.GetSpeciesNameGeneration(Species, pk.Language, Generation);
+        if (GetIsNicknamed(language))
+            pk.Nickname = GetNickname(language);
 
         for (var i = 0; i < RibbonBytesCount; i++)
         {
@@ -509,10 +513,10 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
             SetEggMetData(pk);
         pk.CurrentFriendship = pk.IsEgg ? pi.HatchCycles : pi.BaseFriendship;
 
-        if (!IsHOMEGift)
+        if (!IsHOMEGiftOld(date))
         {
-            pk.HeightScalar = PokeSizeUtil.GetRandomScalar();
-            pk.WeightScalar = PokeSizeUtil.GetRandomScalar();
+            pk.HeightScalar = PokeSizeUtil.GetRandomScalar(rnd);
+            pk.WeightScalar = PokeSizeUtil.GetRandomScalar(rnd);
         }
 
         pk.ResetPartyStats();
@@ -520,19 +524,36 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         return pk;
     }
 
-    private void SetEggMetData(PKM pk)
+    private bool IsHOMEGiftOld(DateOnly date)
+    {
+        // 2023/05/30 -- every date prior [*,29th] is an old gift.
+        const int DayNumberHOME300 = 738669;
+        return IsHOMEGift && date.DayNumber < DayNumberHOME300;
+    }
+
+    private DateOnly GetSuggestedDate()
+    {
+        if (!IsDateRestricted)
+            return EncounterDate.GetDateSwitch();
+        if (EncounterServerDate.WC8GiftsChk.TryGetValue(Checksum, out var range))
+            return range.Start;
+        if (EncounterServerDate.WC8Gifts.TryGetValue(CardID, out range))
+            return range.Start;
+        return EncounterDate.GetDateSwitch();
+    }
+
+    private void SetEggMetData(PK8 pk)
     {
         pk.IsEgg = true;
-        pk.EggMetDate = DateOnly.FromDateTime(DateTime.Now);
+        pk.EggMetDate = EncounterDate.GetDateSwitch();
         pk.Nickname = SpeciesName.GetEggName(pk.Language, Generation);
         pk.IsNicknamed = true;
     }
 
-    private void SetPINGA(PKM pk, EncounterCriteria criteria)
+    private void SetPINGA(PK8 pk, EncounterCriteria criteria)
     {
-        var pi = PersonalTable.SWSH.GetFormEntry(Species, Form);
-        pk.Nature = (int)criteria.GetNature(Nature == -1 ? Core.Nature.Random : (Nature)Nature);
-        pk.StatNature = pk.Nature;
+        var pi = pk.PersonalInfo;
+        pk.Nature = pk.StatNature = criteria.GetNature((sbyte)Nature == -1 ? Nature.Random : Nature);
         pk.Gender = criteria.GetGender(Gender, pi);
         var av = GetAbilityIndex(criteria);
         pk.RefreshAbility(av);
@@ -556,7 +577,7 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         _ => AbilityPermission.Any12H,
     };
 
-    private uint GetPID(ITrainerID32 tr, ShinyType8 type) => type switch
+    private uint GetPID(PKM tr, ShinyType8 type) => type switch
     {
         ShinyType8.Never        => GetAntishiny(tr), // Random, Never Shiny
         ShinyType8.Random       => Util.Rand32(), // Random, Any
@@ -566,7 +587,7 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         _ => throw new ArgumentOutOfRangeException(nameof(type)),
     };
 
-    private uint GetFixedPID(ITrainerID32 tr)
+    private uint GetFixedPID(PKM tr)
     {
         var pid = PID;
         if (pid != 0 && ID32 != 0)
@@ -589,7 +610,7 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         return pid;
     }
 
-    private void SetPID(PKM pk)
+    private void SetPID(PK8 pk)
     {
         pk.PID = GetPID(pk, PIDType);
     }
@@ -598,9 +619,9 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
     {
         Span<int> finalIVs = stackalloc int[6];
         GetIVs(finalIVs);
-        var ivflag = finalIVs.Find(static iv => (byte)(iv - 0xFC) < 3);
+        var ivflag = finalIVs.IndexOfAny(0xFC, 0xFD, 0xFE);
         var rng = Util.Rand;
-        if (ivflag == default) // Random IVs
+        if (ivflag == -1) // Random IVs
         {
             for (int i = 0; i < finalIVs.Length; i++)
             {
@@ -610,7 +631,7 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         }
         else // 1/2/3 perfect IVs
         {
-            int IVCount = ivflag - 0xFB;
+            int IVCount = finalIVs[ivflag] - 0xFB;
             do { finalIVs[rng.Next(6)] = 31; }
             while (finalIVs.Count(31) < IVCount);
             for (int i = 0; i < finalIVs.Length; i++)
@@ -630,32 +651,29 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
             {
                 if (SID16 != pk.SID16) return false;
                 if (TID16 != pk.TID16) return false;
-                if (OTGender != pk.OT_Gender) return false;
+                if (OTGender != pk.OriginalTrainerGender) return false;
             }
 
             if (!CanBeAnyLanguage() && !CanHaveLanguage(pk.Language))
                 return false;
 
             var OT = GetOT(pk.Language); // May not be guaranteed to work.
-            if (!string.IsNullOrEmpty(OT) && OT != pk.OT_Name) return false;
-            if (OriginGame != 0 && OriginGame != pk.Version) return false;
+            if (!string.IsNullOrEmpty(OT) && OT != pk.OriginalTrainerName) return false;
+            if (OriginGame != 0 && (GameVersion)OriginGame != pk.Version) return false;
             if (EncryptionConstant != 0)
             {
                 if (EncryptionConstant != pk.EncryptionConstant)
                     return false;
             }
-            else if (IsHOMEGift)// 0
+            else if (IsHOMEGift)
             {
-                // HOME gifts -- PID and EC are zeroes...
-                if (EncryptionConstant != pk.EncryptionConstant)
-                    return false;
-
-                // Initial updates of HOME did not assign a TSV of 0.
-                // After enough server updates, HOME can now assign a TSV of 0.
-                // They will XOR the PID to ensure the shiny state of gifts is matched.
-                // if (pk.TSV == 0) // HOME doesn't assign TSV=0 to accounts.
-                //     return false;
-
+                // Prior to 3.0.0, HOME would set the Encryption Constant exactly and not give a random value if it was 0.
+                if (pk.MetDate is { } x && IsHOMEGiftOld(x))
+                {
+                    // HOME gifts -- PID and EC are zeroes...
+                    if (EncryptionConstant != pk.EncryptionConstant)
+                        return false;
+                }
                 if (IsShiny)
                 {
                     if (!pk.IsShiny)
@@ -677,9 +695,9 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
             shinyType = FixedShinyType();
         if (IsEgg)
         {
-            if (EggLocation != pk.Egg_Location) // traded
+            if (EggLocation != pk.EggLocation) // traded
             {
-                if (pk.Egg_Location != Locations.LinkTrade6)
+                if (pk.EggLocation != Locations.LinkTrade6)
                     return false;
                 if (PIDType == ShinyType8.Random && pk is { IsShiny: true, ShinyXor: > 1 })
                     return false; // shiny traded egg will always have xor0/1.
@@ -689,34 +707,39 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
                 return false; // can't be traded away for unshiny
             }
 
-            if (pk is { IsEgg: true, IsNative: false })
+            if (pk is { IsEgg: true, Context: EntityContext.Gen8 })
                 return false;
         }
         else
         {
             if (!shinyType.IsValid(pk)) return false;
             if (!IsMatchEggLocation(pk)) return false;
-            if (MetLocation != pk.Met_Location) return false;
+            if (Location != pk.MetLocation) return false;
         }
 
-        if (MetLevel != 0 && MetLevel != pk.Met_Level) return false;
+        if (MetLevel != 0 && MetLevel != pk.MetLevel) return false;
         if ((Ball == 0 ? 4 : Ball) != pk.Ball) return false;
-        if (OTGender < 2 && OTGender != pk.OT_Gender) return false;
-        if (Nature != -1 && pk.Nature != Nature) return false;
+        if (OTGender < 2 && OTGender != pk.OriginalTrainerGender) return false;
+        if ((sbyte)Nature != -1 && pk.Nature != Nature) return false;
         if (Gender != 3 && Gender != pk.Gender) return false;
 
-        if (pk is PK8 and IGigantamax g && g.CanGigantamax != CanGigantamax && !g.CanToggleGigantamax(pk.Species, pk.Form, Species, Form))
+        if (pk is PK8 and IGigantamax g && g.CanGigantamax != CanGigantamax && !Gigantamax.CanToggle(pk.Species, pk.Form, Species, Form))
             return false;
 
         if (pk is PK8 pk8 && pk8.DynamaxLevel < DynamaxLevel)
             return false;
 
-        if (IsHOMEGift && pk is IScaledSize s)
+        if (IsHOMEGift)
         {
-            if (s.HeightScalar != 0)
-                return false;
-            if (s.WeightScalar != 0)
-                return false;
+            // Prior to 3.0.0, HOME would set the Height and Weight exactly and not give a random value if it was 0.
+            // However, entering HOME will re-randomize the Height and Weight.
+            if (pk.MetDate is { } x && !IsHOMEGiftOld(x))
+            {
+                // This was later fixed on 6/15/2023 to stop re-rolling old gifts. New gifts would be random.
+                // Gifts that were already re-rolled would stay re-rolled.
+                if (pk is IScaledSize { HeightScalar: 0, WeightScalar: 0 })
+                    return false; // Disallow anything that's not an Old HOME gift from having 0/0.
+            }
         }
 
         // Duplicate card; one with Nickname specified and another without.
@@ -729,19 +752,22 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
         var type = PIDType;
         if (type is ShinyType8.Never or ShinyType8.Random)
             return true;
-        return pk.PID == GetPID(pk, type);
+        if (pk.PID == GetPID(pk, type))
+            return true;
+
+        return false;
     }
 
     private bool IsHOMEShinyPossible()
     {
         // no defined TID16/SID16 and having a fixed PID can cause the player's TID16/SID16 to match the PID's shiny calc.
         // All PIDs are fixed for HOME gifts.
-        return ID32 == 0;
+        return ID32 == 0 && PID != 0;
     }
 
     public bool IsDateRestricted => IsHOMEGift;
 
-    protected override bool IsMatchDeferred(PKM pk) => Species != pk.Species;
+    protected override bool IsMatchDeferred(PKM pk) => false;
     protected override bool IsMatchPartial(PKM pk) => false; // no version compatibility checks yet.
 
     #region Lazy Ribbon Implementation
@@ -846,20 +872,17 @@ public sealed class WC8 : DataMysteryGift, ILangNick, INature, IGigantamax, IDyn
     public bool RibbonHisui { get => this.GetRibbonIndex(Hisui); set => this.SetRibbonIndex(Hisui, value); }
 
     public int GetRibbonByte(int index) => Array.IndexOf(Data, (byte)index, RibbonBytesOffset, RibbonBytesCount);
-    public bool GetRibbon(int index) => GetRibbonByte(index) >= 0;
+    public bool GetRibbon(int index) => RibbonSpan.Contains((byte)index);
 
     public void SetRibbon(int index, bool value = true)
     {
-        if ((uint)index > (uint)MarkSlump)
-            throw new ArgumentOutOfRangeException(nameof(index));
-
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)index, (uint)RibbonIndexExtensions.MAX_G8);
         if (value)
         {
             if (GetRibbon(index))
                 return;
             var openIndex = Array.IndexOf(Data, RibbonByteNone, RibbonBytesOffset, RibbonBytesCount);
-            if (openIndex == -1) // Full?
-                throw new ArgumentOutOfRangeException(nameof(index));
+            ArgumentOutOfRangeException.ThrowIfNegative(openIndex, nameof(openIndex)); // Full?
             SetRibbonAtIndex(openIndex, (byte)index);
         }
         else

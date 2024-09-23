@@ -1,4 +1,3 @@
-using System;
 using static PKHeX.Core.LegalityCheckStrings;
 
 namespace PKHeX.Core;
@@ -20,11 +19,11 @@ public sealed class PIDVerifier : Verifier
         if (enc.Species == (int)Species.Wurmple)
             VerifyECPIDWurmple(data);
         else if (enc.Species is (int)Species.Tandemaus or (int)Species.Dunsparce)
-            VerifyEC100(data);
+            VerifyEC100(data, enc.Species);
 
         if (pk.PID == 0)
             data.AddLine(Get(LPIDZero, Severity.Fishy));
-        if (pk.Nature >= 25) // out of range
+        if (!pk.Nature.IsFixed()) // out of range
             data.AddLine(GetInvalid(LPIDNatureMismatch));
 
         VerifyShiny(data);
@@ -33,45 +32,22 @@ public sealed class PIDVerifier : Verifier
     private void VerifyShiny(LegalityAnalysis data)
     {
         var pk = data.Entity;
+        var enc = data.EncounterMatch;
 
-        switch (data.EncounterMatch)
+        if (!enc.Shiny.IsValid(pk))
+            data.AddLine(GetInvalid(LEncStaticPIDShiny, CheckIdentifier.Shiny));
+
+        switch (enc)
         {
-            case EncounterStatic s:
-                if (!s.Shiny.IsValid(pk))
-                    data.AddLine(GetInvalid(LEncStaticPIDShiny, CheckIdentifier.Shiny));
-
-                // Underground Raids are originally anti-shiny on encounter.
-                // When selecting a prize at the end, the game rolls and force-shiny is applied to be XOR=1.
-                if (s is EncounterStatic8U {Shiny: Shiny.Random})
-                {
-                    if (pk.ShinyXor is <= 15 and not 1)
-                        data.AddLine(GetInvalid(LEncStaticPIDShiny, CheckIdentifier.Shiny));
-                    break;
-                }
-
-                if (s.Generation != 5)
-                    break;
-
-                // Generation 5 has a correlation for wild captures.
-                // Certain static encounter types are just generated straightforwardly.
-                if (s.Location == 75) // Entree Forest
-                    break;
-
-                // Not wild / forced ability
-                if (s.Gift || s.Ability == AbilityPermission.OnlyHidden)
-                    break;
-
-                // Forced PID or generated without an encounter
-                // Crustle has 0x80 for its StartWildBattle flag; dunno what it does, but sometimes it doesn't align with the expected PID xor.
-                if (s is EncounterStatic5 { IsWildCorrelationPID: true })
-                    VerifyG5PID_IDCorrelation(data);
+            // Forced PID or generated without an encounter
+            // Crustle has 0x80 for its StartWildBattle flag; dunno what it does, but sometimes it doesn't align with the expected PID xor.
+            case EncounterStatic5 { IsWildCorrelationPID: true }:
+                VerifyG5PID_IDCorrelation(data);
                 break;
-
-            case EncounterSlot5 {IsHiddenGrotto: true}:
-                if (pk.IsShiny)
-                    data.AddLine(GetInvalid(LG5PIDShinyGrotto, CheckIdentifier.Shiny));
+            case EncounterSlot5 {IsHiddenGrotto: true} when pk.IsShiny:
+                data.AddLine(GetInvalid(LG5PIDShinyGrotto, CheckIdentifier.Shiny));
                 break;
-            case EncounterSlot5:
+            case EncounterSlot5 {IsHiddenGrotto: false}:
                 VerifyG5PID_IDCorrelation(data);
                 break;
 
@@ -80,8 +56,13 @@ public sealed class PIDVerifier : Verifier
                     data.AddLine(GetInvalid(LEncGiftPIDMismatch, CheckIdentifier.Shiny));
                 break;
 
-            case WC7 wc7 when wc7.IsAshGreninjaWC7(pk) && pk.IsShiny:
+            case WC7 { IsAshGreninja: true } when pk.IsShiny:
                 data.AddLine(GetInvalid(LEncGiftShinyMismatch, CheckIdentifier.Shiny));
+                break;
+            // Underground Raids are originally anti-shiny on encounter.
+            // When selecting a prize at the end, the game rolls and force-shiny is applied to be XOR=1.
+            case EncounterStatic8U u when !u.IsShinyXorValid(pk.ShinyXor):
+                data.AddLine(GetInvalid(LEncStaticPIDShiny, CheckIdentifier.Shiny));
                 break;
         }
     }
@@ -102,8 +83,8 @@ public sealed class PIDVerifier : Verifier
         if (pk.Species == (int)Species.Wurmple)
         {
             // Indicate what it will evolve into
-            uint evoVal = WurmpleUtil.GetWurmpleEvoVal(pk.EncryptionConstant);
-            var evolvesTo = evoVal == 0 ? (int)Species.Beautifly : (int)Species.Dustox;
+            var evoVal = WurmpleUtil.GetWurmpleEvoVal(pk.EncryptionConstant);
+            var evolvesTo = evoVal == WurmpleEvolution.Silcoon ? (int)Species.Beautifly : (int)Species.Dustox;
             var species = ParseSettings.SpeciesStrings[evolvesTo];
             var msg = string.Format(L_XWurmpleEvo_0, species);
             data.AddLine(GetValid(msg, CheckIdentifier.EC));
@@ -114,25 +95,20 @@ public sealed class PIDVerifier : Verifier
         }
     }
 
-    private static void VerifyEC100(LegalityAnalysis data)
+    private static void VerifyEC100(LegalityAnalysis data, ushort encSpecies)
     {
         var pk = data.Entity;
-        var enc = data.EncounterMatch;
-        if (pk.Species == enc.Species)
-        {
-            uint evoVal = pk.EncryptionConstant % 100;
-            bool rare = evoVal == 0;
-            var (species, form) = enc.Species switch
-            {
-                (int)Species.Tandemaus => ((ushort)Species.Maushold,    rare ? 0 : 1),
-                (int)Species.Dunsparce => ((ushort)Species.Dudunsparce, rare ? 1 : 0),
-                _ => throw new ArgumentOutOfRangeException(nameof(enc.Species), "Incorrect EC%100 species."),
-            };
-            var str = GameInfo.Strings;
-            var forms = FormConverter.GetFormList(species, str.Types, str.forms, GameInfo.GenderSymbolASCII, EntityContext.Gen9);
-            var msg = string.Format(L_XRareFormEvo_0_1, forms[form], rare);
-            data.AddLine(GetValid(msg, CheckIdentifier.EC));
-        }
+        if (pk.Species != encSpecies)
+            return; // Evolved, don't need to calculate the final evolution for the verbose report.
+
+        // Indicate the evolution for the user.
+        uint evoVal = pk.EncryptionConstant % 100;
+        bool rare = evoVal == 0;
+        var (species, form) = EvolutionRestrictions.GetEvolvedSpeciesFormEC100(encSpecies, rare);
+        var str = GameInfo.Strings;
+        var forms = FormConverter.GetFormList(species, str.Types, str.forms, GameInfo.GenderSymbolASCII, EntityContext.Gen9);
+        var msg = string.Format(L_XRareFormEvo_0_1, forms[form], rare);
+        data.AddLine(GetValid(msg, CheckIdentifier.EC));
     }
 
     private static void VerifyEC(LegalityAnalysis data)
@@ -185,8 +161,8 @@ public sealed class PIDVerifier : Verifier
     /// <returns>True if the <see cref="ec"/> is appropriate to use.</returns>
     public static bool GetTransferEC(PKM pk, out uint ec)
     {
-        var ver = pk.Version;
-        if (ver is 0 or >= (int)GameVersion.X) // Gen6+ ignored
+        var version = pk.Version;
+        if (version is 0 or >= GameVersion.X) // Gen6+ ignored
         {
             ec = 0;
             return false;

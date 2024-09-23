@@ -10,6 +10,25 @@ public sealed partial class MemoryContext8 : MemoryContext
     public static readonly MemoryContext8 Instance = new();
     private MemoryContext8() { }
 
+    public override EntityContext Context => EntityContext.Gen8;
+
+    public static bool GetCanBeCaptured(ushort species, GameVersion version) => version switch
+    {
+        GameVersion.Any => GetCanBeCaptured(species, CaptureFlagsSW) || GetCanBeCaptured(species, CaptureFlagsSH),
+        GameVersion.SW  => GetCanBeCaptured(species, CaptureFlagsSW),
+        GameVersion.SH  => GetCanBeCaptured(species, CaptureFlagsSH),
+        _ => false,
+    };
+
+    private static bool GetCanBeCaptured(ushort species, ReadOnlySpan<byte> flags)
+    {
+        int offset = species >> 3;
+        if (offset >= flags.Length)
+            return false;
+        int bitIndex = species & 7;
+        return (flags[offset] & (1 << bitIndex)) != 0;
+    }
+
     public override IEnumerable<ushort> GetMemoryItemParams()
     {
         var hashSet = new HashSet<ushort>(Legal.HeldItems_SWSH);
@@ -36,7 +55,7 @@ public sealed partial class MemoryContext8 : MemoryContext
     public override bool CanObtainMemoryHT(GameVersion pkmVersion, byte memory) => CanObtainMemorySWSH(memory);
 
     public override bool CanObtainMemory(byte memory) => CanObtainMemorySWSH(memory);
-    public override bool HasPokeCenter(GameVersion version, int location) => location == 9; // in a Pokémon Center
+    public override bool HasPokeCenter(GameVersion version, ushort location) => location == 9; // in a Pokémon Center
 
     public override bool IsInvalidGeneralLocationMemoryValue(byte memory, ushort variable, IEncounterTemplate enc, PKM pk)
     {
@@ -45,7 +64,7 @@ public sealed partial class MemoryContext8 : MemoryContext
             return false;
 
         if (memory is 1 or 2 or 3) // Encounter only
-            return IsInvalidGenLoc8(memory, pk.Met_Location, pk.Egg_Location, variable, pk, enc);
+            return IsInvalidGenLoc8(memory, pk.MetLocation, pk.EggLocation, variable, pk, enc);
         return IsInvalidGenLoc8Other(memory, variable);
     }
 
@@ -70,7 +89,7 @@ public sealed partial class MemoryContext8 : MemoryContext
         _ => ItemStorage8SWSH.IsTechRecord((ushort)item) || PurchaseItemsNoTR.BinarySearch((ushort)item) >= 0,
     };
 
-    private static bool IsInvalidGenLoc8(byte memory, int loc, int egg, ushort variable, PKM pk, IEncounterTemplate enc)
+    private static bool IsInvalidGenLoc8(byte memory, ushort loc, int egg, ushort variable, PKM pk, IEncounterTemplate enc)
     {
         if (variable > 255)
             return true;
@@ -78,7 +97,7 @@ public sealed partial class MemoryContext8 : MemoryContext
         switch (memory)
         {
             case 1 when !IsWildEncounter(pk, enc):
-            case 2 when !enc.EggEncounter:
+            case 2 when !enc.IsEgg:
             case 3 when !IsWildEncounterMeet(pk, enc):
                 return true;
         }
@@ -108,7 +127,7 @@ public sealed partial class MemoryContext8 : MemoryContext
 
     private static bool IsWildEncounter(PKM pk, IEncounterTemplate enc)
     {
-        if (enc is not (EncounterSlot8 or EncounterStatic { Gift: false } or EncounterStatic8N or EncounterStatic8ND or EncounterStatic8NC or EncounterStatic8U))
+        if (enc is not (EncounterSlot8 or EncounterStatic8 { Gift: false } or EncounterStatic8N or EncounterStatic8ND or EncounterStatic8NC or EncounterStatic8U))
             return false;
         if (pk is IRibbonSetMark8 { RibbonMarkCurry: true })
             return false;
@@ -141,7 +160,7 @@ public sealed partial class MemoryContext8 : MemoryContext
             39 when arg is not (8 or 12 or 22 or 33 or 35 or 37 or 40 or 41 or 44 or 47 or 48 or 49 or 50 or 51 or 53 or 65 or 71 or 72 or 75 or 76 or 77) => true,
 
             // {0} checked the sign with {1} {2}. {4} that {3}.
-            42 when arg is not (1 or 12 or 22 or 33 or 35 or 37 or 44 or 47 or 53 or 71 or 72 or 76 or 77) => true,
+            42 when arg is not (1 or 8 or 12 or 22 or 33 or 35 or 37 or 44 or 47 or 53 or 71 or 72 or 76 or 77) => true,
 
             // {0} sat with {1} on a bench {2}. {4} that {3}.
             70 when arg is not (8 or 12 or 22 or 28 or 33 or 35 or 37 or 38 or 44 or 53 or 77) => true,
@@ -159,8 +178,12 @@ public sealed partial class MemoryContext8 : MemoryContext
         return (MemoryFeelings[memory] & (1 << --feeling)) != 0;
     }
 
+    public const byte MaxIntensity = 7;
+
     public static bool CanHaveIntensity8(byte memory, byte intensity)
     {
+        if ((uint)intensity > MaxIntensity)
+            return false;
         if (memory >= MemoryFeelings.Length)
             return false;
         return MemoryMinIntensity[memory] <= intensity;
@@ -178,10 +201,10 @@ public sealed partial class MemoryContext8 : MemoryContext
         }
     }
 
-    public static int GetMinimumIntensity8(int memory)
+    public static byte GetMinimumIntensity8(int memory)
     {
         if (memory >= MemoryMinIntensity.Length)
-            return -1;
+            return 0;
         return MemoryMinIntensity[memory];
     }
 

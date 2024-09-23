@@ -3,11 +3,11 @@ using static PKHeX.Core.RibbonIndex;
 namespace PKHeX.Core;
 
 /// <summary>
-/// Parsing logic for <see cref="IRibbonSetCommon8"/>.
+/// Parsing logic for <see cref="IRibbonSetMark9"/>.
 /// </summary>
 public static class RibbonVerifierMark9
 {
-    public static void Parse(this IRibbonSetMark9 r, RibbonVerifierArguments args, ref RibbonResultList list)
+    public static void Parse(this IRibbonSetMark9 r, in RibbonVerifierArguments args, ref RibbonResultList list)
     {
         if (!MarkRules.IsMarkValidAlpha(args.Encounter, args.Entity))
             list.Add(MarkAlpha, !r.RibbonMarkAlpha);
@@ -17,7 +17,7 @@ public static class RibbonVerifierMark9
             list.Add(MarkItemfinder);
         if (r.RibbonMarkJumbo && !MarkRules.IsMarkAllowedJumbo(args.History, args.Entity))
             list.Add(MarkJumbo);
-        if (r.RibbonMarkMightiest != MarkRules.IsMarkPresentMightiest(args.Encounter))
+        if (!MarkRules.IsMarkValidMightiest(args.Encounter, r.RibbonMarkMightiest, args.History))
             list.Add(MarkMightiest, !r.RibbonMarkMightiest);
         if (r.RibbonMarkMini && !MarkRules.IsMarkAllowedMini(args.History, args.Entity))
             list.Add(MarkMini);
@@ -31,8 +31,9 @@ public static class RibbonVerifierMark9
     {
         if (r.RibbonMarkAlpha)
             list.Add(MarkAlpha);
-        if (r.RibbonMarkGourmand)
-            list.Add(MarkGourmand);
+        // Can apply to eggs if in party. Just can't affix.
+        // if (r.RibbonMarkGourmand)
+        //     list.Add(MarkGourmand);
         if (r.RibbonMarkItemfinder)
             list.Add(MarkItemfinder);
         if (r.RibbonMarkJumbo)

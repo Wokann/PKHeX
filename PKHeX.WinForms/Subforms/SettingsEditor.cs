@@ -11,26 +11,34 @@ public partial class SettingsEditor : Form
 {
     public bool BlankChanged { get; private set; }
 
+    // Remember the last settings tab for the remainder of the session.
+    private static string? Last;
+
     public SettingsEditor(object obj)
     {
         InitializeComponent();
+        WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
         LoadSettings(obj);
 
         if (obj is PKHeXSettings s)
         {
-            var noSelectVersions = new[] { GameVersion.GO, (GameVersion)0 };
+            static bool IsInvalidSaveFileVersion(GameVersion value) => value is 0 or GameVersion.GO;
             CB_Blank.InitializeBinding();
-            CB_Blank.DataSource = GameInfo.VersionDataSource.Where(z => !noSelectVersions.Contains((GameVersion)z.Value)).ToList();
+            CB_Blank.DataSource = GameInfo.VersionDataSource.Where(z => !IsInvalidSaveFileVersion((GameVersion)z.Value)).ToList();
             CB_Blank.SelectedValue = (int)s.Startup.DefaultSaveVersion;
             CB_Blank.SelectedValueChanged += (_, _) => s.Startup.DefaultSaveVersion = (GameVersion)WinFormsUtil.GetIndex(CB_Blank);
             CB_Blank.SelectedIndexChanged += (_, _) => BlankChanged = true;
-            B_Reset.Click += (x, e) => DeleteSettings();
+            B_Reset.Click += (_, _) => DeleteSettings();
         }
         else
         {
             FLP_Blank.Visible = false;
             B_Reset.Visible = false;
         }
+
+        if (Last is not null && tabControl1.Controls[Last] is TabPage tab)
+            tabControl1.SelectedTab = tab;
+        tabControl1.SelectedIndexChanged += (_, _) => Last = tabControl1.SelectedTab?.Name;
 
         this.CenterToForm(FindForm());
     }
@@ -46,7 +54,7 @@ public partial class SettingsEditor : Form
             if (state is null)
                 continue;
 
-            var tab = new TabPage(p);
+            var tab = new TabPage(p) { Name = $"Tab_{p}" };
             var pg = new PropertyGrid { SelectedObject = state, Dock = DockStyle.Fill };
             tab.Controls.Add(pg);
             tabControl1.TabPages.Add(tab);

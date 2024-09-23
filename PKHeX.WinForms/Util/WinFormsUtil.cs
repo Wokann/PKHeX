@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
 
 using static PKHeX.Core.MessageStrings;
@@ -19,8 +20,6 @@ public static class WinFormsUtil
     /// <summary>
     /// Centers the <see cref="child"/> horizontally and vertically so that its center is the same as the <see cref="parent"/>'s center.
     /// </summary>
-    /// <param name="child"></param>
-    /// <param name="parent"></param>
     internal static void CenterToForm(this Control child, Control? parent)
     {
         if (parent == null)
@@ -36,7 +35,8 @@ public static class WinFormsUtil
     internal static void HorizontallyCenter(this Control child, Control parent)
     {
         int midpoint = (parent.Width - child.Width) / 2;
-        child.SetBounds(midpoint, 0, 0, 0, BoundsSpecified.X);
+        if (child.Location.X != midpoint)
+            child.SetBounds(midpoint, 0, 0, 0, BoundsSpecified.X);
     }
 
     public static T? FirstFormOfType<T>() where T : Form => (T?)Application.OpenForms.Cast<Form>().FirstOrDefault(form => form is T);
@@ -186,6 +186,13 @@ public static class WinFormsUtil
         control.ValueMember = nameof(ComboItem.Value);
     }
 
+    /// <inheritdoc cref="InitializeBinding(ListControl)"/>
+    public static void InitializeBinding(this DataGridViewComboBoxColumn control)
+    {
+        control.DisplayMember = nameof(ComboItem.Text);
+        control.ValueMember = nameof(ComboItem.Value);
+    }
+
     public static void SetValueClamped(this NumericUpDown nud, int value) => nud.Value = Math.Min(nud.Maximum, Math.Max(nud.Minimum, value));
     public static void SetValueClamped(this NumericUpDown nud, uint value) => nud.Value = Math.Min(nud.Maximum, Math.Max(nud.Minimum, value));
 
@@ -201,7 +208,7 @@ public static class WinFormsUtil
     /// </summary>
     /// <typeparam name="T">Type of control</typeparam>
     /// <param name="control"></param>
-    /// <returns>All children and subchildren contained by <see cref="control"/>.</returns>
+    /// <returns>All children and sub-children contained by <see cref="control"/>.</returns>
     public static IEnumerable<Control> GetAllControlsOfType<T>(Control control) where T : Control
     {
         foreach (var c in control.Controls.Cast<Control>())
@@ -228,19 +235,18 @@ public static class WinFormsUtil
         }
     }
 
-    private static readonly List<string> CustomSaveExtensions = new()
-    {
-        // THESE ARE SAVE FILE EXTENSION TYPES. SAVE STATE (RAM SNAPSHOT) EXTENSIONS DO NOT GO HERE.
-        "sav", // standard
-        "dat", // VC data
-        "gci", // Dolphin GameCubeImage
-        "dsv", // DeSmuME
-        "srm", // RetroArch save files
-        "fla", // flash
-        "SaveRAM", // BizHawk
-    };
+    private static List<string> CustomSaveExtensions => SaveFileMetadata.CustomSaveExtensions;
 
-    public static bool IsFileExtensionSAV(string file) => CustomSaveExtensions.Contains(Path.GetExtension(file));
+    public static bool IsFileExtensionSAV(ReadOnlySpan<char> file)
+    {
+        var ext = Path.GetExtension(file);
+        foreach (var other in CustomSaveExtensions)
+        {
+            if (ext.EndsWith(other))
+                return true;
+        }
+        return false;
+    }
 
     private static string ExtraSaveExtensions => ";" + string.Join(";", CustomSaveExtensions.Select(z => $"*.{z}"));
 
@@ -251,19 +257,22 @@ public static class WinFormsUtil
     /// </summary>
     /// <param name="extensions">Misc extensions of <see cref="PKM"/> files supported by the Save File.</param>
     /// <param name="path">Output result path</param>
-    /// <returns>Result of whether or not a file is to be loaded from the output path.</returns>
+    /// <returns>Result of the dialog menu indicating if a file is to be loaded from the output path.</returns>
     public static bool OpenSAVPKMDialog(IEnumerable<string> extensions, out string? path)
     {
-        string supported = string.Join(";", extensions.Select(s => $"*.{s}").Concat(new[] { "*.pk" }));
-        using var ofd = new OpenFileDialog
-        {
-            Filter = "All Files|*.*" +
+        var sb = new StringBuilder(128);
+        foreach (var type in extensions)
+            sb.Append($"*.{type};");
+        sb.Append("*.pk");
+
+        string supported = sb.ToString();
+        using var ofd = new OpenFileDialog();
+        ofd.Filter = "All Files|*.*" +
                      $"|Supported Files (*.*)|main;*.bin;{supported};*.bak" + ExtraSaveExtensions +
                      "|Save Files (*.sav)|main" + ExtraSaveExtensions +
                      "|Decrypted PKM File (*.pk)|" + supported +
                      "|Binary File|*.bin" +
-                     "|Backup File|*.bak",
-        };
+                     "|Backup File|*.bak";
 
         // Detect main
         SaveFile? sav = null;
@@ -296,21 +305,19 @@ public static class WinFormsUtil
     /// Opens a dialog to save a <see cref="PKM"/> file.
     /// </summary>
     /// <param name="pk"><see cref="PKM"/> file to be saved.</param>
-    /// <returns>Result of whether or not the file was saved.</returns>
+    /// <returns>True if the file was saved.</returns>
     public static bool SavePKMDialog(PKM pk)
     {
         string pkx = pk.Extension;
-        bool allowEncrypted = pk.Format >= 3 && pkx[0] == 'p';
+        bool allowEncrypted = pk.Format >= 3 && pkx.StartsWith('p');
         var genericFilter = $"Decrypted PKM File|*.{pkx}" +
                             (allowEncrypted ? $"|Encrypted PKM File|*.e{pkx[1..]}" : string.Empty) +
                             "|Binary File|*.bin" +
                             "|All Files|*.*";
-        using var sfd = new SaveFileDialog
-        {
-            Filter = genericFilter,
-            DefaultExt = pkx,
-            FileName = Util.CleanFileName(pk.FileName),
-        };
+        using var sfd = new SaveFileDialog();
+        sfd.Filter = genericFilter;
+        sfd.DefaultExt = pkx;
+        sfd.FileName = Util.CleanFileName(pk.FileName);
         if (sfd.ShowDialog() != DialogResult.OK)
             return false;
 
@@ -342,16 +349,14 @@ public static class WinFormsUtil
     /// </summary>
     /// <param name="sav"><see cref="SaveFile"/> to be saved.</param>
     /// <param name="currentBox">Box the player will be greeted with when accessing the PC ingame.</param>
-    /// <returns>Result of whether or not the file was saved.</returns>
+    /// <returns>True if the file was saved.</returns>
     public static bool ExportSAVDialog(SaveFile sav, int currentBox = 0)
     {
-        using var sfd = new SaveFileDialog
-        {
-            Filter = sav.Metadata.Filter,
-            FileName = sav.Metadata.FileName,
-            FilterIndex = 1000, // default to last, All Files
-            RestoreDirectory = true,
-        };
+        using var sfd = new SaveFileDialog();
+        sfd.Filter = sav.Metadata.Filter;
+        sfd.FileName = sav.Metadata.FileName;
+        sfd.FilterIndex = 1000; // default to last, All Files
+        sfd.RestoreDirectory = true;
         if (Directory.Exists(sav.Metadata.FileFolder))
             sfd.InitialDirectory = sav.Metadata.FileFolder;
 
@@ -399,14 +404,12 @@ public static class WinFormsUtil
     /// Opens a dialog to save a <see cref="MysteryGift"/> file.
     /// </summary>
     /// <param name="gift"><see cref="MysteryGift"/> to be saved.</param>
-    /// <returns>Result of whether or not the file was saved.</returns>
+    /// <returns>True if the file was saved.</returns>
     public static bool ExportMGDialog(DataMysteryGift gift)
     {
-        using var sfd = new SaveFileDialog
-        {
-            Filter = GetMysterGiftFilter(gift.Context),
-            FileName = Util.CleanFileName(gift.FileName),
-        };
+        using var sfd = new SaveFileDialog();
+        sfd.Filter = GetMysterGiftFilter(gift.Context);
+        sfd.FileName = Util.CleanFileName(gift.FileName);
         if (sfd.ShowDialog() != DialogResult.OK)
             return false;
 

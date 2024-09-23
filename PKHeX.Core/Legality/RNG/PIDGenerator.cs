@@ -16,7 +16,7 @@ public static class PIDGenerator
             B = LCRNG.Next(B);
 
         var swappedPIDHalves = type is >= PIDType.Method_1_Unown and <= PIDType.Method_4_Unown;
-        if (swappedPIDHalves) // switched order of PID halves, "BA.."
+        if (swappedPIDHalves) // switched order of PID halves, "BA**"
             pk.PID = (A & 0xFFFF0000) | (B >> 16);
         else
             pk.PID = (B & 0xFFFF0000) | (A >> 16);
@@ -81,26 +81,38 @@ public static class PIDGenerator
 
     private static void SetValuesFromSeedXDRNG(PKM pk, uint seed)
     {
-        switch (pk.Species)
+        var species = pk.Species;
+        switch (species)
         {
             case (int)Species.Umbreon or (int)Species.Eevee: // Colo Umbreon, XD Eevee
-                pk.TID16 = (ushort)((seed = XDRNG.Next(seed)) >> 16);
-                pk.SID16 = (ushort)((seed = XDRNG.Next(seed)) >> 16);
-                seed = XDRNG.Next2(seed); // PID calls consumed
+                pk.TID16 = (ushort)XDRNG.Next16(ref seed);
+                pk.SID16 = (ushort)XDRNG.Next16(ref seed);
+                seed = XDRNG.Next2(seed); // fake PID
                 break;
             case (int)Species.Espeon: // Colo Espeon
-                pk.TID16 = (ushort)((seed = XDRNG.Next(seed)) >> 16);
-                pk.SID16 = (ushort)((seed = XDRNG.Next(seed)) >> 16);
-                seed = XDRNG.Next9(seed); // PID calls consumed, skip over Umbreon
+                var tid = pk.TID16 = (ushort)XDRNG.Next16(ref seed);
+                var sid = pk.SID16 = (ushort)XDRNG.Next16(ref seed);
+                LockFinder.SkipValidColoStarter(ref seed, tid, sid);
+                seed = XDRNG.Next2(seed); // fake PID
                 break;
         }
         var A = XDRNG.Next(seed); // IV1
         var B = XDRNG.Next(A); // IV2
-        var C = XDRNG.Next(B); // Ability?
-        var D = XDRNG.Next(C); // PID
-        var E = XDRNG.Next(D); // PID
+        var C = XDRNG.Next(B); // Ability
 
-        pk.PID = (D & 0xFFFF0000) | (E >> 16);
+        if (species is (int)Species.Umbreon or (int)Species.Espeon)
+        {
+            // Reuse existing logic.
+            pk.PID = LockFinder.GenerateStarterPID(ref C, pk.TID16, pk.SID16);
+        }
+        else
+        {
+            // Generate PID.
+            var D = XDRNG.Next(C); // PID
+            var E = XDRNG.Next(D); // PID
+            pk.PID = (D & 0xFFFF0000) | (E >> 16);
+        }
+
         Span<int> IVs = stackalloc int[6];
         MethodFinder.GetIVsInt32(IVs, A >> 16, B >> 16);
         pk.SetIVs(IVs);
@@ -132,9 +144,9 @@ public static class PIDGenerator
         if ((pid2 > 7 ? 0 : 1) != (pid1 ^ SID16 ^ TID16))
             pid ^= 0x80000000;
         pk.PID = pid;
-        pk.HeldItem = (int)(C >> 31) + 169; // 0-Ganlon, 1-Salac
-        pk.Version = (int)(D >> 31) + 1; // 0-Sapphire, 1-Ruby
-        pk.OT_Gender = (int)(E >> 31);
+        pk.HeldItem = (ushort)(C >> 31) + 169; // 0-Ganlon, 1-Salac
+        pk.Version = GameVersion.S + (byte)(D >> 31); // 0-Sapphire, 1-Ruby
+        pk.OriginalTrainerGender = (byte)(E >> 31);
         Span<int> ivs = stackalloc int[6];
         XDRNG.GetSequentialIVsInt32(E, ivs);
         pk.SetIVs(ivs);
@@ -172,13 +184,17 @@ public static class PIDGenerator
                 return (pk, seed) => SetValuesFromSeedBACD(pk, t, seed);
 
             case PIDType.PokeSpot:
-                return SetRandomPIDIV;
+                return SetRandomPokeSpotPID;
 
             case PIDType.G5MGShiny:
                 return SetValuesFromSeedMG5Shiny;
 
             case PIDType.Pokewalker:
-                return (pk, seed) => pk.PID = GetPokeWalkerPID(pk.TID16, pk.SID16, seed%24, pk.Gender, pk.PersonalInfo.Gender);
+                return (pk, seed) =>
+                {
+                    var pid = pk.PID = PokewalkerRNG.GetPID(pk.TID16, pk.SID16, seed % 24, pk.Gender, pk.PersonalInfo.Gender);
+                    pk.RefreshAbility((int)(pid & 1));
+                };
 
             // others: unimplemented
             case PIDType.CuteCharm:
@@ -193,40 +209,37 @@ public static class PIDGenerator
 
     public static void SetRandomChainShinyPID(PKM pk, uint seed)
     {
-        // 13 rand bits
-        // 1 3-bit for upper
-        // 1 3-bit for lower
+        pk.PID = ClassicEraRNG.GetChainShinyPID(ref seed, pk.ID32);
 
-        uint Next() => (seed = LCRNG.Next(seed)) >> 16;
-        uint lower = Next() & 7;
-        uint upper = Next() & 7;
-        for (int i = 0; i < 13; i++)
-            lower |= (Next() & 1) << (3 + i);
-
-        upper = ((lower ^ pk.TID16 ^ pk.SID16) & 0xFFF8) | (upper & 0x7);
-        pk.PID = (upper << 16) | lower;
         Span<int> IVs = stackalloc int[6];
-        MethodFinder.GetIVsInt32(IVs, Next(), Next());
+        var rand1 = LCRNG.Next16(ref seed);
+        var rand2 = LCRNG.Next16(ref seed);
+        MethodFinder.GetIVsInt32(IVs, rand1, rand2);
         pk.SetIVs(IVs);
     }
 
-    public static void SetRandomPokeSpotPID(PKM pk, int nature, int gender, int ability, int slot)
+    private static void SetRandomPokeSpotPID(PKM pk, uint seed)
+    {
+        var D = XDRNG.Next(seed); // PID
+        var E = XDRNG.Next(D); // PID
+        pk.PID = (D & 0xFFFF0000) | (E >> 16);
+    }
+
+    public static void SetRandomPokeSpotPID(PKM pk, Nature nature, byte gender, int ability, int slot)
     {
         var rnd = Util.Rand;
         while (true)
         {
             var seed = rnd.Rand32();
-            if (!MethodFinder.IsPokeSpotActivation(slot, seed, out _))
+            if (!MethodFinder.IsPokeSpotActivation(slot, seed, out var newSeed))
                 continue;
 
-            var D = XDRNG.Next(seed); // PID
-            var E = XDRNG.Next(D); // PID
+            SetRandomPokeSpotPID(pk, newSeed);
+            pk.SetRandomIVs();
 
-            pk.PID = (D & 0xFFFF0000) | (E >> 16);
             if (!IsValidCriteria4(pk, nature, ability, gender))
                 continue;
 
-            pk.SetRandomIVs();
             return;
         }
     }
@@ -239,40 +252,6 @@ public static class PIDGenerator
         return PID;
     }
 
-    public static uint GetPokeWalkerPID(ushort TID16, ushort SID16, uint nature, int gender, byte gr)
-    {
-        if (nature >= 24)
-            nature = 0;
-        uint pid = ((((uint)TID16 ^ SID16) >> 8) ^ 0xFF) << 24; // the most significant byte of the PID is chosen so the Pokémon can never be shiny.
-        // Ensure nature is set to required nature without affecting shininess
-        pid += nature - (pid % 25);
-
-        if (gr is 0 or >= 0xFE) // non-dual gender
-            return pid;
-
-        // Ensure Gender is set to required gender without affecting other properties
-        // If Gender is modified, modify the ability if appropriate
-
-        // either m/f
-        var pidGender = (pid & 0xFF) < gr ? 1 : 0;
-        if (gender == pidGender)
-            return pid;
-
-        if (gender == 0) // Male
-        {
-            pid += (((gr - (pid & 0xFF)) / 25) + 1) * 25;
-            if ((nature & 1) != (pid & 1))
-                pid += 25;
-        }
-        else
-        {
-            pid -= ((((pid & 0xFF) - gr) / 25) + 1) * 25;
-            if ((nature & 1) != (pid & 1))
-                pid -= 25;
-        }
-        return pid;
-    }
-
     public static void SetValuesFromSeedMG5Shiny(PKM pk, uint seed)
     {
         var gv = seed >> 24;
@@ -281,70 +260,24 @@ public static class PIDGenerator
         SetRandomIVs(pk);
     }
 
-    public static void SetRandomWildPID(PKM pk, int gen, int nature, int ability, int gender, PIDType specific = PIDType.None)
-    {
-        if (specific == PIDType.Pokewalker)
-        {
-            SetRandomPIDPokewalker(pk, nature, gender);
-            return;
-        }
-        switch (gen)
-        {
-            case 3:
-            case 4:
-                SetRandomWildPID4(pk, nature, ability, gender, specific);
-                break;
-            case 5:
-                SetRandomWildPID5(pk, nature, ability, gender, specific);
-                break;
-            default:
-                SetRandomWildPID(pk, nature, ability, gender);
-                break;
-        }
-    }
-
-    public static void SetRandomPIDPokewalker(PKM pk, int nature, int gender)
-    {
-        // Pokewalker PIDs cannot yield multiple abilities from the input nature-gender-trainerID. Disregard any ability request.
-        pk.Gender = gender;
-        do
-        {
-            pk.PID = GetPokeWalkerPID(pk.TID16, pk.SID16, (uint) nature, gender, pk.PersonalInfo.Gender);
-        } while (!pk.IsGenderValid());
-
-        pk.RefreshAbility((int) (pk.PID & 1));
-        SetRandomIVs(pk);
-    }
-
-    /// <summary>
-    /// Generates a <see cref="PKM.PID"/> and <see cref="PKM.IVs"/> that are unrelated.
-    /// </summary>
-    /// <param name="pk">Pokémon to modify.</param>
-    /// <param name="seed">Seed which is used for the <see cref="PKM.PID"/>.</param>
-    private static void SetRandomPIDIV(PKM pk, uint seed)
-    {
-        pk.PID = seed;
-        SetRandomIVs(pk);
-    }
-
-    private static void SetRandomWildPID4(PKM pk, int nature, int ability, int gender, PIDType specific = PIDType.None)
+    public static uint SetRandomWildPID4(PKM pk, Nature nature, int ability, byte gender, PIDType type)
     {
         pk.RefreshAbility(ability);
         pk.Gender = gender;
-        var type = GetPIDType(pk, specific);
         var method = GetGeneratorMethod(type);
 
         var rnd = Util.Rand;
         while (true)
         {
-            method(pk, rnd.Rand32());
+            var seed = rnd.Rand32();
+            method(pk, seed);
             if (!IsValidCriteria4(pk, nature, ability, gender))
                 continue;
-            return;
+            return seed;
         }
     }
 
-    private static bool IsValidCriteria4(PKM pk, int nature, int ability, int gender)
+    public static bool IsValidCriteria4(PKM pk, Nature nature, int ability, byte gender)
     {
         if (pk.GetSaneGender() != gender)
             return false;
@@ -352,32 +285,13 @@ public static class PIDGenerator
         if (pk.Nature != nature)
             return false;
 
-        if ((pk.PID & 1) != ability)
+        if ((pk.EncryptionConstant & 1) != ability)
             return false;
 
         return true;
     }
 
-    private static PIDType GetPIDType(PKM pk, PIDType specific)
-    {
-        if (specific != PIDType.None)
-            return specific;
-        if (pk.Version == 15)
-            return PIDType.CXD;
-        if (pk is { Species: (int)Species.Unown, Gen3: true })
-        {
-            return Util.Rand.Next(3) switch
-            {
-                1 => PIDType.Method_2_Unown,
-                2 => PIDType.Method_4_Unown,
-                _ => PIDType.Method_1_Unown,
-            };
-        }
-
-        return PIDType.Method_1;
-    }
-
-    private static void SetRandomWildPID5(PKM pk, int nature, int ability, int gender, PIDType specific = PIDType.None)
+    public static void SetRandomWildPID5(PKM pk, Nature nature, int ability, byte gender, PIDType specific = PIDType.None)
     {
         var tidbit = (pk.TID16 ^ pk.SID16) & 1;
         pk.RefreshAbility(ability);
@@ -409,19 +323,8 @@ public static class PIDGenerator
             pk.PID = seed;
             if (pk.GetSaneGender() != gender)
                 continue;
-
-            SetRandomIVs(pk);
             return;
         }
-    }
-
-    private static void SetRandomWildPID(PKM pk, int nature, int ability, int gender)
-    {
-        pk.PID = Util.Rand32();
-        pk.Nature = nature;
-        pk.Gender = gender;
-        pk.RefreshAbility(ability);
-        SetRandomIVs(pk);
     }
 
     private static void SetRandomIVs(PKM pk)

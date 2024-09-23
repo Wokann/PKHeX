@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace PKHeX.Core;
@@ -5,13 +6,13 @@ namespace PKHeX.Core;
 /// <summary>
 /// Information for Accessing individual blocks within a <see cref="SAV6AODemo"/>.
 /// </summary>
-public sealed class SaveBlockAccessor6AODemo : ISaveBlockAccessor<BlockInfo6>, ISaveBlock6Core
+public sealed class SaveBlockAccessor6AODemo(SAV6AODemo sav) : ISaveBlockAccessor<BlockInfo6>, ISaveBlock6Core
 {
     public const int BlockMetadataOffset = SaveUtil.SIZE_G6ORASDEMO - 0x200;
     private const int boAOdemo = BlockMetadataOffset;
 
     private static readonly BlockInfo6[] BlocksAODemo =
-    {
+    [
         new(boAOdemo, 00, 0x00000, 0x00B90), // MyItem
         new(boAOdemo, 01, 0x00C00, 0x0002C), // ItemInfo6
         new(boAOdemo, 02, 0x00E00, 0x00038), // GameTime
@@ -28,27 +29,26 @@ public sealed class SaveBlockAccessor6AODemo : ISaveBlockAccessor<BlockInfo6>, I
         new(boAOdemo, 13, 0x04E00, 0x00048), // Repel Info, (Swarm?) and other overworld info (roamer)
         new(boAOdemo, 14, 0x05000, 0x00400), // PokeDiarySave
         new(boAOdemo, 15, 0x05400, 0x0025C), // Record
-    };
+    ];
 
     public IReadOnlyList<BlockInfo6> BlockInfo => BlocksAODemo;
-    public MyItem Items { get; }
-    public ItemInfo6 ItemInfo { get; }
-    public GameTime6 GameTime { get; }
-    public Situation6 Situation { get; }
-    public PlayTime6 Played { get; }
-    public MyStatus6 Status { get; }
-    public RecordBlock6 Records { get; }
-    public Misc6AO Misc { get; }
+    public MyItem6AO Items { get; } = new(sav, Block(sav, 0));
+    public ItemInfo6 ItemInfo { get; } = new(sav, Block(sav, 1));
+    public GameTime6 GameTime { get; } = new(sav, Block(sav, 2));
+    public Situation6 Situation { get; } = new(sav, Block(sav, 3));
+    public PlayTime6 Played { get; } = new(sav, Block(sav, 5));
+    public Misc6AO Misc { get; } = new(sav, Block(sav, 8));
+    public MyStatus6 Status { get; } = new(sav, Block(sav, 9));
+    public EventWork6 EventWork { get; } = new(sav, Block(sav, 11));
+    public RecordBlock6AO Records { get; } = new(sav, Block(sav, 15));
 
-    public SaveBlockAccessor6AODemo(SAV6AODemo sav)
+    MyItem ISaveBlock6Core.Items => Items;
+    RecordBlock6 ISaveBlock6Core.Records => Records;
+
+    private static Memory<byte> Block(SAV6AODemo sav, int index)
     {
-        Items = new MyItem6AO(sav, 0x00000);
-        ItemInfo = new ItemInfo6(sav, 0x00C00);
-        GameTime = new GameTime6(sav, 0x00E00);
-        Situation = new Situation6(sav, 0x01000);
-        Played = new PlayTime6(sav, 0x01400);
-        Status = new MyStatus6(sav, 0x03C00);
-        Records = new RecordBlock6AO(sav, 0x05400);
-        Misc = new Misc6AO(sav, 0x03A00);
+        var data = sav.Data;
+        var block = BlocksAODemo[index];
+        return data.AsMemory(block.Offset, block.Length);
     }
 }

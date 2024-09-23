@@ -8,7 +8,7 @@ namespace PKHeX.Core;
 /// </summary>
 public static class RibbonStrings
 {
-    private static readonly Dictionary<string, string> RibbonNames = new();
+    private static readonly Dictionary<string, string> RibbonNames = [];
 
     /// <summary>
     /// Resets the Ribbon Dictionary to use the supplied set of Ribbon (Property) Names.
@@ -25,8 +25,8 @@ public static class RibbonStrings
             var index = line.IndexOf('\t');
             if (index < 0)
                 continue;
-            var name = line[..index];
             var text = line[(index + 1)..];
+            var name = line[..index];
             RibbonNames[name] = text;
         }
     }

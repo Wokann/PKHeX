@@ -22,6 +22,28 @@ public class StringQualityTests
         CheckMetLocations(language);
         CheckItemNames(language);
         CheckMoveNames(language);
+        CheckSpeciesNames(language);
+    }
+
+    /// <summary>
+    /// Checks for duplicate hashes in the species list.
+    /// </summary>
+    /// <remarks>
+    /// Uses hashes instead of strings as other logic uses dictionaries of hashes.
+    /// </remarks>
+    private static void CheckSpeciesNames(string language)
+    {
+        var strings = GameInfo.GetStrings(language);
+        var arr = strings.specieslist;
+        var hashset = new HashSet<int>(arr.Length);
+        var duplicates = new List<string>(0);
+        foreach (var line in arr)
+        {
+            var hash = line.GetHashCode();
+            if (!hashset.Add(hash))
+                duplicates.Add(line);
+        }
+        duplicates.Count.Should().Be(0, "expected no duplicate strings.");
     }
 
     private static void CheckMoveNames(string language)
@@ -73,8 +95,9 @@ public class StringQualityTests
             var group = setField.GetValue(strings) as ILocationSet;
             Assert.NotNull(group);
 
-            foreach (var (bank, arr) in group.GetAll())
+            foreach (var (bank, mem) in group.GetAll())
             {
+                var arr = mem.Span;
                 var hs = new HashSet<string>(arr.Length);
                 bool sm0 = bank == 0 && name == nameof(GameStrings.Gen7);
                 for (int index = 0; index < arr.Length; index++)

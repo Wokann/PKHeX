@@ -4,12 +4,10 @@ using System.Diagnostics;
 
 namespace PKHeX.Core;
 
-public sealed class InventoryPouch8b : InventoryPouch
+public sealed class InventoryPouch8b(InventoryType type, IItemStorage info, int maxCount)
+    : InventoryPouch(type, info, maxCount, 0)
 {
     public bool SetNew { get; set; }
-
-    public InventoryPouch8b(InventoryType type, IItemStorage info, int maxCount, int offset)
-        : base(type, info, maxCount, offset) { }
 
     public override InventoryItem8b GetEmpty(int itemID = 0, int count = 0) => new() { Index = itemID, Count = count, IsNew = true };
 
@@ -33,15 +31,15 @@ public sealed class InventoryPouch8b : InventoryPouch
         SortBy<InventoryItem8b, ushort>(z => !z.IsValidSaveSortNumberCount ? (ushort)0xFFFF : z.SortOrder);
     }
 
-    public InventoryItem8b GetItem(ReadOnlySpan<byte> data, ushort itemID)
+    public static InventoryItem8b GetItem(ReadOnlySpan<byte> data, ushort itemID)
     {
-        var ofs = GetItemOffset(itemID, Offset);
+        var ofs = GetItemOffset(itemID);
         return InventoryItem8b.Read(itemID, data[ofs..]);
     }
 
     public override void SetPouch(Span<byte> data)
     {
-        HashSet<ushort> processed = new();
+        HashSet<ushort> processed = [];
 
         // Write all the item slots still present in the pouch. Keep track of the item IDs processed.
         var items = (InventoryItem8b[])Items;
@@ -66,11 +64,12 @@ public sealed class InventoryPouch8b : InventoryPouch
                 item.IsNew |= !original.IsValidSaveSortNumberCount;
             }
 
-            var ofs = GetItemOffset(index, Offset);
+            var ofs = GetItemOffset(index);
             item.Write(data[ofs..]);
 
-            if (!processed.Contains(index)) // we will allow duplicate item definitions, but they'll overwrite instead of sum/separate.
-                processed.Add(index);
+            // In the event of duplicates, we just overwrite what was previously written by a prior duplicate.
+            // Don't care if we've already processed this item, just write it again.
+            processed.Add(index);
         }
 
         // For all the items that were not present in the pouch, clear the data for them.
@@ -82,7 +81,7 @@ public sealed class InventoryPouch8b : InventoryPouch
         }
     }
 
-    public static int GetItemOffset(ushort index, int baseOffset) => baseOffset + (InventoryItem8b.SIZE * index);
+    public static int GetItemOffset(ushort index) => InventoryItem8b.SIZE * index;
 
-    public void ClearItem(Span<byte> data, ushort index) => InventoryItem8b.Clear(data, GetItemOffset(index, Offset));
+    public static void ClearItem(Span<byte> data, ushort index) => InventoryItem8b.Clear(data, GetItemOffset(index));
 }

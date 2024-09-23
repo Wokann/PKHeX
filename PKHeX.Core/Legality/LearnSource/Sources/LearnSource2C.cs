@@ -18,7 +18,9 @@ public sealed class LearnSource2C : ILearnSource<PersonalInfo2>, IEggSource
     private const int MaxSpecies = Legal.MaxSpeciesID_2;
     private const LearnEnvironment Game = C;
 
-    public Learnset GetLearnset(ushort species, byte form) => Learnsets[species];
+    public LearnEnvironment Environment => Game;
+
+    public Learnset GetLearnset(ushort species, byte form) => Learnsets[species < Learnsets.Length ? species : 0];
 
     public bool TryGetPersonal(ushort species, byte form, [NotNullWhen(true)] out PersonalInfo2? pi)
     {
@@ -42,7 +44,7 @@ public sealed class LearnSource2C : ILearnSource<PersonalInfo2>, IEggSource
     public ReadOnlySpan<ushort> GetEggMoves(ushort species, byte form)
     {
         if (species > MaxSpecies)
-            return ReadOnlySpan<ushort>.Empty;
+            return [];
         return EggMoves[species].Moves;
     }
 
@@ -61,7 +63,7 @@ public sealed class LearnSource2C : ILearnSource<PersonalInfo2>, IEggSource
         {
             var learn = GetLearnset(evo.Species, evo.Form);
             var level = learn.GetLevelLearnMove(move);
-            if (level != -1 && evo.LevelMin <= level && level <= evo.LevelMax)
+            if (level != -1 && evo.InsideLevelRange(level))
                 return new(LevelUp, Game, (byte)level);
         }
 
@@ -112,10 +114,13 @@ public sealed class LearnSource2C : ILearnSource<PersonalInfo2>, IEggSource
             pi.SetAllLearnTutorType(result, Tutors_GSC);
     }
 
-    public static void GetEncounterMoves(IEncounterTemplate enc, Span<ushort> init)
+    public static void GetEncounterMoves(PKM pk, IEncounterTemplate enc, Span<ushort> init)
     {
         var species = enc.Species;
         var learn = Learnsets[species];
-        learn.SetEncounterMoves(enc.LevelMin, init);
+        var level = enc.LevelMin;
+        if (pk is ICaughtData2 { CaughtData: not 0 })
+            level = Math.Max(level, pk.MetLevel); // ensure the met level is somewhat accurate
+        learn.SetEncounterMoves(level, init);
     }
 }

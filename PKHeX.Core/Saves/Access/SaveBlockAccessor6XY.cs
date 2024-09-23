@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace PKHeX.Core;
@@ -5,13 +6,13 @@ namespace PKHeX.Core;
 /// <summary>
 /// Information for Accessing individual blocks within a <see cref="SAV6XY"/>.
 /// </summary>
-public sealed class SaveBlockAccessor6XY : ISaveBlockAccessor<BlockInfo6>, ISaveBlock6XY
+public sealed class SaveBlockAccessor6XY(SAV6XY sav) : ISaveBlockAccessor<BlockInfo6>, ISaveBlock6XY
 {
     public const int BlockMetadataOffset = SaveUtil.SIZE_G6XY - 0x200;
     private const int boXY = BlockMetadataOffset;
 
     private static readonly BlockInfo6[] BlocksXY =
-    {
+    [
         new(boXY, 00, 0x00000, 0x002C8), // 00 Puff
         new(boXY, 01, 0x00400, 0x00B88), // 01 MyItem
         new(boXY, 02, 0x01000, 0x0002C), // 02 ItemInfo (Select Bound Items)
@@ -67,55 +68,46 @@ public sealed class SaveBlockAccessor6XY : ISaveBlockAccessor<BlockInfo6>, ISave
         new(boXY, 52, 0x21E00, 0x00628), // 52 ValidationSave (updateable Public Key for legal check api calls)
         new(boXY, 53, 0x22600, 0x34AD0), // 53 Box
         new(boXY, 54, 0x57200, 0x0E058), // 54 JPEG
-    };
+    ];
 
     public IReadOnlyList<BlockInfo6> BlockInfo => BlocksXY;
-    public MyItem Items { get; }
-    public ItemInfo6 ItemInfo { get; }
-    public GameTime6 GameTime { get; }
-    public Situation6 Situation { get; }
-    public PlayTime6 Played { get; }
-    public MyStatus6 Status { get; }
-    public RecordBlock6 Records { get; }
-    public SubEventLog6 SUBE { get; }
-    public ConfigSave6 Config { get; }
-    public Encount6 Encount { get; }
+    public Puff6 Puff { get; } = new(sav, Block(sav, 0));
+    public MyItem6XY Items { get; } = new(sav, Block(sav, 1));
+    public ItemInfo6 ItemInfo { get; } = new(sav, Block(sav, 2));
+    public GameTime6 GameTime { get; } = new(sav, Block(sav, 3));
+    public Situation6 Situation { get; } = new(sav, Block(sav, 4));
+    public PlayTime6 Played { get; } = new(sav, Block(sav, 6));
+    public Fashion6XY Fashion { get; } = new(sav, Block(sav, 7));
+    public Misc6XY Misc { get; } = new(sav, Block(sav, 11));
+    public BoxLayout6 BoxLayout { get; } = new(sav, Block(sav, 12));
+    public BattleBox6 BattleBox { get; } = new(sav, Block(sav, 13));
+    public MyStatus6XY Status { get; } = new(sav, Block(sav, 17));
+    public EventWork6 EventWork { get; } = new(sav, Block(sav, 19));
+    public Zukan6XY Zukan { get; } = new(sav, Block(sav, 20), 0x3C8);
+    public UnionPokemon6 Fused { get; } = new(sav, Block(sav, 22));
+    public ConfigSave6 Config { get; } = new(sav, Block(sav, 23));
+    public OPower6 OPower { get; } = new(sav, Block(sav, 25));
+    public GTS6 GTS { get; } = new(sav, Block(sav, 28));
+    public Encount6 Encount { get; } = new(sav, Block(sav, 31));
+    public HallOfFame6 HallOfFame { get; } = new(sav, Block(sav, 36));
+    public MaisonBlock Maison { get; } = new(sav, Block(sav, 37));
+    public Daycare6XY Daycare { get; } = new(sav, Block(sav, 38));
+    public BerryField6XY BerryField { get; } = new(sav, Block(sav, 40));
+    public MysteryBlock6 MysteryGift { get; } = new(sav, Block(sav, 41));
+    public SubEventLog6XY SUBE { get; } = new(sav, Block(sav, 42));
+    public RecordBlock6XY Records { get; } = new(sav, Block(sav, 44));
+    public SuperTrainBlock SuperTrain { get; } = new(sav, Block(sav, 46));
+    public LinkBlock6 Link { get; } = new(sav, Block(sav, 48));
 
-    public SaveBlockAccessor6XY(SAV6XY sav)
+    MyItem ISaveBlock6Core.Items => Items;
+    SubEventLog6 ISaveBlock6Main.SUBE => SUBE;
+    RecordBlock6 ISaveBlock6Core.Records => Records;
+    MyStatus6 ISaveBlock6Core.Status => Status;
+
+    private static Memory<byte> Block(SAV6XY sav, int i)
     {
-        Puff = new Puff6(sav, 0x00000);
-        Items = new MyItem6XY(sav, 0x00400);
-        ItemInfo = new ItemInfo6(sav, 0x01000);
-        GameTime = new GameTime6(sav, 0x01200);
-        Situation = new Situation6(sav, 0x01400);
-        Played = new PlayTime6(sav, 0x01800);
-        Fashion = new Fashion6XY(sav, 0x1A00);
-        Misc = new Misc6XY(sav, 0x4200);
-        BoxLayout = new BoxLayout6(sav, 0x4400);
-        BattleBox = new BattleBox6(sav, 0x04A00);
-        Status = new MyStatus6XY(sav, 0x14000);
-        Zukan = new Zukan6XY(sav, 0x15000, 0x3C8);
-        Config = new ConfigSave6(sav, 0x16200);
-        OPower = new OPower6(sav, 0x16A00);
-        Encount = new Encount6(sav, 0x17E00);
-        MysteryGift = new MysteryBlock6(sav, 0x1BC00);
-        SUBE = new SubEventLog6XY(sav, 0x1D800);
-        Records = new RecordBlock6XY(sav, 0x1E400);
-        SuperTrain = new SuperTrainBlock(sav, 0x1F200);
-        Link = new LinkBlock6(sav, 0x1FE00);
-        Maison = new MaisonBlock(sav, 0x1B000);
+        var data = sav.Data;
+        var block = BlocksXY[i];
+        return data.AsMemory(block.Offset, block.Length);
     }
-
-    public Puff6 Puff { get; }
-    public BoxLayout6 BoxLayout { get; }
-    public BattleBox6 BattleBox { get; }
-    public OPower6 OPower { get; }
-    public MysteryBlock6 MysteryGift { get; }
-    public LinkBlock6 Link { get; }
-    public SuperTrainBlock SuperTrain { get; }
-    public MaisonBlock Maison { get; }
-
-    public Misc6XY Misc { get; }
-    public Zukan6XY Zukan { get; }
-    public Fashion6XY Fashion { get; }
 }

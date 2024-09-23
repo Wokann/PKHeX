@@ -15,17 +15,15 @@ namespace PKHeX.WinForms.Controls;
 /// <summary>
 /// Orchestrates the movement of slots within the GUI.
 /// </summary>
-public sealed class SlotChangeManager : IDisposable
+public sealed class SlotChangeManager(SAVEditor se) : IDisposable
 {
-    public readonly SAVEditor SE;
+    public readonly SAVEditor SE = se;
     public readonly SlotTrackerImage LastSlot = new();
     public readonly DragManager Drag = new();
     public SaveDataEditor<PictureBox> Env { get; set; } = null!;
 
-    public readonly List<BoxEditor> Boxes = new();
+    public readonly List<BoxEditor> Boxes = [];
     public readonly SlotHoverHandler Hover = new();
-
-    public SlotChangeManager(SAVEditor se) => SE = se;
 
     public void Reset()
     {
@@ -102,8 +100,7 @@ public sealed class SlotChangeManager : IDisposable
     private static SlotViewInfo<T> GetSlotInfo<T>(T pb) where T : Control
     {
         var view = WinFormsUtil.FindFirstControlOfType<ISlotViewer<T>>(pb);
-        if (view == null)
-            throw new InvalidCastException("Unable to find View Parent");
+        ArgumentNullException.ThrowIfNull(view);
         var src = view.GetSlotData(pb);
         return new SlotViewInfo<T>(src, view);
     }
@@ -111,11 +108,14 @@ public sealed class SlotChangeManager : IDisposable
     public void MouseMove(object? sender, MouseEventArgs e)
     {
         if (!Drag.CanStartDrag)
+        {
+            Hover.UpdateMousePosition(e.Location);
             return;
+        }
         if (sender is not PictureBox pb)
             return;
 
-        // Abort if there is no Pokemon in the given slot.
+        // Abort if there is no Pokémon in the given slot.
         if (pb.Image == null)
             return;
         bool encrypt = Control.ModifierKeys == Keys.Control;
@@ -274,9 +274,9 @@ public sealed class SlotChangeManager : IDisposable
     /// <param name="e">Args</param>
     /// <param name="badDest">Destination slot disallows eggs/blanks</param>
     /// <returns>True if loaded</returns>
-    private bool TryLoadFiles(IReadOnlyList<string> files, DragEventArgs e, bool badDest)
+    private bool TryLoadFiles(ReadOnlySpan<string> files, DragEventArgs e, bool badDest)
     {
-        if (files.Count == 0)
+        if (files.Length == 0)
             return false;
 
         var sav = Drag.Info.Destination!.View.SAV;
@@ -284,7 +284,7 @@ public sealed class SlotChangeManager : IDisposable
         var temp = FileUtil.GetSingleFromPath(path, sav);
         if (temp == null)
         {
-            Drag.RequestDD(this, e); // pass thru
+            Drag.RequestDD(this, e); // pass through
             return true; // treat as handled
         }
 
@@ -300,7 +300,7 @@ public sealed class SlotChangeManager : IDisposable
         if (badDest && (pk.Species == 0 || pk.IsEgg))
             return false;
 
-        if (sav is ILangDeviantSave il && EntityConverter.IsIncompatibleGB(temp, il.Japanese, pk.Japanese))
+        if (sav is ILangDeviantSave il && !EntityConverter.IsCompatibleGB(temp, il.Japanese, pk.Japanese))
         {
             var str = EntityConverterResult.IncompatibleLanguageGB.GetIncompatibleGBMessage(pk, il.Japanese);
             WinFormsUtil.Error(str);

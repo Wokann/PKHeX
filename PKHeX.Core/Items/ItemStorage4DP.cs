@@ -6,10 +6,7 @@ public sealed class ItemStorage4DP : ItemStorage4, IItemStorage
 {
     public static readonly ItemStorage4DP Instance = new();
 
-    public static ushort[] GetAllHeld()
-    {
-        return ArrayUtil.ConcatAll(Pouch_Items_DP, Pouch_Mail_DP, Pouch_Medicine_DP, Pouch_Berries_DP, Pouch_Ball_DP, Pouch_TMHM_DP[..^8]);
-    }
+    public static ushort[] GetAllHeld() => [..Pouch_Items_DP, ..Pouch_Mail_DP, ..Pouch_Medicine_DP, ..Pouch_Berries_DP, ..Pouch_Ball_DP, ..Pouch_TMHM_DP[..^8]];
 
     public bool IsLegal(InventoryType type, int itemIndex, int itemCount) => true;
 
@@ -23,6 +20,6 @@ public sealed class ItemStorage4DP : ItemStorage4, IItemStorage
         InventoryType.Berries => Pouch_Berries_DP,
         InventoryType.Balls => Pouch_Ball_DP,
         InventoryType.BattleItems => Pouch_Battle_DP,
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null),
     };
 }

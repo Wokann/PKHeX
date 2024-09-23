@@ -11,14 +11,14 @@ public partial class SAV_PokedexORAS : Form
     private readonly SaveFile Origin;
     private readonly SAV6AO SAV;
 
-    public SAV_PokedexORAS(SaveFile sav)
+    public SAV_PokedexORAS(SAV6AO sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
         SAV = (SAV6AO)(Origin = sav).Clone();
         Zukan = SAV.Zukan;
-        CP = new[] { CHK_P1, CHK_P2, CHK_P3, CHK_P4, CHK_P5, CHK_P6, CHK_P7, CHK_P8, CHK_P9 };
-        CL = new[] { CHK_L1, CHK_L2, CHK_L3, CHK_L4, CHK_L5, CHK_L6, CHK_L7 };
+        CP = [CHK_P1, CHK_P2, CHK_P3, CHK_P4, CHK_P5, CHK_P6, CHK_P7, CHK_P8, CHK_P9];
+        CL = [CHK_L1, CHK_L2, CHK_L3, CHK_L4, CHK_L5, CHK_L6, CHK_L7];
 
         editing = true;
         // Clear Listbox and ComboBox
@@ -155,7 +155,7 @@ public partial class SAV_PokedexORAS : Form
 
     private void SetEntry()
     {
-        if (species == 0)
+        if ((short)species <= 0)
             return;
 
         Zukan.SetCaught(species, CP[0].Checked);

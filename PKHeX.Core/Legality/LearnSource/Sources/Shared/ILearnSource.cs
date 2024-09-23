@@ -31,7 +31,7 @@ public interface ILearnSource
         learn.SetEncounterMoves(level, init, start);
     }
 
-    public ReadOnlySpan<ushort> GetEggMoves(ushort species, byte form) => ReadOnlySpan<ushort>.Empty;
+    public ReadOnlySpan<ushort> GetEggMoves(ushort species, byte form) => [];
 
     public ReadOnlySpan<ushort> GetInheritMoves(ushort species, byte form)
     {
@@ -39,6 +39,11 @@ public interface ILearnSource
             return default;
         return GetLearnset(species, form).GetAllMoves();
     }
+
+    /// <summary>
+    /// Indication of what environment this source is for.
+    /// </summary>
+    public LearnEnvironment Environment { get; }
 }
 
 /// <summary>
@@ -55,7 +60,7 @@ public interface ILearnSource<T> : ILearnSource where T : PersonalInfo
     /// <param name="move">Move ID to check</param>
     /// <param name="types">Types of move sources to iterate</param>
     /// <param name="option">Option to check if it can be currently known, or previously known.</param>
-    /// <returns>Details about how the move can be learned. Will be equivalent to default if cannot learn.</returns>
+    /// <returns>Details about how the move can be learned. Will be equivalent to default if it cannot learn.</returns>
     public MoveLearnInfo GetCanLearn(PKM pk, T pi, EvoCriteria evo, ushort move, MoveSourceType types = MoveSourceType.All, LearnOption option = LearnOption.Current);
 
     /// <summary>

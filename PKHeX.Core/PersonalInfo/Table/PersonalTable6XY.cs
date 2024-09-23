@@ -10,16 +10,16 @@ public sealed class PersonalTable6XY : IPersonalTable, IPersonalTable<PersonalIn
 {
     private readonly PersonalInfo6XY[] Table;
     private const int SIZE = PersonalInfo6XY.SIZE;
-    private const int MaxSpecies = Legal.MaxSpeciesID_6;
-    public int MaxSpeciesID => MaxSpecies;
+    private const ushort MaxSpecies = Legal.MaxSpeciesID_6;
+    public ushort MaxSpeciesID => MaxSpecies;
 
-    public PersonalTable6XY(ReadOnlySpan<byte> data)
+    public PersonalTable6XY(Memory<byte> data)
     {
         Table = new PersonalInfo6XY[data.Length / SIZE];
         var count = data.Length / SIZE;
         for (int i = 0, ofs = 0; i < count; i++, ofs += SIZE)
         {
-            var slice = data.Slice(ofs, SIZE).ToArray();
+            var slice = data.Slice(ofs, SIZE);
             Table[i] = new PersonalInfo6XY(slice);
         }
     }

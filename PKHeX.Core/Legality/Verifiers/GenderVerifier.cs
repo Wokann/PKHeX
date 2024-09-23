@@ -15,15 +15,15 @@ public sealed class GenderVerifier : Verifier
         var pi = pk.PersonalInfo;
         if (pi.Genderless != (pk.Gender == 2))
         {
-            // DP/HGSS shedinja glitch -- only generation 4 spawns
-            bool ignore = pk is { Format: 4, Species: (int)Species.Shedinja } && pk.Met_Level != pk.CurrentLevel;
+            // D/P/Pt & HG/SS Shedinja glitch -- only generation 4 spawns
+            bool ignore = pk is { Format: 4, Species: (int)Species.Shedinja } && pk.MetLevel != pk.CurrentLevel;
             if (!ignore)
                 data.AddLine(GetInvalid(LGenderInvalidNone));
             return;
         }
 
         // Check for PID relationship to Gender & Nature if applicable
-        int gen = data.Info.Generation;
+        var gen = data.Info.Generation;
         if (gen is 3 or 4 or 5)
         {
             // Gender-PID & Nature-PID relationship check
@@ -43,11 +43,13 @@ public sealed class GenderVerifier : Verifier
     private static void VerifyNaturePID(LegalityAnalysis data)
     {
         var pk = data.Entity;
-        var result = pk.EncryptionConstant % 25 == pk.Nature
+        var result = GetExpectedNature(pk) == pk.Nature
             ? GetValid(LPIDNatureMatch, CheckIdentifier.Nature)
             : GetInvalid(LPIDNatureMismatch, CheckIdentifier.Nature);
         data.AddLine(result);
     }
+
+    private static Nature GetExpectedNature(PKM pk) => (Nature)(pk.EncryptionConstant % 25);
 
     private static bool IsValidGenderPID(LegalityAnalysis data)
     {

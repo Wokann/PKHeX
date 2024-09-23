@@ -16,24 +16,24 @@ namespace PKHeX.Core;
 public static class BatchEditing
 {
     public static readonly Type[] Types =
-    {
+    [
         typeof (PK9),
         typeof (PK8), typeof (PA8), typeof (PB8),
         typeof (PB7),
         typeof (PK7), typeof (PK6), typeof (PK5), typeof (PK4), typeof(BK4), typeof(RK4),
         typeof (PK3), typeof (XK3), typeof (CK3),
         typeof (PK2), typeof (SK2), typeof (PK1),
-    };
+    ];
 
     /// <summary>
     /// Extra properties to show in the list of selectable properties (GUI)
     /// </summary>
-    public static readonly List<string> CustomProperties = new()
-    {
+    public static readonly List<string> CustomProperties =
+    [
         PROP_LEGAL, PROP_TYPENAME, PROP_RIBBONS, PROP_CONTESTSTATS, PROP_MOVEMASTERY,
         PROP_TYPE1, PROP_TYPE2, PROP_TYPEEITHER,
         IdentifierContains, nameof(ISlotInfo.Slot), nameof(SlotInfoBox.Box),
-    };
+    ];
 
     /// <summary>
     /// Property names, indexed by <see cref="Types"/>.
@@ -122,7 +122,7 @@ public static class BatchEditing
     /// <param name="pk">Pokémon to check</param>
     /// <param name="name">Property Name to check</param>
     /// <param name="pi">Property Info retrieved (if any).</param>
-    /// <returns>True if has property, false if does not.</returns>
+    /// <returns>True if it has property, false if it does not.</returns>
     public static bool TryGetHasProperty(PKM pk, string name, [NotNullWhen(true)] out PropertyInfo? pi)
     {
         var type = pk.GetType();
@@ -135,7 +135,7 @@ public static class BatchEditing
     /// <param name="type">Type to check</param>
     /// <param name="name">Property Name to check</param>
     /// <param name="pi">Property Info retrieved (if any).</param>
-    /// <returns>True if has property, false if does not.</returns>
+    /// <returns>True if it has property, false if it does not.</returns>
     public static bool TryGetHasProperty(Type type, string name, [NotNullWhen(true)] out PropertyInfo? pi)
     {
         var index = Array.IndexOf(Types, type);
@@ -167,7 +167,7 @@ public static class BatchEditing
     /// Gets the type of the <see cref="PKM"/> property using the saved cache of properties.
     /// </summary>
     /// <param name="propertyName">Property Name to fetch the type for</param>
-    /// <param name="typeIndex">Type index (within <see cref="Types"/>. Leave empty (0) for a nonspecific format.</param>
+    /// <param name="typeIndex">Type index (within <see cref="Types"/>). Leave empty (0) for a nonspecific format.</param>
     /// <returns>Short name of the property's type.</returns>
     public static string? GetPropertyType(string propertyName, int typeIndex = 0)
     {
@@ -379,19 +379,20 @@ public static class BatchEditing
             catch (Exception ex)
             {
                 Debug.WriteLine(MsgBEModifyFail + " " + ex.Message, cmd.PropertyName, cmd.PropertyValue);
+                result = ModifyResult.Error;
             }
         }
         return result;
     }
 
     /// <summary>
-    /// Sets the if the <see cref="BatchInfo"/> should be filtered due to the <see cref="StringInstruction"/> provided.
+    /// Sets the property if the <see cref="BatchInfo"/> should be filtered due to the <see cref="StringInstruction"/> provided.
     /// </summary>
     /// <param name="cmd">Command Filter</param>
     /// <param name="info">Pokémon to check.</param>
     /// <param name="props">PropertyInfo cache (optional)</param>
     /// <returns>True if filtered, else false.</returns>
-    private static ModifyResult SetPKMProperty(StringInstruction cmd, BatchInfo info, IReadOnlyDictionary<string, PropertyInfo> props)
+    private static ModifyResult SetPKMProperty(StringInstruction cmd, BatchInfo info, Dictionary<string, PropertyInfo> props)
     {
         var pk = info.Entity;
         if (cmd.PropertyValue.StartsWith(CONST_BYTES, StringComparison.Ordinal))
@@ -499,9 +500,9 @@ public static class BatchEditing
     {
         switch (cmd.PropertyName)
         {
-            case nameof(PKM.Nickname_Trash): StringUtil.LoadHexBytesTo(cmd.PropertyValue.AsSpan(CONST_BYTES.Length), pk.Nickname_Trash, 3); return ModifyResult.Modified;
-            case nameof(PKM.OT_Trash):       StringUtil.LoadHexBytesTo(cmd.PropertyValue.AsSpan(CONST_BYTES.Length), pk.OT_Trash, 3);       return ModifyResult.Modified;
-            case nameof(PKM.HT_Trash):       StringUtil.LoadHexBytesTo(cmd.PropertyValue.AsSpan(CONST_BYTES.Length), pk.HT_Trash, 3);       return ModifyResult.Modified;
+            case nameof(PKM.NicknameTrash): StringUtil.LoadHexBytesTo(cmd.PropertyValue.AsSpan(CONST_BYTES.Length), pk.NicknameTrash, 3); return ModifyResult.Modified;
+            case nameof(PKM.OriginalTrainerTrash):       StringUtil.LoadHexBytesTo(cmd.PropertyValue.AsSpan(CONST_BYTES.Length), pk.OriginalTrainerTrash, 3);       return ModifyResult.Modified;
+            case nameof(PKM.HandlingTrainerTrash):       StringUtil.LoadHexBytesTo(cmd.PropertyValue.AsSpan(CONST_BYTES.Length), pk.HandlingTrainerTrash, 3);       return ModifyResult.Modified;
             default:
                 return ModifyResult.Error;
         }
@@ -538,11 +539,45 @@ public static class BatchEditing
     {
         if (cmd.PropertyName == nameof(PKM.IVs))
         {
-            pk.SetRandomIVs();
+            var la = new LegalityAnalysis(pk);
+            var enc = la.EncounterMatch;
+            if (enc is IFlawlessIVCount { FlawlessIVCount: not 0 } fc)
+                pk.SetRandomIVs(fc.FlawlessIVCount);
+            else if (enc is IFixedIVSet { IVs: {IsSpecified: true} iv})
+                pk.SetRandomIVs(iv);
+            else if (enc is IFlawlessIVCountConditional c && c.GetFlawlessIVCount(pk) is { Max: not 0 } x)
+                pk.SetRandomIVs(Util.Rand.Next(x.Min, x.Max + 1));
+            else
+                pk.SetRandomIVs();
             return;
         }
 
         if (TryGetHasProperty(pk, cmd.PropertyName, out var pi))
-            ReflectUtil.SetValue(pi, pk, Util.Rand.Next(pk.MaxIV + 1));
+        {
+            if (cmd.PropertyName == nameof(PK9.IV32))
+            {
+                var value = (uint)Util.Rand.Next(0x3FFFFFFF + 1);
+                if (pk is BK4 bk) // Big Endian, reverse IV ordering
+                {
+                    value <<= 2; // flags are the lowest bits, and our random value is still fine.
+                    value |= bk.IV32 & 3; // preserve the flags
+                }
+                else
+                {
+                    var exist = ReflectUtil.GetValue(pk, cmd.PropertyName);
+                    value |= exist switch
+                    {
+                        uint iv => iv & (3u << 30), // preserve the flags
+                        _ => 0,
+                    };
+                }
+                ReflectUtil.SetValue(pi, pk, value);
+            }
+            else
+            {
+                var value = Util.Rand.Next(pk.MaxIV + 1);
+                ReflectUtil.SetValue(pi, pk, value);
+            }
+        }
     }
 }

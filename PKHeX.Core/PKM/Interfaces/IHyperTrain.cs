@@ -133,15 +133,15 @@ public static partial class Extensions
     public static bool IsHyperTrainingAvailable(this IHyperTrain t, EvolutionHistory h) => t switch
     {
         // Check for game formats where training is unavailable:
-        PA8 => h.HasVisitedGen7 || h.HasVisitedSWSH || h.HasVisitedBDSP,
+        PA8 => h.HasVisitedGen7 || h.HasVisitedSWSH || h.HasVisitedBDSP || h.HasVisitedGen9,
         _ => true,
     };
 
     /// <inheritdoc cref="IsHyperTrainingAvailable(IHyperTrain,EvolutionHistory)"/>
-    public static bool IsHyperTrainingAvailable(this EntityContext c, int currentLevel)
+    public static bool IsHyperTrainingAvailable(this EntityContext c, byte currentLevel)
     {
         var min = GetHyperTrainMinLevel(c);
-        return currentLevel <= min;
+        return currentLevel >= min;
     }
 
     /// <inheritdoc cref="GetHyperTrainMinLevel(IHyperTrain,EvolutionHistory, EntityContext)"/>

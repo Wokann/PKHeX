@@ -8,7 +8,8 @@ namespace PKHeX.Core;
 public sealed class LearnGroup2 : ILearnGroup
 {
     public static readonly LearnGroup2 Instance = new();
-    private const int Generation = 2;
+    private const byte Generation = 2;
+    public ushort MaxMoveID => Legal.MaxMoveID_2;
 
     public ILearnGroup? GetPrevious(PKM pk, EvolutionHistory history, IEncounterTemplate enc, LearnOption option) => pk.Context switch
     {
@@ -23,32 +24,57 @@ public sealed class LearnGroup2 : ILearnGroup
         MoveSourceType types = MoveSourceType.All, LearnOption option = LearnOption.Current)
     {
         if (enc.Generation == Generation && types.HasFlag(MoveSourceType.Encounter))
-            CheckEncounterMoves(result, current, enc);
+            CheckEncounterMoves(pk, result, current, enc);
 
         var evos = history.Gen2;
         for (var i = 0; i < evos.Length; i++)
+        {
+            // Disallow Evolution moves if the evo is the last in the list (encounter species).
+            if (i == evos.Length - 1 && types.HasFlag(MoveSourceType.Evolve))
+                types &= ~MoveSourceType.Evolve;
             Check(result, current, pk, evos[i], i, option, types);
+        }
 
         if (enc is EncounterEgg { Generation: Generation } egg)
             CheckEncounterMoves(result, current, egg);
 
-        return MoveResult.AllParsed(result);
+        bool vc1 = pk.VC1;
+        if (!vc1 && MoveResult.AllParsed(result))
+            return true;
+
+        // Uh-oh, not all moves are verified yet.
+        // To visit Gen1, we need to invalidate moves that can't be learned in Gen1 or re-learned in Gen2.
+        for (int i = 0; i < result.Length; i++)
+        {
+            if (current[i] <= Legal.MaxMoveID_1)
+                continue;
+            var move = result[i];
+            if (!move.IsParsed)
+                continue;
+            var method = move.Info.Method;
+            if ((vc1 && move.Generation == 2) || method is LearnMethod.Initial || method.IsEggSource())
+                result[i] = MoveResult.Unobtainable();
+        }
+
+        return false;
     }
 
-    private static void CheckEncounterMoves(Span<MoveResult> result, ReadOnlySpan<ushort> current, IEncounterTemplate enc)
+    private static void CheckEncounterMoves(PKM pk, Span<MoveResult> result, ReadOnlySpan<ushort> current, IEncounterTemplate enc)
     {
         Span<ushort> moves = stackalloc ushort[4];
         if (enc is IMoveset { Moves: { HasMoves: true } x })
             x.CopyTo(moves);
         else
-            GetEncounterMoves(enc, moves);
-        LearnVerifierHistory.MarkInitialMoves(result, current, moves);
+            GetEncounterMoves(pk, enc, moves);
+
+        var game = enc.Version is GameVersion.C or GameVersion.GSC ? LearnEnvironment.C : LearnEnvironment.GS;
+        LearnVerifierHistory.MarkInitialMoves(result, current, moves, game);
     }
 
-    private static void GetEncounterMoves(IEncounterTemplate enc, Span<ushort> moves)
+    private static void GetEncounterMoves(PKM pk, IEncounterTemplate enc, Span<ushort> moves)
     {
         if (enc.Version is GameVersion.C or GameVersion.GSC)
-            LearnSource2C.GetEncounterMoves(enc, moves);
+            LearnSource2C.GetEncounterMoves(pk, enc, moves);
         else
             LearnSource2GS.GetEncounterMoves(enc, moves);
     }
@@ -65,9 +91,9 @@ public sealed class LearnGroup2 : ILearnGroup
                 continue;
             var move = current[i];
             if (eggMoves.Contains(move))
-                result[i] = new(LearnMethod.EggMove);
+                result[i] = new(LearnMethod.EggMove, inst.Environment);
             else if (levelMoves.Contains(move))
-                result[i] = new(LearnMethod.InheritLevelUp);
+                result[i] = new(LearnMethod.InheritLevelUp, inst.Environment);
         }
     }
 
@@ -135,7 +161,7 @@ public sealed class LearnGroup2 : ILearnGroup
     public void GetAllMoves(Span<bool> result, PKM pk, EvolutionHistory history, IEncounterTemplate enc, MoveSourceType types = MoveSourceType.All, LearnOption option = LearnOption.Current)
     {
         if (types.HasFlag(MoveSourceType.Encounter) && enc.Generation == Generation)
-            FlagEncounterMoves(enc, result);
+            FlagEncounterMoves(pk, enc, result);
 
         foreach (var evo in history.Gen2)
             GetAllMoves(result, pk, evo, types);
@@ -152,7 +178,7 @@ public sealed class LearnGroup2 : ILearnGroup
         LearnSource2C.Instance.GetAllMoves(result, pk, evo, types);
     }
 
-    private static void FlagEncounterMoves(IEncounterTemplate enc, Span<bool> result)
+    private static void FlagEncounterMoves(PKM pk, IEncounterTemplate enc, Span<bool> result)
     {
         if (enc is IMoveset { Moves: { HasMoves: true } x })
         {
@@ -164,7 +190,7 @@ public sealed class LearnGroup2 : ILearnGroup
         else
         {
             Span<ushort> moves = stackalloc ushort[4];
-            GetEncounterMoves(enc, moves);
+            GetEncounterMoves(pk, enc, moves);
             foreach (var move in moves)
                 result[move] = true;
         }

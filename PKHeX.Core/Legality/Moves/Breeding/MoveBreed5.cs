@@ -22,8 +22,11 @@ public static class MoveBreed5
         if (count == -1)
             count = moves.Length;
 
-        var learn = GameData.GetLearnSource(version);
-        var learnset = learn.GetLearnset(species, 0);
+        var learnset = version switch
+        {
+            GameVersion.B or GameVersion.W => LearnSource5BW.Instance.GetLearnset(species, 0),
+            _ => LearnSource5B2W2.Instance.GetLearnset(species, 0),
+        };
         IPersonalInfoTM pi = version switch
         {
             GameVersion.B or GameVersion.W => PersonalTable.BW[species],
@@ -154,7 +157,7 @@ public static class MoveBreed5
         {
             var move = moves[i];
 
-            if (baseEgg.IndexOf(move) != -1)
+            if (baseEgg.Contains(move))
                 possible[i] |= 1 << (int)Base;
 
             if (inheritLevelUp && learn.GetIsLearn(move))

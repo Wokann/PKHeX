@@ -9,16 +9,16 @@ public sealed class PersonalTable8LA : IPersonalTable, IPersonalTable<PersonalIn
 {
     private readonly PersonalInfo8LA[] Table;
     private const int SIZE = PersonalInfo8LA.SIZE;
-    private const int MaxSpecies = Legal.MaxSpeciesID_8a;
-    public int MaxSpeciesID => MaxSpecies;
+    private const ushort MaxSpecies = Legal.MaxSpeciesID_8a;
+    public ushort MaxSpeciesID => MaxSpecies;
 
-    public PersonalTable8LA(ReadOnlySpan<byte> data)
+    public PersonalTable8LA(Memory<byte> data)
     {
         Table = new PersonalInfo8LA[data.Length / SIZE];
         var count = data.Length / SIZE;
         for (int i = 0, ofs = 0; i < count; i++, ofs += SIZE)
         {
-            var slice = data.Slice(ofs, SIZE).ToArray();
+            var slice = data.Slice(ofs, SIZE);
             Table[i] = new PersonalInfo8LA(slice);
         }
     }
