@@ -6,13 +6,9 @@ namespace PKHeX.Core;
 /// <summary>
 /// Inventory Pouch with 4 bytes per item (u16 ID, u16 count)
 /// </summary>
-public sealed class InventoryPouch4 : InventoryPouch
+public sealed class InventoryPouch4(InventoryType type, IItemStorage info, int maxCount, int offset)
+    : InventoryPouch(type, info, maxCount, offset)
 {
-    public InventoryPouch4(InventoryType type, IItemStorage info, int maxCount, int offset)
-        : base(type, info, maxCount, offset)
-    {
-    }
-
     // size: 32bit
     // u16 id
     // u16 count
@@ -37,8 +33,7 @@ public sealed class InventoryPouch4 : InventoryPouch
 
     public override void SetPouch(Span<byte> data)
     {
-        if (Items.Length != PouchDataSize)
-            throw new ArgumentException("Item array length does not match original pouch size.");
+        ArgumentOutOfRangeException.ThrowIfNotEqual(Items.Length, PouchDataSize);
 
         var span = data[Offset..];
         for (int i = 0; i < Items.Length; i++)

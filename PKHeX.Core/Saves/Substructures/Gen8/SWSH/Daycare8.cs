@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -6,10 +6,8 @@ namespace PKHeX.Core;
 /// <summary>
 /// Storage for the two in-game daycare structures.
 /// </summary>
-public sealed class Daycare8 : SaveBlock<SAV8SWSH>
+public sealed class Daycare8(SAV8SWSH sav, SCBlock block) : SaveBlock<SAV8SWSH>(sav, block.Data)
 {
-    public Daycare8(SAV8SWSH sav, SCBlock block) : base(sav, block.Data) { }
-
     // BLOCK STRUCTURE:
     // bool8 present
     // pk8 entry1
@@ -87,6 +85,8 @@ public sealed class Daycare8 : SaveBlock<SAV8SWSH>
         _ => throw new ArgumentOutOfRangeException(nameof(daycare), daycare, "Expected 0/1"),
     };
 
-    public ulong GetDaycareSeed(int daycare) => ReadUInt64LittleEndian(Data.AsSpan(GetDaycareMetadataOffset(daycare) + 6));
-    public void SetDaycareSeed(int daycare, ulong value) => WriteUInt64LittleEndian(Data.AsSpan(GetDaycareMetadataOffset(daycare) + 6), value);
+    public ulong GetDaycareSeed(int daycare) => ReadUInt64LittleEndian(Data[(GetDaycareMetadataOffset(daycare) + 6)..]);
+    public void SetDaycareSeed(int daycare, ulong value) => WriteUInt64LittleEndian(Data[(GetDaycareMetadataOffset(daycare) + 6)..], value);
+
+    public Memory<byte> this[int i] => Raw[GetDaycareSlotOffset(i >> 1, i & 1)..];
 }

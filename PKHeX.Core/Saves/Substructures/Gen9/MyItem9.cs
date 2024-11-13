@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace PKHeX.Core;
@@ -7,16 +6,14 @@ namespace PKHeX.Core;
 /// Player item pouches storage
 /// </summary>
 /// <remarks>size=0xBB80 (<see cref="ItemSaveSize"/> items)</remarks>
-public sealed class MyItem9 : MyItem
+public sealed class MyItem9(SAV9SV sav, SCBlock block) : MyItem(sav, block.Data)
 {
     public const int ItemSaveSize = 3000;
-
-    public MyItem9(SaveFile SAV, SCBlock block) : base(SAV, block.Data) { }
 
     public int GetItemQuantity(ushort itemIndex)
     {
         var ofs = InventoryPouch9.GetItemOffset(itemIndex);
-        var span = Data.AsSpan(ofs, InventoryItem9.SIZE);
+        var span = Data.Slice(ofs, InventoryItem9.SIZE);
         var item = InventoryItem9.Read(itemIndex, span);
         return item.Count;
     }
@@ -24,7 +21,7 @@ public sealed class MyItem9 : MyItem
     public void SetItemQuantity(ushort itemIndex, int quantity)
     {
         var ofs = InventoryPouch9.GetItemOffset(itemIndex);
-        var span = Data.AsSpan(ofs, InventoryItem9.SIZE);
+        var span = Data.Slice(ofs, InventoryItem9.SIZE);
         var item = InventoryItem9.Read(itemIndex, span);
         item.Count = quantity;
         item.Pouch = GetPouchIndex(GetType(itemIndex));
@@ -37,8 +34,8 @@ public sealed class MyItem9 : MyItem
 
     private IReadOnlyList<InventoryPouch> ConvertToPouches()
     {
-        var pouches = new[]
-        {
+        InventoryPouch9[] pouches =
+        [
             MakePouch(InventoryType.Medicine),
             MakePouch(InventoryType.Balls),
             MakePouch(InventoryType.BattleItems),
@@ -49,7 +46,7 @@ public sealed class MyItem9 : MyItem
             MakePouch(InventoryType.Ingredients),
             MakePouch(InventoryType.KeyItems),
             MakePouch(InventoryType.Candy),
-        };
+        ];
         return pouches.LoadAll(Data);
     }
 

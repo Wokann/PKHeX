@@ -13,11 +13,13 @@ public sealed class LearnSource4HGSS : ILearnSource<PersonalInfo4>, IEggSource
 {
     public static readonly LearnSource4HGSS Instance = new();
     private static readonly PersonalTable4 Personal = PersonalTable.HGSS;
-    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_hgss.pkl"), "hs"));
-    private static readonly EggMoves6[] EggMoves = EggMoves6.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("eggmove_hgss.pkl"), "hs"));
+    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_hgss.pkl"), "hs"u8));
+    private static readonly EggMoves6[] EggMoves = EggMoves6.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("eggmove_hgss.pkl"), "hs"u8));
     private const int MaxSpecies = Legal.MaxSpeciesID_4;
     private const LearnEnvironment Game = HGSS;
-    private const int Generation = 4;
+    private const byte Generation = 4;
+
+    public LearnEnvironment Environment => Game;
 
     public Learnset GetLearnset(ushort species, byte form) => Learnsets[Personal.GetFormIndex(species, form)];
 
@@ -41,7 +43,7 @@ public sealed class LearnSource4HGSS : ILearnSource<PersonalInfo4>, IEggSource
     public ReadOnlySpan<ushort> GetEggMoves(ushort species, byte form)
     {
         if (species > MaxSpecies)
-            return ReadOnlySpan<ushort>.Empty;
+            return [];
         return EggMoves[species].Moves;
     }
 
@@ -77,11 +79,11 @@ public sealed class LearnSource4HGSS : ILearnSource<PersonalInfo4>, IEggSource
 
     private static bool GetIsEnhancedTutor(EvoCriteria evo, ISpeciesForm current, ushort move, LearnOption option) => evo.Species is (int)Species.Rotom && move switch
     {
-        (int)Move.Overheat  => option == LearnOption.AtAnyTime || current.Form == 1,
-        (int)Move.HydroPump => option == LearnOption.AtAnyTime || current.Form == 2,
-        (int)Move.Blizzard  => option == LearnOption.AtAnyTime || current.Form == 3,
-        (int)Move.AirSlash  => option == LearnOption.AtAnyTime || current.Form == 4,
-        (int)Move.LeafStorm => option == LearnOption.AtAnyTime || current.Form == 5,
+        (int)Move.Overheat  => option.IsPast() || current.Form == 1,
+        (int)Move.HydroPump => option.IsPast() || current.Form == 2,
+        (int)Move.Blizzard  => option.IsPast() || current.Form == 3,
+        (int)Move.AirSlash  => option.IsPast() || current.Form == 4,
+        (int)Move.LeafStorm => option.IsPast() || current.Form == 5,
         _ => false,
     };
 

@@ -26,7 +26,7 @@ public sealed class DuplicateEncryptionChecker : IBulkAnalyzer
         }
     }
 
-    private static void Verify(BulkAnalysis input, IDictionary<uint, CombinedReference> dict, SlotCache cp, LegalityAnalysis ca)
+    private static void Verify(BulkAnalysis input, Dictionary<uint, CombinedReference> dict, SlotCache cp, LegalityAnalysis ca)
     {
         Debug.Assert(cp.Entity.Format >= 6);
         var id = cp.Entity.EncryptionConstant;
@@ -47,7 +47,7 @@ public sealed class DuplicateEncryptionChecker : IBulkAnalyzer
         var (cs, ca) = cr;
 
         const CheckIdentifier ident = PID;
-        int gen = pa.Info.Generation;
+        var gen = pa.Info.Generation;
         bool gbaNDS = gen is 3 or 4 or 5;
 
         if (!gbaNDS)

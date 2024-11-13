@@ -43,17 +43,22 @@ public static class NatureUtil
     /// Gets the <see cref="Nature"/> value that corresponds to the provided <see cref="value"/>.
     /// </summary>
     /// <remarks>Actual nature values will be unchanged; only out-of-bounds values re-map to <see cref="Nature.Random"/>.</remarks>
-    public static Nature GetNature(int value) => value switch
+    public static Nature GetNature(Nature value) => value switch
     {
-        < 0 or >= (int)Nature.Random => Nature.Random,
-        _ => (Nature)value,
+        >= Nature.Random => Nature.Random,
+        _ => value,
     };
 
     /// <summary>
     /// Checks if the provided <see cref="value"/> is a valid stored <see cref="Nature"/> value.
     /// </summary>
     /// <returns>True if value is an actual nature.</returns>
-    public static bool IsFixed(this Nature value) => value is >= 0 and < Nature.Random;
+    public static bool IsFixed(this Nature value) => value < Nature.Random;
+
+    /// <summary>
+    /// Checks if the provided <see cref="value"/> is a possible mint nature.
+    /// </summary>
+    public static bool IsMint(this Nature value) => (value.IsFixed() && (byte)value % 6 != 0) || value == Nature.Serious;
 
     /// <summary>
     /// Checks if the provided <see cref="value"/> is a neutral nature which has no stat amps applied.

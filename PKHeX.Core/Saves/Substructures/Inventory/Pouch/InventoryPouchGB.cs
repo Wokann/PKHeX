@@ -1,14 +1,11 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace PKHeX.Core;
 
-public sealed class InventoryPouchGB : InventoryPouch
+public sealed class InventoryPouchGB(InventoryType type, IItemStorage info, int maxCount, int offset, [ConstantExpected] int size)
+    : InventoryPouch(type, info, maxCount, offset, size)
 {
-    public InventoryPouchGB(InventoryType type, IItemStorage info, int maxCount, int offset, int size)
-        : base(type, info, maxCount, offset, size)
-    {
-    }
-
     public override InventoryItem GetEmpty(int itemID = 0, int count = 0) => new() { Index = itemID, Count = count };
 
     public override void GetPouch(ReadOnlySpan<byte> data)
@@ -67,8 +64,7 @@ public sealed class InventoryPouchGB : InventoryPouch
 
     public override void SetPouch(Span<byte> data)
     {
-        if (Items.Length != PouchDataSize)
-            throw new ArgumentException("Item array length does not match original pouch size.");
+        ArgumentOutOfRangeException.ThrowIfNotEqual(Items.Length, PouchDataSize);
 
         ClearCount0();
 

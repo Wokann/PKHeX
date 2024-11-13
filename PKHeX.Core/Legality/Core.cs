@@ -17,15 +17,15 @@ public static class Legal
     internal const int MaxItemID_2 = 255;
     internal const int MaxAbilityID_2 = 0;
 
-    internal const int MaxSpeciesIndex_3 = 412;
     internal const int MaxSpeciesID_3 = 386;
     internal const int MaxMoveID_3 = 354;
     internal const int MaxItemID_3 = 374;
+    internal const int MaxItemID_3_E = 376;
     internal const int MaxItemID_3_COLO = 547;
     internal const int MaxItemID_3_XD = 593;
     internal const int MaxAbilityID_3 = 77;
     internal const int MaxBallID_3 = 0xC;
-    internal const int MaxGameID_3 = 15; // CXD
+    internal const GameVersion MaxGameID_3 = GameVersion.CXD;
 
     internal const int MaxSpeciesID_4 = 493;
     internal const int MaxMoveID_4 = 467;
@@ -34,7 +34,7 @@ public static class Legal
     internal const int MaxItemID_4_HGSS = 536;
     internal const int MaxAbilityID_4 = 123;
     internal const int MaxBallID_4 = 0x18;
-    internal const int MaxGameID_4 = 15; // CXD
+    internal const GameVersion MaxGameID_4 = GameVersion.CXD;
 
     internal const int MaxSpeciesID_5 = 649;
     internal const int MaxMoveID_5 = 559;
@@ -42,7 +42,7 @@ public static class Legal
     internal const int MaxItemID_5_B2W2 = 638;
     internal const int MaxAbilityID_5 = 164;
     internal const int MaxBallID_5 = 0x19;
-    internal const int MaxGameID_5 = 23; // B2
+    internal const GameVersion MaxGameID_5 = GameVersion.B2;
 
     internal const int MaxSpeciesID_6 = 721;
     internal const int MaxMoveID_6_XY = 617;
@@ -52,14 +52,14 @@ public static class Legal
     internal const int MaxAbilityID_6_XY = 188;
     internal const int MaxAbilityID_6_AO = 191;
     internal const int MaxBallID_6 = 0x19;
-    internal const int MaxGameID_6 = 27; // OR
+    internal const GameVersion MaxGameID_6 = GameVersion.OR;
 
     internal const int MaxSpeciesID_7 = 802;
     internal const int MaxMoveID_7 = 719;
     internal const int MaxItemID_7 = 920;
     internal const int MaxAbilityID_7 = 232;
     internal const int MaxBallID_7 = 0x1A; // 26
-    internal const int MaxGameID_7 = 41; // Crystal (VC?)
+    internal const GameVersion MaxGameID_7 = GameVersion.C;
 
     internal const int MaxSpeciesID_7_USUM = 807;
     internal const int MaxMoveID_7_USUM = 728;
@@ -70,7 +70,7 @@ public static class Legal
     internal const int MaxMoveID_7b = 742; // Double Iron Bash
     internal const int MaxItemID_7b = 1057; // Magmar Candy
     internal const int MaxBallID_7b = (int)Ball.Beast;
-    internal const int MaxGameID_7b = (int)GameVersion.GE;
+    internal const GameVersion MaxGameID_7b = GameVersion.GE;
     internal const int MaxAbilityID_7b = MaxAbilityID_7_USUM;
 
     // Current Binaries
@@ -98,30 +98,45 @@ public static class Legal
     internal const int MaxAbilityID_8_R2 = 267; // As One (Glastrier)
 
     internal const int MaxBallID_8 = 0x1A; // 26 Beast
-    internal const int MaxGameID_8 = 45; // Shield
+    internal const GameVersion MaxGameID_8 = GameVersion.SH;
 
     internal const int MaxSpeciesID_8a = (int)Species.Enamorus;
     internal const int MaxMoveID_8a = (int)Move.TakeHeart;
     internal const int MaxItemID_8a = 1828; // Legend Plate
     internal const int MaxBallID_8a = (int)Ball.LAOrigin;
-  //internal const int MaxGameID_8a = (int)GameVersion.SP;
+  //internal const GameVersion MaxGameID_8a = GameVersion.SP;
     internal const int MaxAbilityID_8a = MaxAbilityID_8_R2;
 
     internal const int MaxSpeciesID_8b = MaxSpeciesID_4; // Arceus-493
     internal const int MaxMoveID_8b = MaxMoveID_8_R2;
     internal const int MaxItemID_8b = 1822; // DS Sounds
     internal const int MaxBallID_8b = (int)Ball.LAOrigin;
-  //internal const int MaxGameID_8b = (int)GameVersion.SP;
+  //internal const GameVersion MaxGameID_8b = GameVersion.SP;
     internal const int MaxAbilityID_8b = MaxAbilityID_8_R2;
 
-    internal const int MaxSpeciesID_9 = (int)Species.IronLeaves;
-    internal const int MaxMoveID_9 = (int)Move.MagicalTorque;
-    internal const int MaxItemID_9 = 2400; // Yellow Dish
-    internal const int MaxAbilityID_9 = (int)Ability.MyceliumMight;
+    internal const int MaxSpeciesID_9 = MaxSpeciesID_9_T2;
+    internal const int MaxMoveID_9 = MaxMoveID_9_T2;
+    internal const int MaxItemID_9 = MaxItemID_9_T2;
+    internal const int MaxAbilityID_9 = MaxAbilityID_9_T2;
+
+    internal const int MaxSpeciesID_9_T0 = (int)Species.IronLeaves;
+    internal const int MaxMoveID_9_T0 = (int)Move.MagicalTorque;
+    internal const int MaxItemID_9_T0 = 2400; // Yellow Dish
+    internal const int MaxAbilityID_9_T0 = (int)Ability.MyceliumMight;
+
+    internal const int MaxSpeciesID_9_T1 = (int)Species.Ogerpon;
+    internal const int MaxMoveID_9_T1 = (int)Move.IvyCudgel;
+    internal const int MaxItemID_9_T1 = 2481; // Glimmering Charm
+    internal const int MaxAbilityID_9_T1 = (int)Ability.SupersweetSyrup;
+
+    internal const int MaxSpeciesID_9_T2 = (int)Species.Pecharunt;
+    internal const int MaxMoveID_9_T2 = (int)Move.MalignantChain;
+    internal const int MaxItemID_9_T2 = 2557; // Briar’s Book
+    internal const int MaxAbilityID_9_T2 = (int)Ability.PoisonPuppeteer;
 
     internal const int MaxBallID_9 = (int)Ball.LAOrigin;
-    internal const int MaxGameID_9 = (int)GameVersion.VL;
-    internal const int MaxGameID_HOME = MaxGameID_9;
+    internal const GameVersion MaxGameID_9 = GameVersion.VL;
+    internal const GameVersion MaxGameID_HOME = MaxGameID_9;
 
     internal static readonly ushort[] HeldItems_GSC = ItemStorage2.GetAllHeld();
     internal static readonly ushort[] HeldItems_RS = ItemStorage3RS.GetAllHeld();
@@ -133,27 +148,13 @@ public static class Legal
     internal static readonly ushort[] HeldItems_AO = ItemStorage6AO.GetAllHeld();
     internal static readonly ushort[] HeldItems_SM = ItemStorage7SM.GetAllHeld();
     internal static readonly ushort[] HeldItems_USUM = ItemStorage7USUM.GetAllHeld();
-    internal static readonly ushort[] HeldItems_GG = Array.Empty<ushort>();
+    internal static readonly ushort[] HeldItems_GG = [];
     internal static readonly ushort[] HeldItems_SWSH = ItemStorage8SWSH.GetAllHeld();
-    internal static readonly ushort[] HeldItems_BS = ItemStorage8BDSP.GetAll();
-    internal static readonly ushort[] HeldItems_LA = Array.Empty<ushort>();
+    internal static readonly ushort[] HeldItems_BS = ItemStorage8BDSP.GetAllHeld();
+    internal static readonly ushort[] HeldItems_LA = [];
     internal static readonly ushort[] HeldItems_SV = ItemStorage9SV.GetAllHeld();
 
-    internal static int GetMaxSpeciesOrigin(int generation) => generation switch
-    {
-        1 => MaxSpeciesID_1,
-        2 => MaxSpeciesID_2,
-        3 => MaxSpeciesID_3,
-        4 => MaxSpeciesID_4,
-        5 => MaxSpeciesID_5,
-        6 => MaxSpeciesID_6,
-        7 => MaxSpeciesID_7b,
-        8 => MaxSpeciesID_8a,
-        9 => MaxSpeciesID_9,
-        _ => -1,
-    };
-
-    internal static int GetMaxLanguageID(int generation) => generation switch
+    internal static int GetMaxLanguageID(byte generation) => generation switch
     {
         1 => (int) LanguageID.Spanish, // 1-7 except 6
         3 => (int) LanguageID.Spanish, // 1-7 except 6
@@ -197,7 +198,7 @@ public static class Legal
     public static bool IsPPUpAvailable(ushort moveID) => moveID switch
     {
         0 => false,
-        (int)Move.Sketch => false, // BD/SP v1.0 could use PP Ups on Sketch, but not in later versions. Disallow anyways.
+        (int)Move.Sketch => false, // BD/SP v1.0 could use PP Ups on Sketch, but not in later versions. Disallow anyway.
         (int)Move.RevivalBlessing => false,
         _ => true,
     };
@@ -207,7 +208,7 @@ public static class Legal
     /// </summary>
     /// <param name="generation">Generation of the Trainer</param>
     /// <param name="language">Language of the Trainer</param>
-    public static int GetMaxLengthOT(int generation, LanguageID language) => language switch
+    public static int GetMaxLengthOT(byte generation, LanguageID language) => language switch
     {
         LanguageID.ChineseS or LanguageID.ChineseT => 6,
         LanguageID.Japanese or LanguageID.Korean => generation >= 6 ? 6 : 5,
@@ -219,7 +220,7 @@ public static class Legal
     /// </summary>
     /// <param name="generation">Generation of the Trainer</param>
     /// <param name="language">Language of the Trainer</param>
-    public static int GetMaxLengthNickname(int generation, LanguageID language) => language switch
+    public static int GetMaxLengthNickname(byte generation, LanguageID language) => language switch
     {
         LanguageID.ChineseS or LanguageID.ChineseT => 6,
         LanguageID.Japanese or LanguageID.Korean => generation >= 6 ? 6 : 5,
@@ -231,11 +232,12 @@ public static class Legal
     /// </summary>
     public static bool GetIsFixedIVSequenceValidSkipRand(ReadOnlySpan<int> IVs, PKM pk, uint max = 31)
     {
-        for (int i = 0; i < 6; i++)
+        for (int i = 5; i >= 0; i--)
         {
-            if ((uint) IVs[i] > max) // random
+            var iv = IVs[i];
+            if ((uint)iv > max) // random
                 continue;
-            if (IVs[i] != pk.GetIV(i))
+            if (iv != pk.GetIV(i))
                 return false;
         }
         return true;
@@ -244,7 +246,7 @@ public static class Legal
     /// <summary>
     /// Checks if the input <see cref="pk"/> has IVs that match the template <see cref="IVs"/>.
     /// </summary>
-    public static bool GetIsFixedIVSequenceValidSkipRand(IndividualValueSet IVs, PKM pk, int max = 31)
+    public static bool GetIsFixedIVSequenceValidSkipRand(in IndividualValueSet IVs, PKM pk, int max = 31)
     {
         // Template IVs not in the [0,max] range are random. Only check for IVs within the "specified" range.
         if ((uint)IVs.HP  <= max && IVs.HP  != pk.IV_HP ) return false;
@@ -259,7 +261,7 @@ public static class Legal
     /// <summary>
     /// Checks if the input <see cref="pk"/> has IVs that match the template <see cref="IVs"/>.
     /// </summary>
-    public static bool GetIsFixedIVSequenceValidNoRand(IndividualValueSet IVs, PKM pk)
+    public static bool GetIsFixedIVSequenceValidNoRand(in IndividualValueSet IVs, PKM pk)
     {
         if (IVs.HP  != pk.IV_HP ) return false;
         if (IVs.ATK != pk.IV_ATK) return false;

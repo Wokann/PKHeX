@@ -1,7 +1,7 @@
 namespace PKHeX.Core;
 
 /// <summary>
-/// Toys used in My Pokemon Ranch save files.
+/// Toys used in My Pokémon Ranch save files.
 /// </summary>
 public enum RanchToyType : byte
 {
@@ -46,5 +46,5 @@ public enum RanchToyType : byte
     Twirler = 36,
     Bound_Mat = 37,
     Tree = 38,
-    Water = 39, // Normally unused; creates a massive plane of water in the sky
+    Water = 39, // Normally unobtainable; creates a massive plane of water in the sky featured in the "Surfing Jump" event
 }

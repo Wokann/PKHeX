@@ -12,7 +12,7 @@ public partial class SAV_PokedexBDSP : Form
     private readonly SAV8BS SAV;
     private readonly Zukan8b Zukan;
 
-    public SAV_PokedexBDSP(SaveFile sav)
+    public SAV_PokedexBDSP(SAV8BS sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
@@ -182,6 +182,7 @@ public partial class SAV_PokedexBDSP : Form
             Zukan.CompleteDex(ModifierKeys == Keys.Control);
 
         GetEntry();
+        System.Media.SystemSounds.Asterisk.Play();
     }
 
     private void ModifyAllForms(object sender, EventArgs e)

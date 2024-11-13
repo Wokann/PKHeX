@@ -20,7 +20,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
     /// </summary>
     public readonly IReadOnlyDictionary<ushort, Zukan8Index> DexLookup;
 
-    public Zukan8(SAV8SWSH sav, SCBlock galar, SCBlock rigel1, SCBlock rigel2) : base(sav, 0)
+    public Zukan8(SAV8SWSH sav, SCBlock galar, SCBlock rigel1, SCBlock rigel2) : base(sav, default)
     {
         Galar = galar;
         Rigel1 = rigel1;
@@ -129,20 +129,6 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         >= 7 => lang - 2,
         _ => lang - 1,
     };
-
-#if DEBUG
-    public IList<string> GetEntryNames(IReadOnlyList<string> speciesNames)
-    {
-        var dex = new List<string>();
-        foreach (var (species, entry) in DexLookup)
-        {
-            var name = entry.GetEntryName(speciesNames, species);
-            dex.Add(name);
-        }
-        dex.Sort();
-        return dex;
-    }
-#endif
 
     #region Structure
 
@@ -610,7 +596,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
             if (shinyToo)
                 SetDisplayShiny(species);
 
-            SetGenderDisplayed(species, (uint)pi.RandomGender());
+            SetGenderDisplayed(species, pi.RandomGender());
         }
         else
         {
@@ -646,7 +632,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
                 SeenAll(species, i, value, pi, shinyToo);
         }
 
-        if (SpeciesWithGigantamaxData.Contains(species))
+        if (IsGigantamaxFormStored(species))
         {
             SeenAll(species, 63, value, pi, shinyToo);
             if (species == (int)Species.Urshifu)
@@ -687,41 +673,10 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         }
     }
 
-    private static readonly HashSet<ushort> SpeciesWithGigantamaxData = new()
+    public static bool IsGigantamaxFormStored(ushort species)
     {
-        (int)Species.Charizard,
-        (int)Species.Butterfree,
-        (int)Species.Pikachu,
-        (int)Species.Meowth,
-        (int)Species.Machamp,
-        (int)Species.Gengar,
-        (int)Species.Kingler,
-        (int)Species.Lapras,
-        (int)Species.Eevee,
-        (int)Species.Snorlax,
-        (int)Species.Garbodor,
-        (int)Species.Corviknight,
-        (int)Species.Orbeetle,
-        (int)Species.Drednaw,
-        (int)Species.Coalossal,
-        (int)Species.Flapple,
-        (int)Species.Appletun,
-        (int)Species.Sandaconda,
-        (int)Species.Toxtricity,
-        (int)Species.Centiskorch,
-        (int)Species.Hatterene,
-        (int)Species.Grimmsnarl,
-        (int)Species.Alcremie,
-        (int)Species.Copperajah,
-        (int)Species.Duraludon,
-        (int)Species.Eternatus,
-
-        // DLC 1
-        (int)Species.Rillaboom,
-        (int)Species.Cinderace,
-        (int)Species.Inteleon,
-        (int)Species.Urshifu,
-    };
+        return Gigantamax.CanToggle(species) || species == (int)Species.Eternatus;
+    }
     #endregion
 }
 
@@ -749,30 +704,6 @@ public readonly record struct Zukan8Index(Zukan8Type DexType, ushort Index)
     private const int Rigel1Count = 211; // Count within Armor dex
     private const int Rigel2Count = 210; // Count within Crown dex
     public const int TotalCount = GalarCount + Rigel1Count + Rigel2Count;
-#if DEBUG
-    /// <summary>
-    /// Gets the <see cref="Zukan8Index"/> from the absolute (overall) dex index. Don't use this method unless you're analyzing things.
-    /// </summary>
-    /// <param name="index">Unique Pokédex index (incremental). Should be 0-indexed.</param>
-    public static Zukan8Index GetFromAbsoluteIndex(ushort index)
-    {
-        if (index > TotalCount)
-            return new Zukan8Index();
-
-        if (index < GalarCount)
-            return new Zukan8Index(Zukan8Type.Galar, ++index);
-        index -= GalarCount;
-
-        if (index < Rigel1Count)
-            return new Zukan8Index(Zukan8Type.Armor, ++index);
-        index -= Rigel1Count;
-
-        if (index < Rigel2Count)
-            return new Zukan8Index(Zukan8Type.Crown, ++index);
-
-        throw new ArgumentOutOfRangeException(nameof(index));
-    }
-#endif
 
     public string DexPrefix => DexType.GetZukanTypeInternalPrefix();
 

@@ -26,7 +26,7 @@ public partial class SAV_PokedexLA : Form
     private bool Editing;
     private readonly bool CanSave;
 
-    private readonly IList<ComboItem> DisplayedForms;
+    private readonly List<ComboItem> DisplayedForms;
 
     private readonly string[] TaskDescriptions = Util.GetStringList("tasks8a", Main.CurrentLanguage);
     private readonly string[] SpeciesQuests = Util.GetStringList("species_tasks8a", Main.CurrentLanguage);
@@ -39,12 +39,12 @@ public partial class SAV_PokedexLA : Form
         SAV = (SAV8LA)(Origin = sav).Clone();
         Dex = SAV.Blocks.PokedexSave;
         var speciesNames = GameInfo.Strings.Species;
-        CHK_SeenWild = new[] { CHK_S0, CHK_S1, CHK_S2, CHK_S3, CHK_S4, CHK_S5, CHK_S6, CHK_S7 };
-        CHK_Obtained = new[] { CHK_O0, CHK_O1, CHK_O2, CHK_O3, CHK_O4, CHK_O5, CHK_O6, CHK_O7 };
-        CHK_CaughtWild = new[] { CHK_C0, CHK_C1, CHK_C2, CHK_C3, CHK_C4, CHK_C5, CHK_C6, CHK_C7 };
+        CHK_SeenWild = [CHK_S0, CHK_S1, CHK_S2, CHK_S3, CHK_S4, CHK_S5, CHK_S6, CHK_S7];
+        CHK_Obtained = [CHK_O0, CHK_O1, CHK_O2, CHK_O3, CHK_O4, CHK_O5, CHK_O6, CHK_O7];
+        CHK_CaughtWild = [CHK_C0, CHK_C1, CHK_C2, CHK_C3, CHK_C4, CHK_C5, CHK_C6, CHK_C7];
 
-        TaskControls = new[]
-        {
+        TaskControls =
+        [
             PRT_1,
             PRT_2,
             PRT_3,
@@ -55,7 +55,7 @@ public partial class SAV_PokedexLA : Form
             PRT_8,
             PRT_9,
             PRT_10,
-        };
+        ];
 
         foreach (var tc in TaskControls)
         {
@@ -95,7 +95,7 @@ public partial class SAV_PokedexLA : Form
         CB_Species.DataSource = new BindingSource(species, null);
 
         CB_DisplayForm.InitializeBinding();
-        DisplayedForms = new List<ComboItem> { new(GameInfo.Strings.types[0], 0) };
+        DisplayedForms = [new(GameInfo.Strings.types[0], 0)];
         CB_DisplayForm.DataSource = new BindingSource(DisplayedForms, null);
 
         for (var d = 1; d < DexToSpecies.Length; d++)
@@ -167,8 +167,8 @@ public partial class SAV_PokedexLA : Form
         if (!hasForms)
             return false;
 
-        var ds = FormConverter.GetFormList(species, GameInfo.Strings.types, GameInfo.Strings.forms, Main.GenderSymbols, SAV.Context).ToList();
-        if (ds.Count == 1 && string.IsNullOrEmpty(ds[0]))
+        var ds = FormConverter.GetFormList(species, GameInfo.Strings.types, GameInfo.Strings.forms, Main.GenderSymbols, SAV.Context);
+        if (ds.Length == 1 && string.IsNullOrEmpty(ds[0]))
         {
             // empty
             LB_Forms.Enabled = CB_DisplayForm.Enabled = false;
@@ -235,9 +235,13 @@ public partial class SAV_PokedexLA : Form
         {
             var selectedForm = Dex.GetSelectedForm(species);
             CB_DisplayForm.SelectedIndex = 0;
-            for (var i = 0; i < CB_DisplayForm.Items.Count; ++i)
+            var items = CB_DisplayForm.Items;
+            for (var i = 0; i < items.Count; ++i)
             {
-                if (((ComboItem)CB_DisplayForm.Items[i]).Value != selectedForm)
+                var item = items[i];
+                if (item is not ComboItem cb)
+                    throw new Exception("Invalid item type");
+                if (cb.Value != selectedForm)
                     continue;
 
                 CB_DisplayForm.SelectedIndex = i;

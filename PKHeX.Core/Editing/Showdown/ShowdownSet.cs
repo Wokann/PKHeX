@@ -10,20 +10,20 @@ namespace PKHeX.Core;
 /// </summary>
 public sealed class ShowdownSet : IBattleTemplate
 {
-    private static readonly string[] StatNames = { "HP", "Atk", "Def", "Spe", "SpA", "SpD" };
+    private static readonly string[] StatNames = ["HP", "Atk", "Def", "Spe", "SpA", "SpD"];
     private const string LineSplit = ": ";
     private const string ItemSplit = " @ ";
     private const int MAX_SPECIES = (int)MAX_COUNT - 1;
     internal const string DefaultLanguage = GameLanguage.DefaultLanguage;
     private static readonly GameStrings DefaultStrings = GameInfo.GetStrings(DefaultLanguage);
 
-    private static ReadOnlySpan<ushort> DashedSpecies => new ushort[]
-    {
+    private static ReadOnlySpan<ushort> DashedSpecies =>
+    [
         (int)NidoranF, (int)NidoranM,
         (int)HoOh,
         (int)Jangmoo, (int)Hakamoo, (int)Kommoo,
         (int)TingLu, (int)ChienPao, (int)WoChien, (int)ChiYu,
-    };
+    ];
 
     /// <inheritdoc/>
     public ushort Species { get; private set; }
@@ -35,7 +35,7 @@ public sealed class ShowdownSet : IBattleTemplate
     public string Nickname { get; private set; } = string.Empty;
 
     /// <inheritdoc/>
-    public int Gender { get; private set; } = -1;
+    public byte? Gender { get; private set; }
 
     /// <inheritdoc/>
     public int HeldItem { get; private set; }
@@ -44,16 +44,16 @@ public sealed class ShowdownSet : IBattleTemplate
     public int Ability { get; private set; } = -1;
 
     /// <inheritdoc/>
-    public int Level { get; private set; } = 100;
+    public byte Level { get; private set; } = 100;
 
     /// <inheritdoc/>
     public bool Shiny { get; private set; }
 
     /// <inheritdoc/>
-    public int Friendship { get; private set; } = 255;
+    public byte Friendship { get; private set; } = 255;
 
     /// <inheritdoc/>
-    public int Nature { get; private set; } = -1;
+    public Nature Nature { get; private set; } = Nature.Random;
 
     /// <inheritdoc/>
     public string FormName { get; private set; } = string.Empty;
@@ -62,18 +62,18 @@ public sealed class ShowdownSet : IBattleTemplate
     public byte Form { get; private set; }
 
     /// <inheritdoc/>
-    public int[] EVs { get; } = {00, 00, 00, 00, 00, 00};
+    public int[] EVs { get; } = [00, 00, 00, 00, 00, 00];
 
     /// <inheritdoc/>
-    public int[] IVs { get; } = {31, 31, 31, 31, 31, 31};
+    public int[] IVs { get; } = [31, 31, 31, 31, 31, 31];
 
     /// <inheritdoc/>
-    public int HiddenPowerType { get; private set; } = -1;
+    public sbyte HiddenPowerType { get; private set; } = -1;
 
     public MoveType TeraType { get; private set; } = MoveType.Any;
 
     /// <inheritdoc/>
-    public ushort[] Moves { get; } = {0, 0, 0, 0};
+    public ushort[] Moves { get; } = [0, 0, 0, 0];
 
     /// <inheritdoc/>
     public bool CanGigantamax { get; private set; }
@@ -145,7 +145,8 @@ public sealed class ShowdownSet : IBattleTemplate
     // We will handle this 1-2 letter edge case only if the line is the first line of the set, in the rare chance we are importing for a non-English language?
     private const int MinLength = 3;
     private const int MaxLength = 80;
-    private static bool IsLengthOutOfRange(ReadOnlySpan<char> trim) => (uint)(trim.Length - MinLength) > MaxLength + MinLength;
+    private static bool IsLengthOutOfRange(ReadOnlySpan<char> trim) => IsLengthOutOfRange(trim.Length);
+    private static bool IsLengthOutOfRange(int length) => (uint)(length - MinLength) > MaxLength - MinLength;
 
     private void ParseLines(SpanLineEnumerator lines)
     {
@@ -211,16 +212,17 @@ public sealed class ShowdownSet : IBattleTemplate
 
     private bool ParseLine(ReadOnlySpan<char> line, ref int movectr)
     {
+        var moves = Moves.AsSpan();
         if (line[0] is '-' or '–')
         {
             var moveString = ParseLineMove(line);
             int move = StringUtil.FindIndexIgnoreCase(Strings.movelist, moveString);
             if (move < 0)
                 InvalidLines.Add($"Unknown Move: {moveString}");
-            else if (Array.IndexOf(Moves, (ushort)move) != -1)
+            else if (moves.Contains((ushort)move))
                 InvalidLines.Add($"Duplicate Move: {moveString}");
             else
-                Moves[movectr++] = (ushort)move;
+                moves[movectr++] = (ushort)move;
 
             return movectr == MaxMoveCount;
         }
@@ -253,14 +255,14 @@ public sealed class ShowdownSet : IBattleTemplate
         var firstSpace = identifier.IndexOf(' ');
         if (firstSpace == -1)
             return false;
-        var naturestr = identifier[..firstSpace];
-        return (Nature = StringUtil.FindIndexIgnoreCase(Strings.natures, naturestr)) >= 0;
+        var nature = identifier[..firstSpace];
+        return (Nature = (Nature)StringUtil.FindIndexIgnoreCase(Strings.natures, nature)).IsFixed();
     }
 
     private bool ParseEntry(ReadOnlySpan<char> identifier, ReadOnlySpan<char> value) => identifier switch
     {
         "Ability"       => (Ability = StringUtil.FindIndexIgnoreCase(Strings.abilitylist, value)) >= 0,
-        "Nature"        => (Nature  = StringUtil.FindIndexIgnoreCase(Strings.natures    , value)) >= 0,
+        "Nature"        => (Nature  = (Nature)StringUtil.FindIndexIgnoreCase(Strings.natures    , value)).IsFixed(),
         "Shiny"         => Shiny         = StringUtil.IsMatchIgnoreCase("Yes", value),
         "Gigantamax"    => CanGigantamax = StringUtil.IsMatchIgnoreCase("Yes", value),
         "Friendship"    => ParseFriendship(value),
@@ -274,7 +276,7 @@ public sealed class ShowdownSet : IBattleTemplate
 
     private bool ParseLevel(ReadOnlySpan<char> value)
     {
-        if (!int.TryParse(value.Trim(), out var val))
+        if (!byte.TryParse(value.Trim(), out var val))
             return false;
         if ((uint)val is 0 or > 100)
             return false;
@@ -284,9 +286,7 @@ public sealed class ShowdownSet : IBattleTemplate
 
     private bool ParseFriendship(ReadOnlySpan<char> value)
     {
-        if (!int.TryParse(value.Trim(), out var val))
-            return false;
-        if ((uint)val > byte.MaxValue)
+        if (!byte.TryParse(value.Trim(), out var val))
             return false;
         Friendship = val;
         return true;
@@ -298,7 +298,8 @@ public sealed class ShowdownSet : IBattleTemplate
         var val = Util.ToInt32(value);
         if ((uint)val > 10)
             return false;
-        return (DynamaxLevel = (byte)val) is (>= 0 and <= 10);
+        DynamaxLevel = (byte)val;
+        return true;
     }
 
     private bool ParseTeraType(ReadOnlySpan<char> value)
@@ -308,6 +309,8 @@ public sealed class ShowdownSet : IBattleTemplate
         var val = StringUtil.FindIndexIgnoreCase(types, value);
         if (val < 0)
             return false;
+        if (val == TeraTypeUtil.StellarTypeDisplayStringIndex)
+            val = TeraTypeUtil.Stellar;
         TeraType = (MoveType)val;
         return true;
     }
@@ -320,7 +323,7 @@ public sealed class ShowdownSet : IBattleTemplate
     /// <summary>
     /// Gets the localized Text representation of the set details.
     /// </summary>
-    /// <param name="lang">2 character language code</param>
+    /// <param name="lang">Language code</param>
     public string LocalizedText(string lang = DefaultLanguage) => LocalizedText(GameLanguage.GetLanguageIndex(lang));
 
     /// <summary>
@@ -367,8 +370,14 @@ public sealed class ShowdownSet : IBattleTemplate
         // Secondary Stats
         if ((uint)Ability < Strings.Ability.Count)
             result.Add($"Ability: {Strings.Ability[Ability]}");
-        if (Context == EntityContext.Gen9 && TeraType != MoveType.Any && (uint)TeraType < Strings.Types.Count)
-            result.Add($"Tera Type: {Strings.Types[(int)TeraType]}");
+        if (Context == EntityContext.Gen9 && TeraType != MoveType.Any)
+        {
+            if ((uint)TeraType <= TeraTypeUtil.MaxType) // Fairy
+                result.Add($"Tera Type: {Strings.Types[(int)TeraType]}");
+            else if ((uint)TeraType == TeraTypeUtil.Stellar)
+                result.Add($"Tera Type: {Strings.Types[TeraTypeUtil.StellarTypeDisplayStringIndex]}");
+        }
+
         if (Level != 100)
             result.Add($"Level: {Level}");
         if (Shiny)
@@ -379,7 +388,7 @@ public sealed class ShowdownSet : IBattleTemplate
             result.Add("Gigantamax: Yes");
 
         if ((uint)Nature < Strings.Natures.Count)
-            result.Add($"{Strings.Natures[Nature]} Nature");
+            result.Add($"{Strings.Natures[(byte)Nature]} Nature");
 
         // Moves
         result.AddRange(GetStringMoves());
@@ -415,7 +424,7 @@ public sealed class ShowdownSet : IBattleTemplate
 
     private string GetSpeciesNickname(string specForm)
     {
-        if (Nickname.Length == 0)
+        if (Nickname.Length == 0 || Nickname == specForm)
             return specForm;
         bool isNicknamed = SpeciesName.IsNicknamedAnyLanguage(Species, Nickname, Context.Generation());
         if (!isNicknamed)
@@ -423,11 +432,11 @@ public sealed class ShowdownSet : IBattleTemplate
         return $"{Nickname} ({specForm})";
     }
 
-    private static string[] GetStringStats(ReadOnlySpan<int> stats, int ignoreValue)
+    public static string[] GetStringStats<T>(ReadOnlySpan<T> stats, T ignoreValue) where T : IEquatable<T>
     {
         var count = stats.Length - stats.Count(ignoreValue);
         if (count == 0)
-            return Array.Empty<string>();
+            return [];
 
         var result = new string[count];
         int ctr = 0;
@@ -435,7 +444,7 @@ public sealed class ShowdownSet : IBattleTemplate
         {
             var statIndex = GetStatIndexStored(i);
             var statValue = stats[statIndex];
-            if (statValue == ignoreValue)
+            if (statValue.Equals(ignoreValue))
                 continue; // ignore unused stats
             var statName = StatNames[statIndex];
             result[ctr++] = $"{statValue} {statName}";
@@ -499,20 +508,24 @@ public sealed class ShowdownSet : IBattleTemplate
         Ability = pk.Ability;
         pk.GetEVs(EVs);
         pk.GetIVs(IVs);
-        pk.GetMoves(Moves);
+
+        var moves = Moves.AsSpan();
+        pk.GetMoves(moves);
+        if (moves.Contains((ushort)Move.HiddenPower))
+            HiddenPowerType = (sbyte)HiddenPower.GetType(IVs, Context);
+
         Nature = pk.StatNature;
-        Gender = (uint)pk.Gender < 2 ? pk.Gender : 2;
+        Gender = pk.Gender < 2 ? pk.Gender : (byte)2;
         Friendship = pk.CurrentFriendship;
         Level = pk.CurrentLevel;
         Shiny = pk.IsShiny;
 
-        if (pk is IGigantamax g)
+        if (pk is PK8 g) // Only set Gigantamax if it is a PK8
+        {
             CanGigantamax = g.CanGigantamax;
-        if (pk is IDynamaxLevel d)
-            DynamaxLevel = d.DynamaxLevel;
+            DynamaxLevel = g.DynamaxLevel;
+        }
 
-        if (Array.IndexOf(Moves, (ushort)Move.HiddenPower) != -1)
-            HiddenPowerType = HiddenPower.GetType(IVs, Context);
         if (pk is ITeraType t)
             TeraType = t.TeraType;
         if (pk is IHyperTrain h)
@@ -658,7 +671,7 @@ public sealed class ShowdownSet : IBattleTemplate
         {
             nickname = line[..index].TrimEnd();
             species = line[(index + 1)..];
-            if (species.Length > 0 && species[^1] == ')')
+            if (species.Length != 0 && species[^1] == ')')
                 species = species[..^1];
         }
         else // parenthesis value before: (Species) Nickname, incorrect
@@ -674,7 +687,7 @@ public sealed class ShowdownSet : IBattleTemplate
             else // (Species), or garbage
             {
                 species = tmp;
-                nickname = ReadOnlySpan<char>.Empty;
+                nickname = [];
             }
         }
 
@@ -701,11 +714,12 @@ public sealed class ShowdownSet : IBattleTemplate
 
         // Defined Hidden Power
         var type = GetHiddenPowerType(moveString[(hiddenPowerName.Length + 1)..]);
-        int hpVal = StringUtil.FindIndexIgnoreCase(Strings.types.AsSpan(1, 16), type); // Get HP Type
+        var types = Strings.types.AsSpan(1, HiddenPower.TypeCount);
+        int hpVal = StringUtil.FindIndexIgnoreCase(types, type); // Get HP Type
         if (hpVal == -1)
             return hiddenPowerName;
 
-        HiddenPowerType = hpVal;
+        HiddenPowerType = (sbyte)hpVal;
         if (!Array.TrueForAll(IVs, z => z == 31))
         {
             if (!HiddenPower.SetIVsForType(hpVal, IVs, Context))
@@ -729,7 +743,7 @@ public sealed class ShowdownSet : IBattleTemplate
             return type;
 
         if (type[0] == '(' && type[^1] == ')')
-             return type[1..^1].Trim();
+            return type[1..^1].Trim();
         if (type[0] == '[' && type[^1] == ']')
             return type[1..^1].Trim();
 

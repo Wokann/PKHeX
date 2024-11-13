@@ -3,7 +3,7 @@ namespace PKHeX.Core;
 /// <summary>
 /// Ability IDs for the corresponding English ability name.
 /// </summary>
-public enum Ability
+public enum Ability : ushort
 {
     None,
     Stench,
@@ -304,5 +304,17 @@ public enum Ability
     ArmorTail,
     EarthEater,
     MyceliumMight,
+    Hospitality,
+    MindsEye,
+    EmbodyAspect0,
+    EmbodyAspect1,
+    EmbodyAspect2,
+    EmbodyAspect3,
+    ToxicChain,
+    SupersweetSyrup,
+    TeraShift,
+    TeraShell,
+    TeraformZero,
+    PoisonPuppeteer,
     MAX_COUNT,
 }

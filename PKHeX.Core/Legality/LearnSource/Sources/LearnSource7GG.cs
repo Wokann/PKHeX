@@ -12,10 +12,12 @@ public sealed class LearnSource7GG : ILearnSource<PersonalInfo7GG>
 {
     public static readonly LearnSource7GG Instance = new();
     private static readonly PersonalTable7GG Personal = PersonalTable.GG;
-    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_gg.pkl"), "gg"));
+    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_gg.pkl"), "gg"u8));
     private const int MaxSpecies = Legal.MaxSpeciesID_7b;
     private const LearnEnvironment Game = GG;
     private const int ReminderBonus = 100; // Move reminder allows re-learning ALL level up moves regardless of level.
+
+    public LearnEnvironment Environment => Game;
 
     public Learnset GetLearnset(ushort species, byte form) => Learnsets[Personal.GetFormIndex(species, form)];
 
@@ -87,8 +89,8 @@ public sealed class LearnSource7GG : ILearnSource<PersonalInfo7GG>
         }
     }
 
-    private static ReadOnlySpan<ushort> TMHM_GG => new ushort[]
-    {
+    private static ReadOnlySpan<ushort> TMHM_GG =>
+    [
         029, 269, 270, 100, 156, 113, 182, 164, 115, 091,
         261, 263, 280, 019, 069, 086, 525, 369, 231, 399,
         492, 157, 009, 404, 127, 398, 092, 161, 503, 339,
@@ -98,18 +100,18 @@ public sealed class LearnSource7GG : ILearnSource<PersonalInfo7GG>
         // rest are same as SM, unused
 
         // No HMs
-    };
+    ];
 
-    private static ReadOnlySpan<ushort> Tutor_StarterPikachu => new ushort[]
-    {
+    private static ReadOnlySpan<ushort> Tutor_StarterPikachu =>
+    [
         (int)Move.ZippyZap,
         (int)Move.SplishySplash,
         (int)Move.FloatyFall,
         //(int)Move.PikaPapow, // Joycon Shake
-    };
+    ];
 
-    private static ReadOnlySpan<ushort> Tutor_StarterEevee => new ushort[]
-    {
+    private static ReadOnlySpan<ushort> Tutor_StarterEevee =>
+    [
         (int)Move.BouncyBubble,
         (int)Move.BuzzyBuzz,
         (int)Move.SizzlySlide,
@@ -119,5 +121,5 @@ public sealed class LearnSource7GG : ILearnSource<PersonalInfo7GG>
         (int)Move.FreezyFrost,
         (int)Move.SparklySwirl,
         //(int)Move.VeeveeVolley, // Joycon Shake
-    };
+    ];
 }

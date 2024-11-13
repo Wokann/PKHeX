@@ -11,11 +11,11 @@ public sealed class BulkAnalysis
     public readonly IReadOnlyList<SlotCache> AllData;
     public readonly IReadOnlyList<LegalityAnalysis> AllAnalysis;
     public readonly ITrainerInfo Trainer;
-    public readonly List<CheckResult> Parse = new();
-    public readonly Dictionary<ulong, SlotCache> Trackers = new();
+    public readonly List<CheckResult> Parse = [];
+    public readonly Dictionary<ulong, SlotCache> Trackers = [];
     public readonly bool Valid;
 
-    public readonly IBulkAnalysisSettings Settings;
+    public readonly BulkAnalysisSettings Settings;
     private readonly bool[] CloneFlags;
 
     /// <summary>
@@ -28,7 +28,7 @@ public sealed class BulkAnalysis
     /// </summary>
     public bool SetIsClone(int entryIndex, bool value = true) => CloneFlags[entryIndex] = value;
 
-    public BulkAnalysis(SaveFile sav, IBulkAnalysisSettings settings)
+    public BulkAnalysis(SaveFile sav, BulkAnalysisSettings settings)
     {
         Trainer = sav;
         Settings = settings;
@@ -47,7 +47,7 @@ public sealed class BulkAnalysis
     private static bool IsEmptyData(SlotCache obj)
     {
         var pk = obj.Entity;
-        if ((uint)(pk.Species - 1) >= pk.MaxSpeciesID)
+        if (pk.Species - 1u >= pk.MaxSpeciesID)
             return true;
         if (!pk.ChecksumValid)
             return true;
@@ -57,15 +57,15 @@ public sealed class BulkAnalysis
     /// <summary>
     /// Supported <see cref="IBulkAnalyzer"/> checkers that will be iterated through to check all entities.
     /// </summary>
-    public static readonly List<IBulkAnalyzer> Analyzers = new()
-    {
+    public static readonly List<IBulkAnalyzer> Analyzers =
+    [
         new StandardCloneChecker(),
         new DuplicateTrainerChecker(),
         new DuplicatePIDChecker(),
         new DuplicateEncryptionChecker(),
         new HandlerChecker(),
         new DuplicateGiftChecker(),
-    };
+    ];
 
     private void ScanAll()
     {
@@ -95,7 +95,7 @@ public sealed class BulkAnalysis
         Parse.Add(chk);
     }
 
-    private static IReadOnlyList<LegalityAnalysis> GetIndividualAnalysis(IReadOnlyList<SlotCache> pkms)
+    private static LegalityAnalysis[] GetIndividualAnalysis(IReadOnlyList<SlotCache> pkms)
     {
         var results = new LegalityAnalysis[pkms.Count];
         for (int i = 0; i < pkms.Count; i++)
@@ -103,5 +103,5 @@ public sealed class BulkAnalysis
         return results;
     }
 
-    private static LegalityAnalysis Get(SlotCache cache) => new(cache.Entity, cache.SAV.Personal, cache.Source.Origin);
+    private static LegalityAnalysis Get(SlotCache cache) => new(cache.Entity, cache.SAV.Personal, cache.Source.Type);
 }

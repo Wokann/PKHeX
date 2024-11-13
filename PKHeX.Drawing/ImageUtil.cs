@@ -113,14 +113,19 @@ public static class ImageUtil
         data = new byte[bmp.Width * bmp.Height * 4];
     }
 
-    public static Bitmap GetBitmap(byte[] data, int width, int height, PixelFormat format = PixelFormat.Format32bppArgb)
+    public static Bitmap GetBitmap(byte[] data, int width, int height, int length, PixelFormat format = PixelFormat.Format32bppArgb)
     {
         var bmp = new Bitmap(width, height, format);
         var bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.WriteOnly, format);
         var ptr = bmpData.Scan0;
-        Marshal.Copy(data, 0, ptr, data.Length);
+        Marshal.Copy(data, 0, ptr, length);
         bmp.UnlockBits(bmpData);
         return bmp;
+    }
+
+    public static Bitmap GetBitmap(byte[] data, int width, int height, PixelFormat format = PixelFormat.Format32bppArgb)
+    {
+        return GetBitmap(data, width, height, data.Length, format);
     }
 
     public static byte[] GetPixelData(Bitmap bitmap)
@@ -205,7 +210,7 @@ public static class ImageUtil
 
     public static void ChangeAllTo(Span<byte> data, Color c, int start, int end)
     {
-        var arr = MemoryMarshal.Cast<byte, int>(data).Slice(start / 4, (end - start) / 4);
+        var arr = MemoryMarshal.Cast<byte, int>(data[start..end]);
         var value = c.ToArgb();
         arr.Fill(value);
     }
@@ -231,7 +236,7 @@ public static class ImageUtil
         {
             if (data[i + 3] == 0)
                 continue;
-            byte greyS = (byte)(((0.3 * data[i + 2]) + (0.59 * data[i + 1]) + (0.11 * data[i + 0])));
+            byte greyS = (byte)((0.3 * data[i + 2]) + (0.59 * data[i + 1]) + (0.11 * data[i + 0]));
             data[i + 0] = greyS;
             data[i + 1] = greyS;
             data[i + 2] = greyS;

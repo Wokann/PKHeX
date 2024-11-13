@@ -4,16 +4,11 @@ using System.Diagnostics;
 
 namespace PKHeX.Core;
 
-public sealed class InventoryPouch9 : InventoryPouch
+public sealed class InventoryPouch9(InventoryType type, IItemStorage info, int maxCount, uint pouch)
+    : InventoryPouch(type, info, maxCount, 0)
 {
     public bool SetNew { get; set; }
-    public uint PouchIndex { get; set; }
-
-    public InventoryPouch9(InventoryType type, IItemStorage info, int maxCount, uint pouch)
-        : base(type, info, maxCount, 0)
-    {
-        PouchIndex = pouch;
-    }
+    public uint PouchIndex { get; set; } = pouch;
 
     public override InventoryItem9 GetEmpty(int itemID = 0, int count = 0) => new() { Index = itemID, Count = count, IsNew = true };
 
@@ -44,7 +39,7 @@ public sealed class InventoryPouch9 : InventoryPouch
 
     public override void SetPouch(Span<byte> data)
     {
-        HashSet<ushort> processed = new();
+        HashSet<ushort> processed = [];
 
         // Write all the item slots still present in the pouch. Keep track of the item IDs processed.
         var items = (InventoryItem9[])Items;
@@ -72,8 +67,9 @@ public sealed class InventoryPouch9 : InventoryPouch
             var ofs = GetItemOffset(index);
             item.Write(data[ofs..]);
 
-            if (!processed.Contains(index)) // we will allow duplicate item definitions, but they'll overwrite instead of sum/separate.
-                processed.Add(index);
+            // In the event of duplicates, we just overwrite what was previously written by a prior duplicate.
+            // Don't care if we've already processed this item, just write it again.
+            processed.Add(index);
         }
 
         // For all the items that were not present in the pouch, clear the data for them.
@@ -91,11 +87,12 @@ public sealed class InventoryPouch9 : InventoryPouch
 
     public static int GetSuggestedCount(InventoryType t, int item, int requestVal)
     {
-        bool pick = item is (>= 2334 and <= 2342) or (>= 2385 and <= 2394);
+        bool isPick = item is (>= 2334 and <= 2342) or (>= 2385 and <= 2394);
+        bool isAccessory = item is (>= 2311 and <= 2400) or (>= 2417 and <= 2437); // tablecloths, chairs, cups, etc
         return t switch
         {
             // Picnic table accessories are clamped to 1, let actual ingredients and sandwich picks be whatever
-            InventoryType.Ingredients => !pick && item is (>= 2311 and <= 2400) ? 1 : requestVal,
+            InventoryType.Ingredients => !isPick && isAccessory ? 1 : requestVal,
             _ => requestVal,
         };
     }

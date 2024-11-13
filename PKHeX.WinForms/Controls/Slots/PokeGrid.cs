@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -14,7 +13,7 @@ public partial class PokeGrid : UserControl
         InitializeComponent();
     }
 
-    public readonly List<PictureBox> Entries = new();
+    public readonly List<PictureBox> Entries = [];
     public int Slots { get; private set; }
 
     private int sizeW = 68;
@@ -69,7 +68,6 @@ public partial class PokeGrid : UserControl
         int h = (2 * padEdge) + border + (height * (rowHeight + border));
         Size = new Size(w, h);
         Controls.AddRange(Entries.Cast<Control>().ToArray());
-        Debug.WriteLine($"{Name} -- Width: {Width}, Height: {Height}");
         ResumeLayout();
     }
 

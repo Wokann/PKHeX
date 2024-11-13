@@ -31,13 +31,13 @@ internal static class BatchModifications
             t.ClearRecordFlags();
             if (IsAll(propValue))
             {
-                t.SetRecordFlags(); // all
+                t.SetRecordFlagsAll(info.Legality.Info.EvoChainsAllGens.Get(pk.Context)); // all
             }
             else if (!IsNone(propValue))
             {
                 Span<ushort> moves = stackalloc ushort[4];
                 pk.GetMoves(moves);
-                t.SetRecordFlags(moves); // whatever fit the current moves
+                t.SetRecordFlags(moves, info.Legality.Info.EvoChainsAllGens.Get(pk.Context)); // whatever fit the current moves
             }
         }
 
@@ -92,12 +92,12 @@ internal static class BatchModifications
         if (encounter == null)
             return ModifyResult.Error;
 
-        int level = encounter.LevelMin;
-        int location = encounter.Location;
-        int minimumLevel = EncounterSuggestion.GetLowestLevel(pk, encounter.LevelMin);
+        var location = encounter.Location;
+        var level = encounter.LevelMin;
+        var minimumLevel = EncounterSuggestion.GetLowestLevel(pk, level);
 
-        pk.Met_Level = level;
-        pk.Met_Location = location;
+        pk.MetLevel = level;
+        pk.MetLocation = location;
         pk.CurrentLevel = Math.Max(minimumLevel, level);
 
         return ModifyResult.Modified;
@@ -120,7 +120,6 @@ internal static class BatchModifications
     public static ModifyResult SetMoves(PKM pk, ReadOnlySpan<ushort> moves)
     {
         pk.SetMoves(moves);
-        pk.HealPP();
         return ModifyResult.Modified;
     }
 

@@ -1,10 +1,11 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
 
 /// <summary>
-/// Side game data base class for <see cref="PKM"/> data transferred into HOME.
+/// Base class for Side-game data used to store <see cref="PKM"/> data transferred into HOME.
 /// </summary>
 public abstract class HomeOptional1
 {
@@ -16,10 +17,10 @@ public abstract class HomeOptional1
     public const int HeaderSize = 3; // u8 format, u16 length(data[u8])
     protected abstract HomeGameDataFormat Format { get; }
 
-    protected HomeOptional1(ushort size) => Buffer = new byte[size];
+    protected HomeOptional1([ConstantExpected] ushort size) => Buffer = new byte[size];
     protected HomeOptional1(Memory<byte> buffer) => Buffer = buffer;
 
-    protected void EnsureSize(int size)
+    protected void EnsureSize([ConstantExpected] int size)
     {
         if (Buffer.Length != size)
             throw new ArgumentOutOfRangeException(nameof(size), size, $"Expected size {Buffer.Length} but received {size}.");

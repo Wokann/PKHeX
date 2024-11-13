@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 
 namespace PKHeX.Core;
 
@@ -13,12 +14,28 @@ public static class Experience
     /// <param name="exp">Experience points</param>
     /// <param name="growth">Experience growth rate</param>
     /// <returns>Current level of the species.</returns>
-    public static int GetLevel(uint exp, byte growth)
+    public static byte GetLevel(uint exp, byte growth)
     {
         var table = GetTable(growth);
+        return GetLevel(exp, table);
+    }
+
+    /// <summary>
+    /// Gets the current level of a species.
+    /// </summary>
+    /// <param name="exp">Experience points</param>
+    /// <param name="table">Experience growth table</param>
+    /// <returns>Current level of the species.</returns>
+    public static byte GetLevel(uint exp, ReadOnlySpan<uint> table)
+    {
+        // Eagerly return 100 if the exp is at max
+        // Also avoids overflow issues with the table in the event EXP is out of bounds
         if (exp >= table[^1])
             return 100;
-        int tl = 1; // Initial Level. Iterate upwards to find the level
+
+        // Most will be below level 50, so start from the bottom
+        // Don't bother with binary search, as the table is small
+        byte tl = 1; // Initial Level. Iterate upwards to find the level
         while (exp >= table[tl])
             ++tl;
         return tl;
@@ -30,7 +47,7 @@ public static class Experience
     /// <param name="level">Current level</param>
     /// <param name="growth">Growth Rate type</param>
     /// <returns>Experience points needed to have specified level.</returns>
-    public static uint GetEXP(int level, byte growth)
+    public static uint GetEXP(byte level, byte growth)
     {
         if (level <= 1)
             return 0;
@@ -38,10 +55,26 @@ public static class Experience
             level = 100;
 
         var table = GetTable(growth);
-        return table[level - 1];
+        return GetEXP(level, table);
     }
 
-    private static ReadOnlySpan<uint> GetTable(byte growth) => growth switch
+    /// <summary>
+    /// Gets the minimum Experience points for the specified level.
+    /// </summary>
+    /// <param name="level">Current level</param>
+    /// <param name="table">Experience growth table</param>
+    /// <returns>Experience points needed to have specified level.</returns>
+    /// <remarks>No bounds checking is performed.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint GetEXP(byte level, ReadOnlySpan<uint> table) => table[level - 1];
+
+    /// <summary>
+    /// Gets the minimum Experience points for all levels possible.
+    /// </summary>
+    /// <param name="growth">Growth Rate type</param>
+    /// <returns>Experience points needed to have an indexed level.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    public static ReadOnlySpan<uint> GetTable(byte growth) => growth switch
     {
         0 => Growth0,
         1 => Growth1,
@@ -57,7 +90,7 @@ public static class Experience
     /// </summary>
     /// <param name="experience">Current Experience</param>
     /// <returns>Nature ID (<see cref="Nature"/>)</returns>
-    public static int GetNatureVC(uint experience) => (int)(experience % 25);
+    public static Nature GetNatureVC(uint experience) => (Nature)(experience % 25);
 
     /// <summary>
     /// Gets the amount of EXP to be earned until the next level-up occurs.
@@ -65,13 +98,13 @@ public static class Experience
     /// <param name="level">Current Level</param>
     /// <param name="growth">Growth Rate type</param>
     /// <returns>EXP to level up</returns>
-    public static uint GetEXPToLevelUp(int level, byte growth)
+    public static uint GetEXPToLevelUp(byte level, byte growth)
     {
-        if ((uint)level >= 100)
+        if (level >= 100)
             return 0;
         var table = GetTable(growth);
-        var current = table[level - 1];
-        var next = table[level];
+        var current = GetEXP(level, table);
+        var next = GetEXP(++level, table);
         return next - current;
     }
 
@@ -82,14 +115,14 @@ public static class Experience
     /// <param name="exp">Current Experience</param>
     /// <param name="growth">Growth Rate type</param>
     /// <returns>Percentage [0,1.00)</returns>
-    public static double GetEXPToLevelUpPercentage(int level, uint exp, byte growth)
+    public static double GetEXPToLevelUpPercentage(byte level, uint exp, byte growth)
     {
-        if ((uint)level >= 100)
+        if (level >= 100)
             return 0;
 
         var table = GetTable(growth);
-        var current = table[level - 1];
-        var next = table[level];
+        var current = GetEXP(level, table);
+        var next = GetEXP(++level, table);
         var amount = next - current;
         double progress = exp - current;
         return progress / amount;
@@ -97,8 +130,8 @@ public static class Experience
 
     #region ExpTable
 
-    private static ReadOnlySpan<uint> Growth0 => new uint[]
-    {
+    private static ReadOnlySpan<uint> Growth0 =>
+    [
         0000000, 0000008, 0000027, 0000064, 0000125, 0000216, 0000343, 0000512, 0000729, 0001000,
         0001331, 0001728, 0002197, 0002744, 0003375, 0004096, 0004913, 0005832, 0006859, 0008000,
         0009261, 0010648, 0012167, 0013824, 0015625, 0017576, 0019683, 0021952, 0024389, 0027000,
@@ -109,10 +142,10 @@ public static class Experience
         0357911, 0373248, 0389017, 0405224, 0421875, 0438976, 0456533, 0474552, 0493039, 0512000,
         0531441, 0551368, 0571787, 0592704, 0614125, 0636056, 0658503, 0681472, 0704969, 0729000,
         0753571, 0778688, 0804357, 0830584, 0857375, 0884736, 0912673, 0941192, 0970299, 1000000,
-    };
+    ];
 
-    private static ReadOnlySpan<uint> Growth1 => new uint[]
-    {
+    private static ReadOnlySpan<uint> Growth1 =>
+    [
         0000000, 0000015, 0000052, 0000122, 0000237, 0000406, 0000637, 0000942, 0001326, 0001800,
         0002369, 0003041, 0003822, 0004719, 0005737, 0006881, 0008155, 0009564, 0011111, 0012800,
         0014632, 0016610, 0018737, 0021012, 0023437, 0026012, 0028737, 0031610, 0034632, 0037800,
@@ -123,10 +156,10 @@ public static class Experience
         0286328, 0296358, 0305767, 0316074, 0326531, 0336255, 0346965, 0357812, 0367807, 0378880,
         0390077, 0400293, 0411686, 0423190, 0433572, 0445239, 0457001, 0467489, 0479378, 0491346,
         0501878, 0513934, 0526049, 0536557, 0548720, 0560922, 0571333, 0583539, 0591882, 0600000,
-    };
+    ];
 
-    private static ReadOnlySpan<uint> Growth2 => new uint[]
-    {
+    private static ReadOnlySpan<uint> Growth2 =>
+    [
         0000000, 0000004, 0000013, 0000032, 0000065, 0000112, 0000178, 0000276, 0000393, 0000540,
         0000745, 0000967, 0001230, 0001591, 0001957, 0002457, 0003046, 0003732, 0004526, 0005440,
         0006482, 0007666, 0009003, 0010506, 0012187, 0014060, 0016140, 0018439, 0020974, 0023760,
@@ -137,10 +170,10 @@ public static class Experience
         0479600, 0507617, 0529063, 0559209, 0582187, 0614566, 0639146, 0673863, 0700115, 0737280,
         0765275, 0804997, 0834809, 0877201, 0908905, 0954084, 0987754, 1035837, 1071552, 1122660,
         1160499, 1214753, 1254796, 1312322, 1354652, 1415577, 1460276, 1524731, 1571884, 1640000,
-    };
+    ];
 
-    private static ReadOnlySpan<uint> Growth3 => new uint[]
-    {
+    private static ReadOnlySpan<uint> Growth3 =>
+    [
         0000000, 0000009, 0000057, 0000096, 0000135, 0000179, 0000236, 0000314, 0000419, 0000560,
         0000742, 0000973, 0001261, 0001612, 0002035, 0002535, 0003120, 0003798, 0004575, 0005460,
         0006458, 0007577, 0008825, 0010208, 0011735, 0013411, 0015244, 0017242, 0019411, 0021760,
@@ -151,10 +184,10 @@ public static class Experience
         0360838, 0377197, 0394045, 0411388, 0429235, 0447591, 0466464, 0485862, 0505791, 0526260,
         0547274, 0568841, 0590969, 0613664, 0636935, 0660787, 0685228, 0710266, 0735907, 0762160,
         0789030, 0816525, 0844653, 0873420, 0902835, 0932903, 0963632, 0995030, 1027103, 1059860,
-    };
+    ];
 
-    private static ReadOnlySpan<uint> Growth4 => new uint[]
-    {
+    private static ReadOnlySpan<uint> Growth4 =>
+    [
         0000000, 0000006, 0000021, 0000051, 0000100, 0000172, 0000274, 0000409, 0000583, 0000800,
         0001064, 0001382, 0001757, 0002195, 0002700, 0003276, 0003930, 0004665, 0005487, 0006400,
         0007408, 0008518, 0009733, 0011059, 0012500, 0014060, 0015746, 0017561, 0019511, 0021600,
@@ -165,10 +198,10 @@ public static class Experience
         0286328, 0298598, 0311213, 0324179, 0337500, 0351180, 0365226, 0379641, 0394431, 0409600,
         0425152, 0441094, 0457429, 0474163, 0491300, 0508844, 0526802, 0545177, 0563975, 0583200,
         0602856, 0622950, 0643485, 0664467, 0685900, 0707788, 0730138, 0752953, 0776239, 0800000,
-    };
+    ];
 
-    private static ReadOnlySpan<uint> Growth5 => new uint[]
-    {
+    private static ReadOnlySpan<uint> Growth5 =>
+    [
         0000000, 0000010, 0000033, 0000080, 0000156, 0000270, 0000428, 0000640, 0000911, 0001250,
         0001663, 0002160, 0002746, 0003430, 0004218, 0005120, 0006141, 0007290, 0008573, 0010000,
         0011576, 0013310, 0015208, 0017280, 0019531, 0021970, 0024603, 0027440, 0030486, 0033750,
@@ -179,7 +212,7 @@ public static class Experience
         0447388, 0466560, 0486271, 0506530, 0527343, 0548720, 0570666, 0593190, 0616298, 0640000,
         0664301, 0689210, 0714733, 0740880, 0767656, 0795070, 0823128, 0851840, 0881211, 0911250,
         0941963, 0973360, 1005446, 1038230, 1071718, 1105920, 1140841, 1176490, 1212873, 1250000,
-    };
+    ];
 
     #endregion
 }

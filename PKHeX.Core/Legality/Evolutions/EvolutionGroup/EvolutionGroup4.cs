@@ -6,58 +6,74 @@ public sealed class EvolutionGroup4 : IEvolutionGroup
 {
     public static readonly EvolutionGroup4 Instance = new();
     private static readonly EvolutionTree Tree = EvolutionTree.Evolves4;
-    private const int MaxSpecies = Legal.MaxSpeciesID_4;
-    private const int Generation = 4;
+    private const byte Generation = 4;
     private static PersonalTable4 Personal => PersonalTable.HGSS;
+    private static EvolutionRuleTweak Tweak => EvolutionRuleTweak.Default;
 
     public IEvolutionGroup? GetNext(PKM pk, EvolutionOrigin enc) => pk.Format > Generation ? EvolutionGroup5.Instance : null;
     public IEvolutionGroup? GetPrevious(PKM pk, EvolutionOrigin enc) => enc.Generation == 3 ? EvolutionGroup3.Instance : null;
+    public void DiscardForOrigin(Span<EvoCriteria> result, PKM pk, EvolutionOrigin enc) => EvolutionUtil.Discard(result, Personal);
 
-    public bool Append(PKM pk, EvolutionHistory history, ref ReadOnlySpan<EvoCriteria> chain, EvolutionOrigin enc)
+    public int Devolve(Span<EvoCriteria> result, PKM pk, EvolutionOrigin enc)
     {
-        // Get the first evolution in the chain that can be present in this group
-        var any = GetFirstEvolution(chain, out var evo);
-        if (!any)
-            return false;
-
-        // Get the evolution tree from this group and get the new chain from it.
-        var min = pk.Format > Generation ? enc.LevelMin : (byte)pk.Met_Level;
-        var criteria = enc with { LevelMax = evo.LevelMax, LevelMin = min };
-        var local = GetInitialChain(pk, criteria, evo.Species, evo.Form);
-
-        // Revise the tree
-        var revised = Prune(local);
-
-        // Set the tree to the history field
-        history.Gen4 = revised;
-
-        // Retain a reference to the current chain for future appending as we step backwards.
-        chain = revised;
-
-        return revised.Length != 0;
-    }
-
-    public EvoCriteria[] GetInitialChain(PKM pk, EvolutionOrigin enc, ushort species, byte form)
-    {
-        return Tree.GetExplicitLineage(species, form, pk, enc.LevelMin, enc.LevelMax, MaxSpecies, enc.SkipChecks, enc.Species);
-    }
-
-    private static EvoCriteria[] Prune(EvoCriteria[] chain) => chain;
-
-    private static bool GetFirstEvolution(ReadOnlySpan<EvoCriteria> chain, out EvoCriteria result)
-    {
-        var pt = Personal;
-        foreach (var evo in chain)
+        if (pk.Format > Generation && !enc.SkipChecks)
         {
-            // If the evo can't exist in the game, it must be a future evolution.
-            if (!pt.IsPresentInGame(evo.Species, evo.Form))
-                continue;
-
-            result = evo;
-            return true;
+            if (enc.Species is (ushort)Species.Arceus)
+                result[0] = result[0] with { Form = 0 }; // Account for form-shift (9) for all forms, as plate is removed for transfer anyway.
+            byte max = pk.MetLevel;
+            EvolutionUtil.UpdateCeiling(result, max);
+            enc = enc with { LevelMin = 1, LevelMax = max };
         }
 
-        result = default;
-        return false;
+        int present = 1;
+        for (int i = 1; i < result.Length; i++)
+        {
+            var prev = result[i - 1];
+            if (!TryDevolve(prev, pk, prev.LevelMax, enc.LevelMin, enc.SkipChecks, out var evo))
+                continue;
+
+            ref var reference = ref result[i];
+            if (evo.IsBetterDevolution(reference))
+                reference = evo;
+            present++;
+        }
+        return present;
+    }
+
+    public bool TryDevolve<T>(T head, PKM pk, byte currentMaxLevel, byte levelMin, bool skipChecks, out EvoCriteria result) where T : ISpeciesForm
+    {
+        return Tree.Reverse.TryDevolve(head, pk, currentMaxLevel, levelMin, skipChecks, Tweak, out result);
+    }
+
+    public int Evolve(Span<EvoCriteria> result, PKM pk, EvolutionOrigin enc, EvolutionHistory history)
+    {
+        if (pk.Format > Generation)
+            enc = enc with { LevelMax = pk.MetLevel };
+        else if (enc.Generation < Generation)
+            EvolutionUtil.UpdateFloor(result, pk.MetLevel, enc.LevelMax);
+
+        int present = 1;
+        for (int i = result.Length - 1; i >= 1; i--)
+        {
+            ref var dest = ref result[i - 1];
+            var devolved = result[i];
+            if (!TryEvolve(devolved, dest, pk, enc.LevelMax, devolved.LevelMin, enc.SkipChecks, out var evo))
+            {
+                if (dest.Method == EvoCriteria.SentinelNotReached)
+                    break; // Don't continue for higher evolutions.
+                continue;
+            }
+
+            if (evo.IsBetterEvolution(dest))
+                dest = evo;
+            present++;
+        }
+        history.Gen4 = EvolutionUtil.SetHistory(result, Personal);
+        return present;
+    }
+
+    public bool TryEvolve<T>(T head, ISpeciesForm next, PKM pk, byte currentMaxLevel, byte levelMin, bool skipChecks, out EvoCriteria result) where T : ISpeciesForm
+    {
+        return Tree.Forward.TryEvolve(head, next, pk, currentMaxLevel, levelMin, skipChecks, Tweak, out result);
     }
 }

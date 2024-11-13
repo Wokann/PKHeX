@@ -1,16 +1,14 @@
 using System;
-using System.Runtime.InteropServices;
 using static PKHeX.Core.Move;
 using static PKHeX.Core.Species;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
 
-[StructLayout(LayoutKind.Sequential, Pack = 4, Size = SIZE)]
-public sealed class Swarm3
+public sealed class Swarm3(byte[] Data)
 {
     public const int SIZE = 0x14;
-    public readonly byte[] Data;
+    public readonly byte[] Data = Data;
 
     private Span<byte> Raw => Data.AsSpan();
 
@@ -28,8 +26,6 @@ public sealed class Swarm3
     public byte EncounterProbability { get => Raw[0x11]; set => Raw[0x11] = value; }
     public ushort DaysLeft { get => ReadUInt16LittleEndian(Raw[0x12..]); set => WriteUInt16LittleEndian(Raw[0x12..], value); }
 
-    public Swarm3(byte[] data) => Data = data;
-
     public Swarm3(Species species, byte level, byte map, Move m1, Move m2 = 0, Move m3 = 0, Move m4 = 0) : this(new byte[SIZE])
     {
         Gen3Species = SpeciesConverter.GetInternal3((ushort)species);
@@ -46,21 +42,29 @@ public sealed class Swarm3
 
 public static class Swarm3Details
 {
+    /// <summary>
+    /// Hardcoded templates available to set to the save file.
+    /// </summary>
+    /// <remarks>Ruby/Sapphire</remarks>
     public static readonly Swarm3[] Swarms_RS =
-    {
+    [
         new(Surskit, 03, 0x11, Bubble, QuickAttack), // Route 102
         new(Surskit, 15, 0x1D, Bubble, QuickAttack), // Route 114
         new(Surskit, 15, 0x20, Bubble, QuickAttack), // Route 117
         new(Surskit, 28, 0x23, Bubble, QuickAttack), // Route 120
         new(Skitty,  15, 0x1F, Growl,  Tackle),      // Route 116
-    };
+    ];
 
+    /// <summary>
+    /// Hardcoded templates available to set to the save file.
+    /// </summary>
+    /// <remarks><see cref="GameVersion.E"/></remarks>
     public static readonly Swarm3[] Swarms_E =
-    {
+    [
         new(Seedot,  03, 0x11, Bide,      Harden,      LeechSeed),              // Route 102
         new(Nuzleaf, 15, 0x1D, Harden,    Growth,      NaturePower, LeechSeed), // Route 114
         new(Seedot,  13, 0x20, Harden,    Growth,      NaturePower, LeechSeed), // Route 117
         new(Seedot,  25, 0x23, GigaDrain, Frustration, SolarBeam,   LeechSeed), // Route 120
         new(Skitty,  08, 0x1F, Growl,     Tackle,      TailWhip,    Attract),   // Route 116
-    };
+    ];
 }

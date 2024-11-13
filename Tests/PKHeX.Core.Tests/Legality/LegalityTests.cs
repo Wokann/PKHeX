@@ -10,24 +10,7 @@ namespace PKHeX.Core.Tests.Legality;
 public class LegalityTest
 {
     private static readonly string TestPath = TestUtil.GetRepoPath();
-    private static readonly object InitLock = new();
-    private static bool IsInitialized;
-
-    private static void Init()
-    {
-        lock (InitLock)
-        {
-            if (IsInitialized)
-                return;
-            RibbonStrings.ResetDictionary(GameInfo.Strings.ribbons);
-            if (EncounterEvent.Initialized)
-                return;
-            EncounterEvent.RefreshMGDB();
-            IsInitialized = true;
-        }
-    }
-
-    static LegalityTest() => Init();
+    static LegalityTest() => TestUtil.InitializeLegality();
 
     [Theory]
     [InlineData("censor")]
@@ -42,12 +25,10 @@ public class LegalityTest
     [Theory]
     [InlineData("Legal", true)]
     [InlineData("Illegal", false)]
-    public void TestPublicFiles(string name, bool isValid)
+    public void TestPublicFiles(string subFolder, bool isValid)
     {
-        RibbonStrings.ResetDictionary(GameInfo.Strings.ribbons);
-        var folder = TestUtil.GetRepoPath();
-        folder = Path.Combine(folder, "Legality");
-        VerifyAll(folder, name, isValid);
+        var folder = Path.Combine(TestPath, "Legality");
+        VerifyAll(folder, subFolder, isValid);
     }
 
     [Theory]
@@ -55,18 +36,16 @@ public class LegalityTest
     [InlineData("Illegal", false)]
     [InlineData("PassingHacks", true)] // mad hacks, stuff to be flagged in the future
     [InlineData("FalseFlags", false)] // legal quirks, to be fixed in the future
-    public void TestPrivateFiles(string name, bool isValid)
+    public void TestPrivateFiles(string subFolder, bool isValid)
     {
-        if (!isValid)
-            Init();
         var folder = Path.Combine(TestPath, "Legality", "Private");
-        VerifyAll(folder, name, isValid, false);
+        VerifyAll(folder, subFolder, isValid, false);
     }
 
     // ReSharper disable once UnusedParameter.Local
-    private static void VerifyAll(string folder, string name, bool isValid, bool checkDir = true)
+    private static void VerifyAll(string folder, string subFolder, bool isValid, bool checkDir = true)
     {
-        var path = Path.Combine(folder, name);
+        var path = Path.Combine(folder, subFolder);
         bool exists = Directory.Exists(path);
         if (checkDir)
             exists.Should().BeTrue($"the specified test directory at '{path}' should exist");
@@ -87,7 +66,7 @@ public class LegalityTest
 
             var dn = fi.DirectoryName ?? string.Empty;
             ParseSettings.AllowGBCartEra = dn.Contains("GBCartEra");
-            ParseSettings.AllowGen1Tradeback = dn.Contains("1 Tradeback");
+            ParseSettings.Settings.Tradeback.AllowGen1Tradeback = dn.Contains("1 Tradeback");
             var pk = EntityFormat.GetFromBytes(data, prefer);
             pk.Should().NotBeNull($"the PKM '{new FileInfo(file).Name}' should have been loaded");
             if (pk == null)
@@ -109,7 +88,7 @@ public class LegalityTest
                 legality.Valid.Should().BeFalse($"because the file '{fn}' should be invalid, but found Valid.");
             }
         }
-        ctr.Should().BeGreaterThan(0);
+        ctr.Should().BeGreaterThan(0, "any amount of files should have been processed from a folder that exists.");
     }
 
     private static IEnumerable<string> GetIllegalLines(LegalityAnalysis legality)
@@ -119,8 +98,8 @@ public class LegalityTest
 
         var info = legality.Info;
         foreach (var m in info.Moves.Where(z => !z.Valid))
-            yield return m.Summary(legality.Info.Entity, legality.Info.EvoChainsAllGens);
+            yield return m.Summary(info.Entity, info.EvoChainsAllGens);
         foreach (var r in info.Relearn.Where(z => !z.Valid))
-            yield return r.Summary(legality.Info.Entity, legality.Info.EvoChainsAllGens);
+            yield return r.Summary(info.Entity, info.EvoChainsAllGens);
     }
 }

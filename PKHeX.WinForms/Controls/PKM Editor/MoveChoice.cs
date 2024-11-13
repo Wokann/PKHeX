@@ -30,7 +30,7 @@ public partial class MoveChoice : UserControl
         }
 
         var type = MoveInfo.GetType((ushort)value, Context);
-        PB_Type.Image = TypeSpriteUtil.GetTypeSpriteIcon(type);
+        PB_Type.Image = TypeSpriteUtil.GetTypeSpriteIconSmall(type);
     }
 
     private static void LoadClamp(ComboBox cb, int value)
@@ -51,7 +51,7 @@ public partial class MoveChoice : UserControl
             return;
         }
         PB_Triangle.Visible = true;
-        PB_Triangle.Image = MoveDisplay.GetMoveImage(!move.Valid, entity, i);
+        PB_Triangle.Image = MoveDisplayState.GetMoveImage(!move.Valid, entity, i);
     }
 
     public void HealPP(PKM pk)

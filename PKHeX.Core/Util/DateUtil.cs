@@ -5,12 +5,12 @@ namespace PKHeX.Core;
 public static class DateUtil
 {
     /// <summary>
-    /// Determines whether or not the given date components are valid.
+    /// Determines whether the given date components are valid.
     /// </summary>
     /// <param name="year">The year of the date of which to check the validity.</param>
     /// <param name="month">The month of the date of which to check the validity.</param>
     /// <param name="day">The day of the date of which to check the validity.</param>
-    /// <returns>A boolean indicating whether or not the date is valid.</returns>
+    /// <returns>A boolean indicating if the date is valid.</returns>
     public static bool IsDateValid(int year, int month, int day)
     {
         if (year is <= 0 or > 9999)
@@ -24,12 +24,12 @@ public static class DateUtil
     }
 
     /// <summary>
-    /// Determines whether or not the given date components are valid.
+    /// Determines whether the given date components are valid.
     /// </summary>
     /// <param name="year">The year of the date of which to check the validity.</param>
     /// <param name="month">The month of the date of which to check the validity.</param>
     /// <param name="day">The day of the date of which to check the validity.</param>
-    /// <returns>A boolean indicating whether or not the date is valid.</returns>
+    /// <returns>A boolean indicating if the date is valid.</returns>
     public static bool IsDateValid(uint year, uint month, uint day)
     {
         return year < int.MaxValue && month < int.MaxValue && day < int.MaxValue && IsDateValid((int)year, (int)month, (int)day);
@@ -57,9 +57,10 @@ public static class DateUtil
         var sb = new System.Text.StringBuilder();
         if (value >= SecondsPerDay)
             sb.Append(value / SecondsPerDay).Append("d ");
+        value %= SecondsPerDay;
         sb.Append(new TimeOnly(ticks: value * TimeSpan.TicksPerSecond).ToString("HH:mm:ss"));
         if (secondsBias >= 0)
-            sb.Append(Environment.NewLine).Append("Date: ").Append(Epoch2000.AddSeconds(value + secondsBias));
+            sb.Append(Environment.NewLine).Append($"Date: {Epoch2000.AddSeconds(value + secondsBias)}");
         return sb.ToString();
     }
 

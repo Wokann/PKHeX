@@ -12,11 +12,11 @@ public partial class SAV_Pokedex4 : Form
     private readonly SaveFile Origin;
     private readonly SAV4 SAV;
 
-    public SAV_Pokedex4(SaveFile sav)
+    public SAV_Pokedex4(SAV4 sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
-        CL = new[] { CHK_L1, CHK_L2, CHK_L3, CHK_L5, CHK_L4, CHK_L6 }; // JPN,ENG,FRA,GER,ITA,SPA
+        CL = [CHK_L1, CHK_L2, CHK_L3, CHK_L5, CHK_L4, CHK_L6]; // JPN,ENG,FRA,GER,ITA,SPA
         SAV = (SAV4)(Origin = sav).Clone();
 
         editing = true;
@@ -35,7 +35,7 @@ public partial class SAV_Pokedex4 : Form
         editing = false;
         LB_Species.SelectedIndex = 0;
 
-        string[] dexMode = { "not given", "simple mode", "detect forms", "national dex", "other languages" };
+        string[] dexMode = ["not given", "simple mode", "detect forms", "national dex", "other languages"];
         if (SAV is SAV4HGSS) dexMode = dexMode.Where((_, i) => i != 2).ToArray();
         foreach (string mode in dexMode)
             CB_DexUpgraded.Items.Add(mode);
@@ -169,7 +169,7 @@ public partial class SAV_Pokedex4 : Form
         if (LB_Gender.Items.Count != 0)
         {
             var femaleFirst = LB_Gender.Items[0].ToString() == FEMALE;
-            var firstGender = femaleFirst ? 1 : 0;
+            var firstGender = femaleFirst ? (byte)1: (byte)0;
             dex.SetSeenGenderNewFlag(species, firstGender);
             if (LB_Gender.Items.Count != 1)
                 dex.SetSeenGenderSecond(species, firstGender ^ 1);
@@ -182,7 +182,7 @@ public partial class SAV_Pokedex4 : Form
         }
 
         var forms = SAV.Dex.GetForms(species);
-        if (forms.Length > 0)
+        if (forms.Length != 0)
         {
             var items = LB_Form.Items;
             Span<byte> arr = stackalloc byte[items.Count];

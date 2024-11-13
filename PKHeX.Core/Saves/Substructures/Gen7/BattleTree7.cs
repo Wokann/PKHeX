@@ -1,33 +1,30 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
 
-public sealed class BattleTree7 : SaveBlock<SAV7>
+public sealed class BattleTree7(SAV7 sav, Memory<byte> raw) : SaveBlock<SAV7>(sav, raw)
 {
-    public BattleTree7(SAV7SM sav, int offset) : base(sav) => Offset = offset;
-    public BattleTree7(SAV7USUM sav, int offset) : base(sav) => Offset = offset;
+    public const int BattleTypeMax = 4;
 
     public int GetTreeStreak(int battletype, bool super, bool max)
     {
-        if (battletype > 3)
-            throw new ArgumentOutOfRangeException(nameof(battletype));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(battletype, BattleTypeMax);
 
         var offset = GetStreakOffset(battletype, super, max);
-        return ReadUInt16LittleEndian(Data.AsSpan(Offset + offset));
+        return ReadUInt16LittleEndian(Data[offset..]);
     }
 
     public void SetTreeStreak(int value, int battletype, bool super, bool max)
     {
-        if (battletype > 3)
-            throw new ArgumentOutOfRangeException(nameof(battletype));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(battletype, BattleTypeMax);
 
         if (value > ushort.MaxValue)
             value = ushort.MaxValue;
 
         var offset = GetStreakOffset(battletype, super, max);
-        WriteUInt16LittleEndian(Data.AsSpan(Offset + offset), (ushort)value);
+        WriteUInt16LittleEndian(Data[offset..], (ushort)value);
     }
 
     private static int GetStreakOffset(int battletype, bool super, bool max)
@@ -44,15 +41,14 @@ public sealed class BattleTree7 : SaveBlock<SAV7>
 
     public BattleTreeTrainer GetTrainer(in int index)
     {
-        if ((uint)index >= ScoutCount)
-            throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual<uint>((uint)index, ScoutCount);
 
-        var id = ReadInt16LittleEndian(Data.AsSpan(Offset + 0x24 + (index * 2)));
-        var p1 = ReadInt16LittleEndian(Data.AsSpan(Offset + 0x88 + (index * 2)));
-        var p2 = ReadInt16LittleEndian(Data.AsSpan(Offset + 0xEC + (index * 2)));
+        var id = ReadInt16LittleEndian(Data[(0x24 + (index * 2))..]);
+        var p1 = ReadInt16LittleEndian(Data[(0x88 + (index * 2))..]);
+        var p2 = ReadInt16LittleEndian(Data[(0xEC + (index * 2))..]);
 
-        var a1 = (sbyte)Data[Offset + 0x154 + index];
-        var a2 = (sbyte)Data[Offset + 0x186 + index];
+        var a1 = (sbyte)Data[0x154 + index];
+        var a2 = (sbyte)Data[0x186 + index];
 
         var poke1 = new BattleTreePokemon(p1, a1);
         var poke2 = new BattleTreePokemon(p2, a2);
@@ -64,18 +60,18 @@ public sealed class BattleTree7 : SaveBlock<SAV7>
         if ((uint)index >= ScoutCount)
             throw new ArgumentOutOfRangeException(nameof(index));
 
-        WriteInt16LittleEndian(Data.AsSpan(Offset + 0x24 + (index * 2)), tr.ID      );
-        WriteInt16LittleEndian(Data.AsSpan(Offset + 0x88 + (index * 2)), tr.Poke1.ID);
-        WriteInt16LittleEndian(Data.AsSpan(Offset + 0xEC + (index * 2)), tr.Poke2.ID);
+        WriteInt16LittleEndian(Data[(0x24 + (index * 2))..], tr.ID      );
+        WriteInt16LittleEndian(Data[(0x88 + (index * 2))..], tr.Poke1.ID);
+        WriteInt16LittleEndian(Data[(0xEC + (index * 2))..], tr.Poke2.ID);
 
-        Data[Offset + 0x154 + index] = (byte)tr.Poke1.AbilityIndex;
-        Data[Offset + 0x186 + index] = (byte)tr.Poke2.AbilityIndex;
+        Data[0x154 + index] = (byte)tr.Poke1.AbilityIndex;
+        Data[0x186 + index] = (byte)tr.Poke2.AbilityIndex;
     }
 
     public int Music
     {
-        get => ReadInt32LittleEndian(Data.AsSpan(Offset + 0x18));
-        set => WriteInt32LittleEndian(Data.AsSpan(Offset + 0x18), value);
+        get => ReadInt32LittleEndian(Data[0x18..]);
+        set => WriteInt32LittleEndian(Data[0x18..], value);
     }
 
     public BattleTreeTrainer[] ScoutedTrainers
@@ -96,33 +92,20 @@ public sealed class BattleTree7 : SaveBlock<SAV7>
 }
 
 [TypeConverter(typeof(ValueTypeTypeConverter))]
-public sealed class BattleTreeTrainer
+public sealed class BattleTreeTrainer(short ID, BattleTreePokemon Poke1, BattleTreePokemon Poke2)
 {
-    public short ID { get; set; }
-    public BattleTreePokemon Poke1 { get; set; }
-    public BattleTreePokemon Poke2 { get; set; }
-
-    public BattleTreeTrainer(short id, BattleTreePokemon poke1, BattleTreePokemon poke2)
-    {
-        ID = id;
-        Poke1 = poke1;
-        Poke2 = poke2;
-    }
+    public short ID { get; set; } = ID;
+    public BattleTreePokemon Poke1 { get; set; } = Poke1;
+    public BattleTreePokemon Poke2 { get; set; } = Poke2;
 
     public override string ToString() => $"{ID}: [{Poke1}] & [{Poke2}]";
 }
 
 [TypeConverter(typeof(ValueTypeTypeConverter))]
-public sealed class BattleTreePokemon
+public sealed class BattleTreePokemon(short ID, sbyte AbilityIndex)
 {
-    public short ID { get; set; }
-    public sbyte AbilityIndex { get; set; }
-
-    public BattleTreePokemon(short p1, sbyte a1)
-    {
-        ID = p1;
-        AbilityIndex = a1;
-    }
+    public short ID { get; set; } = ID;
+    public sbyte AbilityIndex { get; set; } = AbilityIndex;
 
     public override string ToString() => $"{ID},{AbilityIndex}";
 }
