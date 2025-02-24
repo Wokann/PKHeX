@@ -34,7 +34,7 @@ public sealed class SevenStarRaidDetail(SevenStarRaidCapturedDetail captured, Se
         set
         {
             captured.Identifier = value;
-            if (defeated != null)
+            if (defeated is not null)
                 defeated.Identifier = value;
         }
     }
@@ -52,7 +52,7 @@ public sealed class SevenStarRaidDetail(SevenStarRaidCapturedDetail captured, Se
         get => defeated?.Defeated ?? captured.Defeated;
         set
         {
-            if (defeated != null)
+            if (defeated is not null)
                 defeated.Defeated = value;
             else
                 captured.Defeated = value;
@@ -60,11 +60,13 @@ public sealed class SevenStarRaidDetail(SevenStarRaidCapturedDetail captured, Se
     }
 }
 
-public sealed class RaidSevenStarCaptured9(SAV9SV sav, SCBlock block) : SaveBlock<SAV9SV>(sav, block.Data)
+public sealed class RaidSevenStarCaptured9(SAV9SV sav, SCBlock block) : SaveBlock<SAV9SV>(sav, block.Raw)
 {
-    public readonly int CountAll = block.Data.Length / SevenStarRaidCapturedDetail.SIZE;
+    public readonly int CountAll = block.Data.Length / DetailSize;
+    private const int DetailSize = SevenStarRaidCapturedDetail.SIZE;
 
-    public SevenStarRaidCapturedDetail GetRaid(int entry) => new(Raw.Slice((entry * SevenStarRaidCapturedDetail.SIZE), SevenStarRaidCapturedDetail.SIZE));
+    private Memory<byte> GetRaidSpan(int entry) => Raw.Slice(entry * DetailSize, DetailSize);
+    public SevenStarRaidCapturedDetail GetRaid(int entry) => new(GetRaidSpan(entry));
 
     public SevenStarRaidCapturedDetail[] GetAllRaids()
     {
@@ -102,7 +104,7 @@ public sealed class SevenStarRaidCapturedDetail(Memory<byte> raw)
     // 0x06 - 0x07 padding
 }
 
-public sealed class RaidSevenStarDefeated9(SAV9SV sav, SCBlock block) : SaveBlock<SAV9SV>(sav, block.Data)
+public sealed class RaidSevenStarDefeated9(SAV9SV sav, SCBlock block) : SaveBlock<SAV9SV>(sav, block.Raw)
 {
     // Structure matches the RaidSevenStarCapture9 but there are 4 bytes at the front to indicate if the copy of previous defeated flags happened when updating save
     public readonly int CountAll = (block.Data.Length - 0x04) / SevenStarRaidDefeatedDetail.SIZE;

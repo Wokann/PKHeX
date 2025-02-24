@@ -7,7 +7,8 @@ namespace PKHeX.Core;
 /// Generation 8 Static Encounter
 /// </summary>
 public sealed record EncounterStatic8b(GameVersion Version)
-    : IEncounterable, IEncounterMatch, IEncounterConvertible<PB8>, IFlawlessIVCount, IFatefulEncounterReadOnly, IStaticCorrelation8b
+    : IEncounterable, IEncounterMatch, IEncounterConvertible<PB8>,
+        IFlawlessIVCount, IFatefulEncounterReadOnly, IStaticCorrelation8b, IGenerateSeed32
 {
     public byte Generation => 8;
     public EntityContext Context => EntityContext.Gen8b;
@@ -26,7 +27,7 @@ public sealed record EncounterStatic8b(GameVersion Version)
     public required byte Level { get; init; }
     public Ball FixedBall { get; init; }
     public byte FlawlessIVCount { get; init; }
-    public bool Roaming { get; init; }
+    public bool IsRoaming { get; init; }
     public AbilityPermission Ability { get; init; }
     public Shiny Shiny { get; init; }
     public bool FatefulEncounter { get; init; }
@@ -34,7 +35,7 @@ public sealed record EncounterStatic8b(GameVersion Version)
     public string Name => "Static Encounter";
     public string LongName => Name;
 
-    public StaticCorrelation8bRequirement GetRequirement(PKM pk) => Roaming
+    public StaticCorrelation8bRequirement GetRequirement(PKM pk) => IsRoaming
         ? MustHave
         : MustNotHave;
 
@@ -116,6 +117,16 @@ public sealed record EncounterStatic8b(GameVersion Version)
         }
     }
 
+    public bool GenerateSeed32(PKM pk, uint seed)
+    {
+        if (!IsRoaming)
+            return false;
+        var criteria = EncounterCriteria.Unrestricted;
+        var shiny = Shiny == Shiny.Random ? Shiny.FixedValue : Shiny;
+        Roaming8bRNG.TryApplyFromSeed(pk, criteria, shiny, FlawlessIVCount, seed);
+        return true;
+    }
+
     #endregion
 
     #region Matching
@@ -151,7 +162,7 @@ public sealed record EncounterStatic8b(GameVersion Version)
     {
         if (IsEgg)
             return !pk.IsEgg || pk.MetLocation == Location || pk.MetLocation == Locations.LinkTrade6NPC;
-        if (!Roaming)
+        if (!IsRoaming)
             return pk.MetLocation == Location;
         return IsRoamingLocation(pk);
     }

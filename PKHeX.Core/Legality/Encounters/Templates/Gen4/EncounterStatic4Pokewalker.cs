@@ -108,9 +108,20 @@ public sealed record EncounterStatic4Pokewalker(PokewalkerCourse4 Course)
         var pid = pk.PID = PokewalkerRNG.GetPID(pk.TID16, pk.SID16, nature, pk.Gender = gender, pi.Gender);
         // Cannot force an ability; nature-gender-trainerID only yield fixed PIDs.
         pk.RefreshAbility((int)(pid & 1));
-        Span<int> ivs = stackalloc int[6];
-        PokewalkerRNG.SetRandomIVs(ivs, criteria);
-        pk.SetIVs(ivs);
+        pk.IV32 = GetIV32(criteria);
+    }
+
+    private static uint GetIV32(EncounterCriteria criteria)
+    {
+        if (criteria.IsSpecifiedIVsAll()) // Don't trust that the requirements are valid
+        {
+            criteria.GetCombinedIVs(out var iv1, out var iv2);
+            var seed = PokewalkerRNG.GetLeastEffortSeed(iv1, iv2);
+            if (seed.Type != PokewalkerSeedType.None)
+                return criteria.GetCombinedIVs();
+        }
+        PokewalkerRNG.GetRandomIVs(criteria, out var iv32);
+        return iv32;
     }
 
     #endregion
@@ -131,11 +142,11 @@ public sealed record EncounterStatic4Pokewalker(PokewalkerCourse4 Course)
         return true;
     }
 
-    private bool IsMatchSeed(PKM pk)
+    private static bool IsMatchSeed(PKM pk)
     {
         Span<int> ivs = stackalloc int[6];
         pk.GetIVs(ivs);
-        var seed = PokewalkerRNG.GetFirstSeed(Species, Course, ivs);
+        var seed = PokewalkerRNG.GetLeastEffortSeed(ivs);
         return seed.Type != PokewalkerSeedType.None;
     }
 
@@ -180,7 +191,7 @@ public sealed record EncounterStatic4Pokewalker(PokewalkerCourse4 Course)
         return EncounterMatchRating.Match;
     }
 
-    private bool IsMatchPartial(PKM pk) => pk.Ball != (byte)Ball.Poke || !IsMatchSeed(pk);
+    private static bool IsMatchPartial(PKM pk) => pk.Ball != (byte)Ball.Poke || !IsMatchSeed(pk);
     #endregion
 
     public bool IsCompatible(PIDType type, PKM pk)
@@ -190,7 +201,7 @@ public sealed record EncounterStatic4Pokewalker(PokewalkerCourse4 Course)
 
         // Pokewalker can sometimes be confused with CuteCharm due to the PID creation routine. Double check if it is okay.
         if (type is PIDType.CuteCharm)
-            return MethodFinder.IsCuteCharm(pk, pk.EncryptionConstant) && MethodFinder.IsCuteCharm4Valid(this, pk);
+            return CuteCharm4.IsCuteCharm(pk, pk.EncryptionConstant) && CuteCharm4.IsValid(this, pk);
         return false;
     }
 

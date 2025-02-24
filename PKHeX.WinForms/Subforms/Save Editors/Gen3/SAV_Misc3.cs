@@ -27,7 +27,7 @@ public partial class SAV_Misc3 : Form
             ReadDecorations(h);
 
             CB_Species.InitializeBinding();
-            CB_Species.DataSource = new BindingSource(GameInfo.FilteredSources.Species.ToList(), null);
+            CB_Species.DataSource = new BindingSource(GameInfo.FilteredSources.Species.ToList(), string.Empty);
             LoadPaintings();
         }
         else
@@ -64,7 +64,7 @@ public partial class SAV_Misc3 : Form
             {
                 cba[i].Items.Clear();
                 cba[i].InitializeBinding();
-                cba[i].DataSource = new BindingSource(legal, null);
+                cba[i].DataSource = new BindingSource(legal, string.Empty);
                 var g3Species = SAV.GetWork(0x43 + i);
                 var species = SpeciesConverter.GetNational3(g3Species);
                 cba[i].SelectedValue = (int)species;
@@ -275,7 +275,7 @@ public partial class SAV_Misc3 : Form
             rb.Checked = false;
 
         var bft = BFT[BFF[facility][1]];
-        if (bft == null)
+        if (bft is null)
         {
             CB_Stats2.Visible = false;
         }
@@ -308,7 +308,7 @@ public partial class SAV_Misc3 : Form
 
         int BattleType = CB_Stats2.SelectedIndex;
         var bft = BFT[BFF[Facility][1]];
-        if (bft == null)
+        if (bft is null)
             BattleType = 0;
         else if (BattleType < 0)
             return;
@@ -455,7 +455,7 @@ public partial class SAV_Misc3 : Form
     private void BTN_Symbol_Click(object sender, EventArgs e)
     {
         var match = Array.Find(SymbolButtonA, z => z == sender);
-        if (match == null)
+        if (match is null)
             return;
 
         var color = match.BackColor;
@@ -475,7 +475,7 @@ public partial class SAV_Misc3 : Form
 
         CB_Record.SelectedIndexChanged += (_, _) =>
         {
-            if (CB_Record.SelectedValue == null)
+            if (CB_Record.SelectedValue is null)
                 return;
 
             var index = WinFormsUtil.GetIndex(CB_Record);
@@ -487,7 +487,7 @@ public partial class SAV_Misc3 : Form
         LoadRecordID(0);
         NUD_RecordValue.ValueChanged += (_, _) =>
         {
-            if (CB_Record.SelectedValue == null)
+            if (CB_Record.SelectedValue is null)
                 return;
 
             var index = WinFormsUtil.GetIndex(CB_Record);
@@ -604,7 +604,7 @@ public partial class SAV_Misc3 : Form
         int ctr = 0;
         for (int i = 0; i < data.Length; i++)
         {
-            var deco = (Decoration3)(int)dgv.Rows[i].Cells[0].Value;
+            var deco = (Decoration3)(int)dgv.Rows[i].Cells[0].Value!;
             if (deco == Decoration3.NONE) // Compression of Empty Slots
                 continue;
 
@@ -703,7 +703,7 @@ public partial class SAV_Misc3 : Form
     private void ValidatePaintingIDs()
     {
         var pid = Util.GetHexValue(TB_PID.Text);
-        if (pid.ToString("X") != TB_PID.Text)
+        if (pid.ToString("X") != TB_PID.Text && pid.ToString("X8") != TB_PID.Text)
             TB_PID.Text = pid.ToString();
 
         var tid = Util.ToUInt32(TB_TID.Text);

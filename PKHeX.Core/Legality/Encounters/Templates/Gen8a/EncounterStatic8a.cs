@@ -6,13 +6,14 @@ namespace PKHeX.Core;
 /// Generation 8 Static Encounter
 /// </summary>
 public sealed record EncounterStatic8a
-    : IEncounterable, IEncounterMatch, IEncounterConvertible<PA8>, ISeedCorrelation64<PKM>,
+    : IEncounterable, IEncounterMatch, IEncounterConvertible<PA8>, ISeedCorrelation64<PKM>, IGenerateSeed64,
         IAlphaReadOnly, IMasteryInitialMoveShop8, IScaledSizeReadOnly,
         IMoveset, IFlawlessIVCount, IFatefulEncounterReadOnly, IFixedGender
 {
     public byte Generation => 8;
     public EntityContext Context => EntityContext.Gen8a;
-    public GameVersion Version => GameVersion.PLA;
+    private const GameVersion Version = GameVersion.PLA;
+    GameVersion IVersion.Version => GameVersion.PLA;
     public ushort EggLocation => 0;
     ushort ILocation.Location => Location;
     public bool IsShiny => Shiny == Shiny.Always;
@@ -82,13 +83,8 @@ public sealed record EncounterStatic8a
             Ball = (byte)(FixedBall == Ball.None ? Ball.LAPoke : FixedBall),
             Nickname = SpeciesName.GetSpeciesNameGeneration(Species, lang, Generation),
         };
-        SetPINGA(pk, criteria);
-        pk.ResetHeight();
-        pk.ResetWeight();
-        SetEncounterMoves(pk, pk.MetLevel);
 
-        if (IsAlpha)
-            pk.IsAlpha = true;
+        SetPINGA(pk, criteria);
 
         pk.ResetPartyStats();
         return pk;
@@ -98,6 +94,11 @@ public sealed record EncounterStatic8a
     {
         var para = GetParams();
         var (_, slotSeed) = Overworld8aRNG.ApplyDetails(pk, criteria, para, IsAlpha);
+        Finalize(pk, slotSeed);
+    }
+
+    private void Finalize(PA8 pk, ulong slotSeed)
+    {
         // Phione and Zorua have random levels; follow the correlation instead of giving the lowest level.
         if (LevelMin != LevelMax)
             pk.MetLevel = pk.CurrentLevel = Overworld8aRNG.GetRandomLevel(slotSeed, LevelMin, LevelMax);
@@ -111,6 +112,19 @@ public sealed record EncounterStatic8a
         if (HasFixedWeight)
             pk.WeightScalar = WeightScalar;
         pk.Scale = pk.HeightScalar;
+
+        pk.ResetHeight();
+        pk.ResetWeight();
+        SetEncounterMoves(pk, pk.MetLevel);
+    }
+
+    public void GenerateSeed64(PKM pk, ulong seed)
+    {
+        var pa8 = (PA8)pk;
+        var criteria = EncounterCriteria.Unrestricted;
+        var para = GetParams();
+        var (_, slotSeed) = Overworld8aRNG.ApplyDetails(pa8, criteria, para, IsAlpha);
+        Finalize(pa8, slotSeed);
     }
 
     private void SetEncounterMoves(PA8 pk, int level)
@@ -171,7 +185,7 @@ public sealed record EncounterStatic8a
             return false;
         if (Gender != FixedGenderUtil.GenderRandom && pk.Gender != Gender)
             return false;
-        if (pk is IAlpha a && a.IsAlpha != IsAlpha)
+        if (pk is IAlphaReadOnly a && a.IsAlpha != IsAlpha)
             return false;
         if (!IsMatchEggLocation(pk))
             return false;
@@ -249,7 +263,7 @@ public sealed record EncounterStatic8a
         if (!IsForcedMasteryCorrect(pk))
             return EncounterMatchRating.DeferredErrors;
 
-        if (!MarkRules.IsMarkValidAlpha(pk, IsAlpha))
+        if (!MarkRules.IsMarkValidAlpha(pk, IsAlpha) || (pk is IAlphaReadOnly a && a.IsAlpha != IsAlpha))
             return EncounterMatchRating.DeferredErrors;
 
         if (IsAlpha && pk is PA8 { AlphaMove: 0 })
@@ -298,7 +312,7 @@ public sealed record EncounterStatic8a
             seed = s;
             return true;
         }
-        seed = default;
+        seed = 0;
         return false;
     }
 }

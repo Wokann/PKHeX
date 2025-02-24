@@ -5,7 +5,8 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 7 LGP/E Trade Encounter
 /// </summary>
-public sealed record EncounterTrade7b(GameVersion Version) : IEncounterable, IEncounterMatch, IFixedTrainer, IEncounterConvertible<PB7>
+public sealed record EncounterTrade7b(GameVersion Version) : IEncounterable, IEncounterMatch, IEncounterConvertible<PB7>,
+    IFixedTrainer, IFixedIVSet, ITrainerID32ReadOnly
 {
     public byte Generation => 7;
     public EntityContext Context => EntityContext.Gen7b;
@@ -18,9 +19,11 @@ public sealed record EncounterTrade7b(GameVersion Version) : IEncounterable, IEn
     public bool IsFixedTrainer => true;
     public AbilityPermission Ability => AbilityPermission.Any12;
 
-    public required string[] TrainerNames { get; init; }
+    public required ReadOnlyMemory<string> TrainerNames { get; init; }
 
     public required uint ID32 { get; init; }
+    public ushort SID16 => (ushort)(ID32 >> 16);
+    public ushort TID16 => (ushort)ID32;
     public required byte OTGender { get; init; }
     public required ushort Species { get; init; }
     public required byte Form { get; init; }
@@ -46,6 +49,7 @@ public sealed record EncounterTrade7b(GameVersion Version) : IEncounterable, IEn
         var version = this.GetCompatibleVersion(tr.Version);
         int lang = (int)Language.GetSafeLanguage(Generation, (LanguageID)tr.Language, version);
         var pi = PersonalTable.GG[Species, Form];
+        var date = EncounterDate.GetDateSwitch();
         var pk = new PB7
         {
             Species = Species,
@@ -53,14 +57,14 @@ public sealed record EncounterTrade7b(GameVersion Version) : IEncounterable, IEn
             CurrentLevel = Level,
             MetLocation = Location,
             MetLevel = Level,
-            MetDate = EncounterDate.GetDateSwitch(),
+            MetDate = date,
             Ball = (byte)FixedBall,
 
             ID32 = ID32,
             Version = version,
             Language = lang,
             OriginalTrainerGender = OTGender,
-            OriginalTrainerName = TrainerNames[lang],
+            OriginalTrainerName = TrainerNames.Span[lang],
 
             OriginalTrainerFriendship = pi.BaseFriendship,
 
@@ -70,6 +74,9 @@ public sealed record EncounterTrade7b(GameVersion Version) : IEncounterable, IEn
             HandlingTrainerGender = tr.Gender,
             CurrentHandler = 1,
             HandlingTrainerFriendship = pi.BaseFriendship,
+
+            ReceivedDate = date,
+            ReceivedTime = EncounterDate.GetTime(),
         };
 
         EncounterUtil.SetEncounterMoves(pk, version, Level);
@@ -100,7 +107,7 @@ public sealed record EncounterTrade7b(GameVersion Version) : IEncounterable, IEn
 
     #region Matching
 
-    public bool IsTrainerMatch(PKM pk, ReadOnlySpan<char> trainer, int language) => (uint)language < TrainerNames.Length && trainer.SequenceEqual(TrainerNames[language]);
+    public bool IsTrainerMatch(PKM pk, ReadOnlySpan<char> trainer, int language) => (uint)language < TrainerNames.Length && trainer.SequenceEqual(TrainerNames.Span[language]);
 
     public bool IsMatchExact(PKM pk, EvoCriteria evo)
     {

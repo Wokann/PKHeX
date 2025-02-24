@@ -153,7 +153,7 @@ public partial class BatchEditor : Form
                 RunBatchEditSaveFile(sets, boxes: true);
             else if (RB_Party.Checked)
                 RunBatchEditSaveFile(sets, party: true);
-            else if (destination != null)
+            else if (destination is not null)
                 RunBatchEditFolder(sets, source, destination);
             finished = true;
         };
@@ -185,7 +185,7 @@ public partial class BatchEditor : Form
             SlotInfoLoader.AddPartyData(SAV, data);
             process(data);
             foreach (var slot in data)
-                slot.Source.WriteTo(SAV, slot.Entity, PKMImportSetting.Skip);
+                slot.Source.WriteTo(SAV, slot.Entity, EntityImportSettings.None);
         }
         if (boxes)
         {
@@ -193,7 +193,7 @@ public partial class BatchEditor : Form
             SlotInfoLoader.AddBoxData(SAV, data);
             process(data);
             foreach (var slot in data)
-                slot.Source.WriteTo(SAV, slot.Entity, PKMImportSetting.Skip);
+                slot.Source.WriteTo(SAV, slot.Entity, EntityImportSettings.None);
         }
         void process(IList<SlotCache> d)
         {
@@ -269,7 +269,7 @@ public partial class BatchEditor : Form
 
         byte[] data = File.ReadAllBytes(source);
         _ = FileUtil.TryGetPKM(data, out var pk, fi.Extension, SAV);
-        if (pk == null)
+        if (pk is null)
             return;
 
         var info = new SlotInfoFile(source);

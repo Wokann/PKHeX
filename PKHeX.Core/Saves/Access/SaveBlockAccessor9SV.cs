@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 // ReSharper disable UnusedMember.Local
 #pragma warning disable IDE0051 // Remove unused private members
@@ -12,7 +11,7 @@ namespace PKHeX.Core;
 public sealed class SaveBlockAccessor9SV(SAV9SV sav) : SCBlockAccessor, ISaveBlock9Main
 {
     public override IReadOnlyList<SCBlock> BlockInfo { get; } = sav.AllBlocks;
-    public Box8 BoxInfo { get; } = new(sav, Block(sav, KBox));
+    public Box9 BoxInfo { get; } = new(sav, Block(sav, KBox));
     public Party9 PartyInfo { get; } = new(sav, Block(sav, KParty));
     public MyItem9 Items { get; } = new(sav, Block(sav, KItem));
     public MyStatus9 MyStatus { get; } = new(sav, Block(sav, KMyStatus));
@@ -45,14 +44,14 @@ public sealed class SaveBlockAccessor9SV(SAV9SV sav) : SCBlockAccessor, ISaveBlo
         public Raid9(SAV9SV sav)
         {
             var paldea = GetBlock(sav.AllBlocks, KTeraRaidPaldea);
-            Paldea = new RaidSpawnList9(sav, paldea, paldea.Data, RaidSpawnList9.RaidCountLegal_T0, true);
+            Paldea = new RaidSpawnList9(sav, paldea, paldea.Raw, RaidSpawnList9.RaidCountLegal_T0, true);
 
             if (TryGetBlock(sav.AllBlocks, KTeraRaidDLC, out var raidDLC))
             {
-                var buffer = raidDLC.Data;
+                var buffer = raidDLC.Raw;
                 const int size = 0xC80;
-                var memKita = buffer.AsMemory(0, size);
-                var memBlue = buffer.AsMemory(size, size);
+                var memKita = buffer[..size];
+                var memBlue = buffer.Slice(size, size);
                 Kitakami = new RaidSpawnList9(sav, raidDLC, memKita, RaidSpawnList9.RaidCountLegal_T1, false);
                 Blueberry = new RaidSpawnList9(sav, raidDLC, memBlue, RaidSpawnList9.RaidCountLegal_T2, false);
             }

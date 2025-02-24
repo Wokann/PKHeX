@@ -138,7 +138,7 @@ public static class WinFormsTranslator
                     if (string.IsNullOrWhiteSpace(z.Name))
                         break;
 
-                    if (z.ContextMenuStrip != null) // control has attached MenuStrip
+                    if (z.ContextMenuStrip is not null) // control has attached MenuStrip
                     {
                         foreach (var obj in GetToolStripMenuItems(z.ContextMenuStrip))
                             yield return obj;
@@ -238,6 +238,10 @@ public static class WinFormsTranslator
                 form?.Dispose();
             }
             // This is a debug utility method, will always be logging. Shouldn't ever fail.
+            catch (TargetInvocationException)
+            {
+                // Don't care; forms will sometimes fail to load.
+            }
             catch
             {
                 System.Diagnostics.Debug.Write($"Failed to create a new form {t}");
@@ -341,7 +345,7 @@ public sealed class TranslationContext
         if (Translation.TryGetValue(val, out var translated))
             return translated;
 
-        if (fallback != null && AddNew)
+        if (fallback is not null && AddNew)
             Translation.Add(val, fallback);
         return fallback;
     }

@@ -134,7 +134,7 @@ public sealed partial class SAV_EventWork : Form
                     DropDownWidth = Width + 100,
                 };
                 cb.InitializeBinding();
-                cb.DataSource = new BindingSource(f.Options.Select(z => new ComboItem(z.Text, z.Value)).ToList(), null);
+                cb.DataSource = new BindingSource(f.Options.ConvertAll(z => new ComboItem(z.Text, z.Value)), string.Empty);
                 cb.SelectedValue = f.Value;
                 if (cb.SelectedIndex < 0)
                     cb.SelectedIndex = 0;
@@ -171,7 +171,7 @@ public sealed partial class SAV_EventWork : Form
                 tlp.Controls.Add(nud, 2, i);
                 {
                     var match = f.Options.FirstOrDefault(z => z.Value == f.Value);
-                    if (match != null)
+                    if (match is not null)
                     {
                         cb.SelectedValue = match.Value;
                         nud.Enabled = false;

@@ -16,11 +16,23 @@ public static class MethodK
     /// <param name="enc">Encounter template.</param>
     /// <param name="seed">Seed that immediately generates the PID.</param>
     /// <param name="evo">Level range constraints for the capture, if known.</param>
-    /// <param name="format">Current format (different from 4)</param>
-    public static LeadSeed GetSeed<TEnc, TEvo>(TEnc enc, uint seed, TEvo evo, byte format = Format)
+    /// <param name="format">Current format (different from 4 will use level range instead of exact)</param>
+    public static LeadSeed GetSeed<TEnc, TEvo>(TEnc enc, uint seed, TEvo evo, byte format)
         where TEnc : IEncounterSlot4
         where TEvo : ILevelRange
         => GetSeed(enc, seed, evo.LevelMin, evo.LevelMax, format);
+
+    /// <remarks>Used when generating or ignoring level ranges.</remarks>
+    /// <inheritdoc cref="GetSeed{TEnc,TEvo}(TEnc, uint, TEvo, byte)"/>
+    public static LeadSeed GetSeed<TEnc>(TEnc enc, uint seed) where TEnc : IEncounterSlot4
+        => GetSeed(enc, seed, enc, 0);
+
+    /// <remarks>Used when generating with specific level ranges.</remarks>
+    /// <inheritdoc cref="GetSeed{TEnc,TEvo}(TEnc, uint, TEvo, byte)"/>
+    public static LeadSeed GetSeed<TEnc, TEvo>(TEnc enc, uint seed, TEvo evo)
+        where TEnc : IEncounterSlot4
+        where TEvo : ILevelRange
+        => GetSeed(enc, seed, evo, 4);
 
     public static LeadSeed GetSeed<TEnc>(TEnc enc, uint seed, byte levelMin, byte levelMax, byte format = Format, int depth = 0)
         where TEnc : IEncounterSlot4
@@ -31,10 +43,6 @@ public static class MethodK
         var frames = GetReversalWindow(seed, nature);
         return GetOriginSeed(enc, seed, nature, frames, levelMin, levelMax, format, depth);
     }
-
-    /// <inheritdoc cref="GetSeed{TEnc, TEvo}(TEnc, uint, TEvo, byte)"/>
-    public static LeadSeed GetSeed<TEnc>(TEnc enc, uint seed)
-        where TEnc : IEncounterSlot4 => GetSeed(enc, seed, enc);
 
     /// <inheritdoc cref="MethodJ.GetReversalWindow"/>
     /// <returns>Count of reverses allowed for no specific lead (not cute charm).</returns>
@@ -91,6 +99,20 @@ public static class MethodK
     }
 
     public static bool IsEncounterCheckApplicable(SlotType4 type) => type is Rock_Smash or BugContest || type.IsFishingRodType();
+
+    /// <summary>
+    /// Advances the origin seed to the state that yields the level rand() result.
+    /// </summary>
+    /// <remarks> If using the rand() result, be sure to >> 16. </remarks>
+    public static uint SkipToLevelRand<T>(T enc, uint seed, LeadRequired lead)
+        where T : IEncounterSlot4
+    {
+        if (enc.Type.IsFishingRodType() || enc.Type is Rock_Smash)
+            return LCRNG.Next3(seed); // Proc, ESV, level.
+        if (enc.Type is BugContest && !lead.IsAbleToSweetScent())
+            return LCRNG.Next4(seed); // ProcStep[2], ESV, level.
+        return LCRNG.Next2(seed); // ESV, level.
+    }
 
     public static bool CheckEncounterActivation<T>(T enc, ref LeadSeed result)
         where T : IEncounterSlot4
@@ -262,7 +284,7 @@ public static class MethodK
         where T : IEncounterSlot4
     {
         if (IsCuteCharmFail(ctx.Prev1))
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -271,7 +293,7 @@ public static class MethodK
         where T : IEncounterSlot4
     {
         if (IsCuteCharmPass(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -280,7 +302,7 @@ public static class MethodK
         where T : IEncounterSlot4
     {
         if (IsSyncPass(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -289,7 +311,7 @@ public static class MethodK
         where T : IEncounterSlot4
     {
         if (IsIntimidateKeenEyePass(ctx.Prev1)) // encounter routine aborted
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -298,7 +320,7 @@ public static class MethodK
         where T : IEncounterSlot4
     {
         if (IsHustleVitalPass(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         return IsSlotValidFrom1Skip(ctx, out result);
     }
@@ -360,7 +382,7 @@ public static class MethodK
             if (IsSlotValid(ctx.Encounter, ctx.Prev2))
             { result = ctx.Seed3; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValidRegular<T>(in FrameCheckDetails<T> ctx, out uint result)
@@ -379,18 +401,18 @@ public static class MethodK
             if (IsSlotValid(ctx.Encounter, ctx.Prev1))
             { result = ctx.Seed2; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValidHustleVital<T>(in FrameCheckDetails<T> ctx, out uint result)
         where T : IEncounterSlot4
     {
         if (IsHustleVitalFail(ctx.Prev1)) // should have triggered
-        { result = default; return false; }
+        { result = 0; return false; }
 
         var expectLevel = ctx.Encounter.PressureLevel;
         if (!IsOriginalLevelValid(ctx.LevelMin, ctx.LevelMax, ctx.Format, expectLevel))
-        { result = default; return false; }
+        { result = 0; return false; }
 
         if (IsLevelRand(ctx.Encounter))
         {
@@ -403,7 +425,7 @@ public static class MethodK
             if (IsSlotValid(ctx.Encounter, ctx.Prev2))
             { result = ctx.Seed3; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValidStaticMagnet<T>(in FrameCheckDetails<T> ctx, out uint result, out LeadRequired lead)
@@ -418,7 +440,7 @@ public static class MethodK
         if (IsLevelRand(ctx.Encounter))
         {
             if (IsStaticMagnetFail(ctx.Prev3)) // should have triggered
-            { result = default; return false; }
+            { result = 0; return false; }
 
             if (ctx.Encounter.IsFixedLevel() || IsLevelValid(ctx.Encounter, ctx.LevelMin, ctx.LevelMax, ctx.Format, ctx.Prev1))
             {
@@ -429,12 +451,12 @@ public static class MethodK
         else // Not random level
         {
             if (IsStaticMagnetFail(ctx.Prev2)) // should have triggered
-            { result = default; return false; }
+            { result = 0; return false; }
 
             if (ctx.Encounter.IsSlotValidStaticMagnet(ctx.Prev1, out lead))
             { result = ctx.Seed3; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValidStaticMagnetFail<T>(in FrameCheckDetails<T> ctx, out uint result)
@@ -443,7 +465,7 @@ public static class MethodK
         if (IsLevelRand(ctx.Encounter))
         {
             if (IsStaticMagnetPass(ctx.Prev3)) // should have triggered
-            { result = default; return false; }
+            { result = 0; return false; }
 
             if (ctx.Encounter.IsFixedLevel() || IsLevelValid(ctx.Encounter, ctx.LevelMin, ctx.LevelMax, ctx.Format, ctx.Prev1))
             {
@@ -454,12 +476,12 @@ public static class MethodK
         else // Not random level
         {
             if (IsStaticMagnetPass(ctx.Prev2)) // should have triggered
-            { result = default; return false; }
+            { result = 0; return false; }
 
             if (IsSlotValid(ctx.Encounter, ctx.Prev1))
             { result = ctx.Seed2; return true; }
         }
-        result = default; return false;
+        result = 0; return false;
     }
 
     private static bool IsSlotValid<T>(T enc, uint u16SlotRand)
@@ -471,7 +493,7 @@ public static class MethodK
 
     private static bool IsLevelValid<T>(T enc, byte min, byte max, byte format, uint u16LevelRand) where T : ILevelRange
     {
-        var level = GetExpectedLevel(enc, u16LevelRand);
+        var level = GetRandomLevel(enc, u16LevelRand);
         return IsOriginalLevelValid(min, max, format, level);
     }
 
@@ -482,7 +504,14 @@ public static class MethodK
         return LevelRangeExtensions.IsLevelWithinRange((int)level, min, max);
     }
 
-    private static uint GetExpectedLevel<T>(T enc, uint u16LevelRand) where T : ILevelRange
+    public static uint GetRandomLevel<T>(T enc, uint seed, LeadRequired lead) where T : IEncounterSlot4
+    {
+        if (lead is PressureHustleSpirit)
+            return enc.PressureLevel;
+        return GetRandomLevel(enc, seed);
+    }
+
+    private static uint GetRandomLevel<T>(T enc, uint u16LevelRand) where T : ILevelRange
     {
         var min = enc.LevelMin;
         uint mod = 1u + enc.LevelMax - min;

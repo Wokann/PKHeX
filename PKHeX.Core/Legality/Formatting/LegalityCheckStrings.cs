@@ -101,6 +101,8 @@ public static class LegalityCheckStrings
     public static string LContestSheenTooLow_0 { get; set; } = "Contest Stat Sheen should be >= {0}.";
     public static string LContestSheenTooHigh_0 { get; set; } = "Contest Stat Sheen should be <= {0}.";
 
+    public static string LDateOutsideConsoleWindow { get; set; } = "Local Date is outside of console's local time window.";
+    public static string LDateTimeClockInvalid { get; set; } = "Local Time is not a valid timestamp.";
     public static string LDateOutsideDistributionWindow { get; set; } = "Met Date is outside of distribution window.";
 
     public static string LEggContest { get; set; } = "Cannot increase Contest Stats of an Egg.";
@@ -368,6 +370,7 @@ public static class LegalityCheckStrings
     public static string LMoveNincada { get; set; } = "Only one Ninjask move allowed.";
     public static string LMoveNincadaEvo { get; set; } = "Learned by evolving Nincada into Ninjask.";
     public static string LMoveNincadaEvoF_0 { get; set; } = "Learned by evolving Nincada into Ninjask in Generation {0}.";
+    public static string LMovePPExpectHealed_0 { get; set; } = "Move {0} PP is below the amount expected.";
     public static string LMovePPTooHigh_0 { get; set; } = "Move {0} PP is above the amount allowed.";
     public static string LMovePPUpsTooHigh_0 { get; set; } = "Move {0} PP Ups is above the amount allowed.";
     public static string LMoveSourceShared { get; set; } = "Shared Non-Relearn Move.";
@@ -478,6 +481,8 @@ public static class LegalityCheckStrings
     public static string LTeraTypeMismatch { get; set; } = "Tera Type does not match either of the default types.";
 
     public static string LTradeNotAvailable { get; set; } = "Encounter cannot be traded to the active trainer.";
+
+    public static string LTrainerIDNoSeed { get; set; } = "Trainer ID is not obtainable from any RNG seed.";
 
     public static string LTransferBad { get; set; } = "Incorrectly transferred from previous generation.";
 

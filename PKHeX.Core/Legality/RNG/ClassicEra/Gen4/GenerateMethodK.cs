@@ -19,12 +19,13 @@ public static class GenerateMethodK
     public static uint SetRandomK<T>(this T enc, PK4 pk, PersonalInfo4 pi, EncounterCriteria criteria, uint seed)
         where T : IEncounterSlot4
     {
+        var id32 = pk.ID32;
         var gr = pi.Gender;
-        var ability = criteria.GetAbilityFromNumber(AbilityPermission.Any12);
         var (min, max) = SlotMethodK.GetRange(enc.Type, enc.SlotNumber);
         bool randLevel = MethodK.IsLevelRand(enc);
         var modulo = enc.Type.IsSafari() ? 10u : 100u;
         bool checkProc = MethodK.IsEncounterCheckApplicable(enc.Type);
+        bool checkLevel = criteria.IsSpecifiedLevelRange() && enc.IsLevelWithinRange(criteria);
 
         // Generate Method K correlated PID and IVs, no lead (keep things simple).
         while (true)
@@ -43,7 +44,7 @@ public static class GenerateMethodK
                 continue;
             var lv = randLevel ? LCRNG.Next16(ref seed) : 0;
             var nature = MethodK.GetNature(LCRNG.Next16(ref seed));
-            if (criteria.IsSpecifiedNature() && nature != (byte)criteria.Nature)
+            if (criteria.IsSpecifiedNature() && !criteria.IsSatisfiedNature((Nature)nature))
                 continue;
 
             while (true)
@@ -53,21 +54,46 @@ public static class GenerateMethodK
                 var pid = GetPIDRegular(a, b);
                 if (pid % 25 != nature)
                     continue;
-                if ((pid & 1) != ability)
+                if (ShinyUtil.GetIsShiny(id32, pid, 8) != criteria.Shiny.IsShiny())
+                    break; // try again
+                if (criteria.IsSpecifiedAbility() && !criteria.IsSatisfiedAbility((int)(pid & 1)))
                     break; // try again
                 var gender = EntityGender.GetFromPIDAndRatio(pid, gr);
-                if (!criteria.IsGenderSatisfied(gender))
+                if (criteria.IsSpecifiedGender() && !criteria.IsSatisfiedGender(gender))
                     break; // try again
+
+                if (enc.Species is (ushort)Species.Unown)
+                {
+                    if (criteria.IsSpecifiedForm())
+                    {
+                        var form = (byte)criteria.Form;
+                        if (!RuinsOfAlph4.IsFormValid(LCRNG.Prev4(seed), form))
+                            break; // try again
+                        pk.Form = form;
+                    }
+                    else
+                    {
+                        pk.Form = RuinsOfAlph4.GetEntranceForm(LCRNG.Next2(seed));
+                    }
+                }
 
                 if (randLevel)
-                    pk.MetLevel = pk.CurrentLevel = (byte)((lv % (enc.LevelMax - enc.LevelMin + 1)) + enc.LevelMin);
-                pk.PID = pid;
-                var iv1 = LCRNG.Next16(ref seed);
-                var iv2 = LCRNG.Next16(ref seed);
-                pk.IV32 = ((iv2 & 0x7FFF) << 15) | (iv1 & 0x7FFF);
+                {
+                    var level = (byte)MethodK.GetRandomLevel(enc, lv, LeadRequired.None);
+                    if (checkLevel && !criteria.IsSatisfiedLevelRange(level))
+                        break; // try again
+                    pk.MetLevel = pk.CurrentLevel = level;
+                }
 
-                if (enc.Type is SlotType4.BugContest && !MethodK.IsAny31(iv1) && !MethodK.IsAny31(iv2))
+                var iv32 = ClassicEraRNG.GetSequentialIVs(ref seed);
+                if (criteria.IsSpecifiedHiddenPower() && !criteria.IsSatisfiedHiddenPower(iv32))
                     break; // try again
+
+                if (enc.Type is SlotType4.BugContest && !MethodK.IsAny31(iv32) && !MethodK.IsAny31(iv32 >> 16))
+                    break; // try again
+
+                pk.PID = pid;
+                pk.IV32 = iv32;
                 pk.Gender = gender;
                 pk.Ability = (pid & 1) == 0 ? pi.Ability1 : pi.Ability2;
                 return LCRNG.Prev4(seed);
@@ -100,15 +126,40 @@ public static class GenerateMethodK
             var a = LCRNG.Next16(ref s);
             var b = LCRNG.Next16(ref s);
             var pid = GetPIDRegular(a, b);
-            if (criteria.IsSpecifiedNature() && (Nature)(pid % 25) != criteria.Nature)
+            if (criteria.IsSpecifiedNature() && !criteria.IsSatisfiedNature((Nature)(pid % 25)))
                 continue;
 
             var gender = EntityGender.GetFromPIDAndRatio(pid, gr);
-            if (!criteria.IsGenderSatisfied(gender))
+            if (criteria.IsSpecifiedGender() && !criteria.IsSatisfiedGender(gender))
                 continue;
-            var lead = MethodK.GetSeed(enc, seed, enc, 4);
+            var lead = criteria.IsSpecifiedLevelRange()
+                ? MethodK.GetSeed(enc, seed, criteria)
+                : MethodK.GetSeed(enc, seed);
             if (!lead.IsValid()) // Verifies the slot, (min) level, and nature loop; if it passes, apply the details.
                 continue;
+
+            if (enc.Species is (ushort)Species.Unown)
+            {
+                if (criteria.IsSpecifiedForm())
+                {
+                    var form = (byte)criteria.Form;
+                    if (!RuinsOfAlph4.IsFormValid(seed, form))
+                        continue;
+                    pk.Form = form;
+                }
+                else
+                {
+                    pk.Form = RuinsOfAlph4.GetEntranceForm(LCRNG.Next6(seed)); // ABCD|E(Item)|F(Form) determination
+                }
+            }
+
+            if (MethodK.IsLevelRand(enc))
+            {
+                var rand16 = MethodK.SkipToLevelRand(enc, lead.Seed, lead.Lead) >> 16;
+                var level = MethodK.GetRandomLevel(enc, rand16, lead.Lead);
+                if (pk.MetLevel != level)
+                    pk.MetLevel = pk.CurrentLevel = (byte)level;
+            }
 
             pk.PID = pid;
             pk.IV32 = ((iv2 & 0x7FFF) << 15) | (iv1 & 0x7FFF);

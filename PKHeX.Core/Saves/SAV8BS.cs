@@ -13,12 +13,7 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
     // Save Data Attributes
     protected internal override string ShortSummary => $"{OT} ({Version}) - {System.LastSavedTime}";
     public override string Extension => string.Empty;
-
-    public override IReadOnlyList<string> PKMExtensions => Array.FindAll(PKM.Extensions, f =>
-    {
-        int gen = f[^1] - 0x30;
-        return gen <= 8;
-    });
+    public override IReadOnlyList<string> PKMExtensions => EntityFileExtension.GetExtensionsHOME();
 
     public SAV8BS() : this(new byte[SaveUtil.SIZE_G8BDSP_3], false) => SaveRevision = (int)Gem8Version.V1_3;
 
@@ -317,9 +312,9 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
         pb8.UpdateHandler(this);
 
         pb8.RefreshChecksum();
-        if (SetUpdateRecords != PKMImportSetting.Skip)
-            AddCountAcquired(pk);
     }
+
+    protected override void SetRecord(PKM pk) => AddCountAcquired(pk);
 
     private void AddCountAcquired(PKM pk)
     {
@@ -369,5 +364,5 @@ public sealed class SAV8BS : SaveFile, ISaveFileRevision, ITrainerStatRecord, IE
 
     public int EventWorkCount => FlagWork8b.COUNT_WORK;
     public int GetWork(int index) => FlagWork.GetWork(index);
-    public void SetWork(int index, int value = default) => FlagWork.SetWork(index, value);
+    public void SetWork(int index, int value = 0) => FlagWork.SetWork(index, value);
 }

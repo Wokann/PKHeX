@@ -182,8 +182,6 @@ public sealed record EncounterSlot9(EncounterArea9 Parent, ushort Species, byte 
         var rand = new Xoroshiro128Plus(rnd.Rand64());
         var type = Tera9RNG.GetTeraTypeFromPersonal(Species, Form, rand.Next());
         pk.TeraTypeOriginal = (MoveType)type;
-        if (criteria.IsSpecifiedTeraType() && type != criteria.TeraType)
-            pk.SetTeraType(type); // sets the override type
         if (Species == (int)Core.Species.Toxtricity)
             pk.Nature = ToxtricityUtil.GetRandomNature(ref rand, Form);
 
@@ -237,6 +235,15 @@ public sealed record EncounterSlot9(EncounterArea9 Parent, ushort Species, byte 
             if (m.RibbonMarkDusk && !CanSpawnAtTime(RibbonIndex.MarkDusk))
                 return EncounterMatchRating.DeferredErrors;
             if (m.RibbonMarkDawn && !CanSpawnAtTime(RibbonIndex.MarkDawn))
+                return EncounterMatchRating.DeferredErrors;
+
+            // Some encounters can cross over into non-snow, and their encounter match might not cross back over to snow.
+            // Imagine a venn diagram, one circle is Desert, the other is Snow. The met location is in the middle, so both satisfy.
+            // But if we pick the Desert circle, it's wrong, and we need to defer to the other.
+            // Might need to add other deferral cases or maybe defer everything with a crossover location.
+            if (m.RibbonMarkSnowy && !CanSpawnInWeather(RibbonIndex.MarkSnowy))
+                return EncounterMatchRating.DeferredErrors;
+            if (m.RibbonMarkBlizzard && !CanSpawnInWeather(RibbonIndex.MarkBlizzard))
                 return EncounterMatchRating.DeferredErrors;
         }
 

@@ -42,28 +42,28 @@ public partial class SAV_Underground : Form
         // Goods
         DGV_UGGoods.Rows.Add(SAV4Sinnoh.UG_POUCH_SIZE);
 
-        Item_Goods.DataSource = new BindingSource(ugGoodsSorted, null);
+        Item_Goods.DataSource = new BindingSource(ugGoodsSorted, string.Empty);
         Item_Goods.DisplayIndex = 0;
         DGV_UGGoods.CancelEdit();
 
         // Spheres
         DGV_UGSpheres.Rows.Add(MAX_SIZE);
 
-        Item_Spheres.DataSource = new BindingSource(ugSpheres, null);
+        Item_Spheres.DataSource = new BindingSource(ugSpheres, string.Empty);
         Item_Spheres.DisplayIndex = 0;
         DGV_UGSpheres.CancelEdit();
 
         // Traps
         DGV_UGTraps.Rows.Add(MAX_SIZE);
 
-        Item_Traps.DataSource = new BindingSource(ugTrapsSorted, null);
+        Item_Traps.DataSource = new BindingSource(ugTrapsSorted, string.Empty);
         Item_Traps.DisplayIndex = 0;
         DGV_UGTraps.CancelEdit();
 
         // Treasures
         DGV_UGTreasures.Rows.Add(MAX_SIZE);
 
-        Item_Treasures.DataSource = new BindingSource(ugTreasuresSorted, null);
+        Item_Treasures.DataSource = new BindingSource(ugTreasuresSorted, string.Empty);
         Item_Treasures.DisplayIndex = 0;
         DGV_UGTreasures.CancelEdit();
     }
@@ -139,7 +139,7 @@ public partial class SAV_Underground : Form
         int ctr = 0;
         for (int i = 0; i < DGV_UGGoods.Rows.Count; i++)
         {
-            var str = DGV_UGGoods.Rows[i].Cells[0].Value.ToString();
+            var str = DGV_UGGoods.Rows[i].Cells[0].Value!.ToString();
             var itemindex = Array.IndexOf(ugGoods, str);
 
             if (itemindex <= 0)
@@ -154,7 +154,7 @@ public partial class SAV_Underground : Form
         for (int i = 0; i < DGV_UGSpheres.Rows.Count; i++)
         {
             var row = DGV_UGSpheres.Rows[i];
-            var str = row.Cells[0].Value.ToString();
+            var str = row.Cells[0].Value!.ToString();
             var itemindex = Array.IndexOf(ugSpheres, str);
 
             bool success = int.TryParse(row.Cells[1].Value?.ToString(), out var itemcnt);
@@ -170,7 +170,7 @@ public partial class SAV_Underground : Form
         ctr = 0;
         for (int i = 0; i < DGV_UGTraps.Rows.Count; i++)
         {
-            var str = DGV_UGTraps.Rows[i].Cells[0].Value.ToString();
+            var str = DGV_UGTraps.Rows[i].Cells[0].Value!.ToString();
             var itemindex = Array.IndexOf(ugTraps, str);
 
             if (itemindex <= 0)
@@ -184,7 +184,7 @@ public partial class SAV_Underground : Form
         ctr = 0;
         for (int i = 0; i < DGV_UGTreasures.Rows.Count; i++)
         {
-            var str = DGV_UGTreasures.Rows[i].Cells[0].Value.ToString();
+            var str = DGV_UGTreasures.Rows[i].Cells[0].Value!.ToString();
             var itemindex = Array.IndexOf(ugTreasures, str);
 
             if (itemindex <= 0)
@@ -197,24 +197,39 @@ public partial class SAV_Underground : Form
 
     private void GetUGScores()
     {
-        U_PlayersMet.Value = Math.Clamp(SAV.UG_PlayersMet, 0, U_PlayersMet.Maximum);
-        U_Gifts.Value = Math.Clamp(SAV.UG_Gifts, 0, U_Gifts.Maximum);
-        U_Spheres.Value = Math.Clamp(SAV.UG_Spheres, 0, U_Spheres.Maximum);
-        U_Fossils.Value = Math.Clamp(SAV.UG_Fossils, 0, U_Fossils.Maximum);
-        U_TrapsA.Value = Math.Clamp(SAV.UG_TrapsAvoided, 0, U_TrapsA.Maximum);
-        U_TrapsT.Value = Math.Clamp(SAV.UG_TrapsTriggered, 0, U_TrapsT.Maximum);
-        U_Flags.Value = Math.Clamp(SAV.UG_Flags, 0, U_Flags.Maximum);
+        LoadValue(NUD_PlayersMet, SAV.UG_PeopleMet);
+        LoadValue(NUD_GiftsGiven, SAV.UG_GiftsGiven);
+        LoadValue(NUD_GiftsReceived, SAV.UG_GiftsReceived);
+        LoadValue(NUD_Spheres, SAV.UG_Spheres);
+        LoadValue(NUD_Fossils, SAV.UG_Fossils);
+        LoadValue(NUD_TrapPlayers, SAV.UG_TrapPlayers);
+        LoadValue(NUD_TrapSelf, SAV.UG_TrapSelf);
+        LoadValue(NUD_MyBaseMoved, SAV.UG_MyBaseMoved);
+        LoadValue(NUD_FlagsObtained, SAV.UG_FlagsTaken);
+        LoadValue(NUD_MyFlagTaken, SAV.UG_FlagsFromMe);
+        LoadValue(NUD_MyFlagRecovered, SAV.UG_FlagsRecovered);
+        LoadValue(NUD_FlagsCaptured, SAV.UG_FlagsCaptured);
+        LoadValue(NUD_HelpedOthers, SAV.UG_HelpedOthers);
+
+        static void LoadValue(NumericUpDown box, uint value)
+            => box.Value = Math.Clamp(value, 0, SAV4Sinnoh.UG_MAX);
     }
 
     private void SetUGScores()
     {
-        SAV.UG_PlayersMet = (uint)U_PlayersMet.Value;
-        SAV.UG_Gifts = (uint)U_Gifts.Value;
-        SAV.UG_Spheres = (uint)U_Spheres.Value;
-        SAV.UG_Fossils = (uint)U_Fossils.Value;
-        SAV.UG_TrapsAvoided = (uint)U_TrapsA.Value;
-        SAV.UG_TrapsTriggered = (uint)U_TrapsT.Value;
-        SAV.UG_Flags = (uint)U_Flags.Value;
+        SAV.UG_PeopleMet = (uint)NUD_PlayersMet.Value;
+        SAV.UG_GiftsGiven = (uint)NUD_GiftsGiven.Value;
+        SAV.UG_GiftsReceived = (uint)NUD_GiftsReceived.Value;
+        SAV.UG_Spheres = (uint)NUD_Spheres.Value;
+        SAV.UG_Fossils = (uint)NUD_Fossils.Value;
+        SAV.UG_TrapPlayers = (uint)NUD_TrapPlayers.Value;
+        SAV.UG_TrapSelf = (uint)NUD_TrapSelf.Value;
+        SAV.UG_MyBaseMoved = (uint)NUD_MyBaseMoved.Value;
+        SAV.UG_FlagsTaken = (uint)NUD_FlagsObtained.Value;
+        SAV.UG_FlagsFromMe = (uint)NUD_MyFlagTaken.Value;
+        SAV.UG_FlagsRecovered = (uint)NUD_MyFlagRecovered.Value;
+        SAV.UG_FlagsCaptured = (uint)NUD_FlagsCaptured.Value;
+        SAV.UG_HelpedOthers = (uint)NUD_HelpedOthers.Value;
     }
 
     private static string[] SanitizeList(string[] inputlist)

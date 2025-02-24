@@ -209,7 +209,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
     {
         if (GetCurrentDaycare() is not { } s)
             throw new Exception();
-        return new SlotInfoMisc(s.GetDaycareSlot(index), index) {Type = StorageSlotType.Daycare};
+        return new SlotInfoMisc(s.GetDaycareSlot(index), index) { Type = StorageSlotType.Daycare };
     }
 
     public void SetPKMBoxes()
@@ -287,7 +287,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
                 L_SlotOccupied[i].Text = $"{i + 1}: ✘";
                 var pb = UpdateSlot(i);
                 var current = pb.Image;
-                if (current != null)
+                if (current is not null)
                     pb.Image = ImageUtil.ChangeOpacity(current, 0.6);
             }
         }
@@ -474,7 +474,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
         if (M.Boxes.Count > 1) // subview open
         {
             var z = M.Boxes[1].ParentForm;
-            if (z == null)
+            if (z is null)
                 return;
             z.CenterToForm(ParentForm);
             z.BringToFront();
@@ -605,7 +605,6 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
     private void B_OpenBerryField_Click(object sender, EventArgs e) => OpenDialog(new SAV_BerryFieldXY((SAV6XY)SAV));
     private void B_OpenPokeblocks_Click(object sender, EventArgs e) => OpenDialog(new SAV_PokeBlockORAS((SAV6AO)SAV));
     private void B_OpenSuperTraining_Click(object sender, EventArgs e) => OpenDialog(new SAV_SuperTrain((SAV6)SAV));
-    private void B_OpenSecretBase_Click(object sender, EventArgs e) => OpenDialog(new SAV_SecretBase((SAV6AO)SAV));
     private void B_CellsStickers_Click(object sender, EventArgs e) => OpenDialog(new SAV_ZygardeCell((SAV7)SAV));
     private void B_LinkInfo_Click(object sender, EventArgs e) => OpenDialog(new SAV_Link6(SAV));
     private void B_OpenApricorn_Click(object sender, EventArgs e) => OpenDialog(new SAV_Apricorn((SAV4HGSS)SAV));
@@ -616,6 +615,14 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
     private void B_OpenGeonetEditor_Click(object sender, EventArgs e) => OpenDialog(new SAV_Geonet4((SAV4)SAV));
     private void B_OpenUnityTowerEditor_Click(object sender, EventArgs e) => OpenDialog(new SAV_UnityTower((SAV5)SAV));
     private void B_OpenChatterEditor_Click(object sender, EventArgs e) => OpenDialog(new SAV_Chatter(SAV));
+
+    private void B_OpenSecretBase_Click(object sender, EventArgs e)
+    {
+        if (SAV is SAV3 s3)
+            OpenDialog(new SAV_SecretBase3(s3));
+        else if (SAV is SAV6AO ao)
+            OpenDialog(new SAV_SecretBase(ao));
+    }
 
     private void B_Roamer_Click(object sender, EventArgs e)
     {
@@ -689,14 +696,16 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
         void TryOpen(SaveFile sav, IReadOnlyList<SlotGroup> g)
         {
             var form = WinFormsUtil.FirstFormOfType<SAV_GroupViewer>();
-            if (form != null)
+            if (form is not null)
             {
                 form.CenterToForm(ParentForm);
             }
             else
             {
-                form = new SAV_GroupViewer(sav, M.Env.PKMEditor, g);
-                form.Owner = ParentForm;
+                form = new SAV_GroupViewer(sav, M.Env.PKMEditor, g)
+                {
+                    Owner = ParentForm,
+                };
             }
             form.BringToFront();
             form.Show();
@@ -822,6 +831,8 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
     {
         using var form = SAV switch
         {
+            SAV1 s1 => new SAV_HallOfFame1(s1),
+            SAV3 s3 => new SAV_HallOfFame3(s3),
             SAV6 s6 => new SAV_HallOfFame(s6),
             SAV7 s7 => new SAV_HallOfFame7(s7),
             _ => (Form?)null,
@@ -832,7 +843,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
     private void B_JPEG_Click(object sender, EventArgs e)
     {
         var s6 = (SAV6)SAV;
-        byte[] jpeg = s6.GetJPEGData();
+        var jpeg = s6.GetJPEGData();
         if (jpeg.Length == 0)
         {
             WinFormsUtil.Alert(MsgSaveJPEGExportFail);
@@ -896,15 +907,15 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
     }
 
     // File I/O
-    public bool GetBulkImportSettings(out bool clearAll, out bool overwrite, out PKMImportSetting noSetb)
+    public bool GetBulkImportSettings(out bool clearAll, out bool overwrite, out EntityImportSettings settings)
     {
-        clearAll = false; noSetb = PKMImportSetting.UseDefault; overwrite = false;
+        clearAll = false; settings = default; overwrite = false;
         var dr = WinFormsUtil.Prompt(MessageBoxButtons.YesNoCancel, MsgSaveBoxImportClear, MsgSaveBoxImportClearNo);
         if (dr == DialogResult.Cancel)
             return false;
 
         clearAll = dr == DialogResult.Yes;
-        noSetb = GetPKMSetOverride(ModifyPKM);
+        settings = GetImportSettingsOverride();
         return true;
     }
 
@@ -1005,8 +1016,8 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
             return false;
         }
 
-        var noSetb = GetPKMSetOverride(ModifyPKM);
-        var slotSkipped = ImportGroup(b.Contents, SAV, Box.CurrentBox, noSetb);
+        var settings = GetImportSettingsOverride();
+        var slotSkipped = ImportGroup(b.Contents, SAV, Box.CurrentBox, settings);
 
         SetPKMBoxes();
         UpdateBoxViewers();
@@ -1016,7 +1027,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
         return true;
     }
 
-    private static int ImportGroup(IEnumerable<PKM> data, SaveFile sav, int box, PKMImportSetting noSetb)
+    private static int ImportGroup(IEnumerable<PKM> data, SaveFile sav, int box, EntityImportSettings settings)
     {
         var type = sav.PKMType;
         int slotSkipped = 0;
@@ -1036,7 +1047,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
                 slotSkipped++;
                 continue;
             }
-            sav.SetBoxSlotAtIndex(x, box, i, noSetb);
+            sav.SetBoxSlotAtIndex(x, box, i, settings);
         }
 
         return slotSkipped;
@@ -1048,7 +1059,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
         if (!SAV.HasBox)
             return false;
 
-        if (path == null && !IsFolderPath(out path))
+        if (path is null && !IsFolderPath(out path))
         {
             result = path;
             return false;
@@ -1057,10 +1068,10 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
         if (!Directory.Exists(path))
             return false;
 
-        if (!GetBulkImportSettings(out bool clearAll, out var overwrite, out var noSetb))
+        if (!GetBulkImportSettings(out bool clearAll, out var overwrite, out var settings))
             return false;
 
-        SAV.LoadBoxes(path, out result, Box.CurrentBox, clearAll, overwrite, noSetb);
+        SAV.LoadBoxes(path, out result, Box.CurrentBox, clearAll, overwrite, settings);
         SetPKMBoxes();
         UpdateBoxViewers();
         return true;
@@ -1110,7 +1121,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
                 if (height > allowed)
                 {
                     var form = FindForm();
-                    if (form != null)
+                    if (form is not null)
                         form.Height += height - allowed;
                 }
             }
@@ -1207,12 +1218,12 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
         GB_Daycare.Visible = sav is IDaycareStorage or IDaycareMulti;
         B_ConvertKorean.Visible = sav is SAV4;
         B_OpenPokeblocks.Visible = sav is SAV6AO;
-        B_OpenSecretBase.Visible = sav is SAV6AO;
+        B_OpenSecretBase.Visible = sav is SAV6AO or IGen3Hoenn;
         B_OpenPokepuffs.Visible = sav is ISaveBlock6Main;
         B_JPEG.Visible = B_OpenLinkInfo.Visible = B_OpenSuperTraining.Visible = B_OUTPasserby.Visible = sav is ISaveBlock6Main;
         B_OpenBoxLayout.Visible = sav is IBoxDetailName;
         B_OpenWondercards.Visible = sav is IMysteryGiftStorageProvider;
-        B_OpenHallofFame.Visible = sav is ISaveBlock6Main or SAV7;
+        B_OpenHallofFame.Visible = sav is ISaveBlock6Main or SAV7 or SAV3 { IsMisconfiguredSize: false } or SAV1;
         B_OpenOPowers.Visible = sav is ISaveBlock6Main;
         B_OpenPokedex.Visible = sav.HasPokeDex;
         B_OpenBerryField.Visible = sav is SAV6XY; // OR/AS undocumented
@@ -1263,7 +1274,7 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
             var current = br.CurrentSlot;
             var list = br.SaveNames.Select((z, i) => new ComboItem(z, i)).ToList();
             CB_SaveSlot.InitializeBinding();
-            CB_SaveSlot.DataSource = new BindingSource(list, null);
+            CB_SaveSlot.DataSource = new BindingSource(list, string.Empty);
             CB_SaveSlot.SelectedValue = current;
         }
         else
@@ -1371,19 +1382,18 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
         ResetParty();
     }
 
-    private static PKMImportSetting GetPKMSetOverride(bool currentSetting)
+    private static EntityImportSettings GetImportSettingsOverride()
     {
-        var yn = currentSetting ? MsgYes : MsgNo;
         var choice = WinFormsUtil.Prompt(MessageBoxButtons.YesNoCancel,
             MsgSaveBoxImportModifyIntro,
             MsgSaveBoxImportModifyYes + Environment.NewLine +
             MsgSaveBoxImportModifyNo + Environment.NewLine +
-            string.Format(MsgSaveBoxImportModifyCurrent, yn));
+            string.Format(MsgSaveBoxImportModifyCurrent, SaveFile.SetUpdateSettings));
         return choice switch
         {
-            DialogResult.Yes => PKMImportSetting.Update,
-            DialogResult.No => PKMImportSetting.Skip,
-            _ => PKMImportSetting.UseDefault,
+            DialogResult.Yes => EntityImportSettings.All,
+            DialogResult.No => EntityImportSettings.None,
+            _ => default,
         };
     }
 
@@ -1418,35 +1428,42 @@ public partial class SAVEditor : UserControl, ISlotViewer<PictureBox>, ISaveFile
 
     private async void TabMouseMove(object sender, MouseEventArgs e)
     {
-        if (!IsBoxDragActive)
-            return;
-
-        if (e.Location == DragStartPoint)
-            return;
-
-        // Gather data
-        var src = SAV.CurrentBox;
-        var bin = SAV.GetBoxBinary(src);
-
-        // Create Temp File to Drag
-        var newFile = Path.Combine(Path.GetTempPath(), $"box_{src}.bin");
         try
         {
-            using var img = new Bitmap(Box.Width, Box.Height);
-            Box.DrawToBitmap(img, new Rectangle(0, 0, Box.Width, Box.Height));
-            using var cursor = Cursor = new Cursor(img.GetHicon());
-            await File.WriteAllBytesAsync(newFile, bin).ConfigureAwait(true);
-            DoDragDrop(new DataObject(DataFormats.FileDrop, new[] { newFile }), DragDropEffects.Copy);
+            if (!IsBoxDragActive)
+                return;
+
+            if (e.Location == DragStartPoint)
+                return;
+
+            // Gather data
+            var src = SAV.CurrentBox;
+            var bin = SAV.GetBoxBinary(src);
+
+            // Create Temp File to Drag
+            var newFile = Path.Combine(Path.GetTempPath(), $"box_{src}.bin");
+            try
+            {
+                using var img = new Bitmap(Box.Width, Box.Height);
+                Box.DrawToBitmap(img, new Rectangle(0, 0, Box.Width, Box.Height));
+                using var cursor = Cursor = new Cursor(img.GetHicon());
+                await File.WriteAllBytesAsync(newFile, bin).ConfigureAwait(true);
+                DoDragDrop(new DataObject(DataFormats.FileDrop, new[] { newFile }), DragDropEffects.Copy);
+            }
+            // Tons of things can happen with drag & drop; don't try to handle things, just indicate failure.
+            catch (Exception x)
+            { WinFormsUtil.Error("Drag && Drop Error", x); }
+            finally
+            {
+                Cursor = Cursors.Default;
+                await Task.Delay(100).ConfigureAwait(false);
+                IsBoxDragActive = false;
+                await DeleteAsync(newFile, 20_000).ConfigureAwait(false);
+            }
         }
-        // Tons of things can happen with drag & drop; don't try to handle things, just indicate failure.
-        catch (Exception x)
-        { WinFormsUtil.Error("Drag && Drop Error", x); }
-        finally
+        catch
         {
-            Cursor = Cursors.Default;
-            await Task.Delay(100).ConfigureAwait(false);
-            IsBoxDragActive = false;
-            await DeleteAsync(newFile, 20_000).ConfigureAwait(false);
+            // Ignore.
         }
     }
 

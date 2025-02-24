@@ -44,10 +44,7 @@ public sealed record EncounterStatic8U : EncounterStatic8Nest<EncounterStatic8U>
     protected override void SetTrainerName(ReadOnlySpan<char> name, PK8 pk)
     {
         if (ShouldHaveScientistTrash)
-        {
-            var scientist = GetScientistName(pk.Language);
-            pk.SetString(pk.OriginalTrainerTrash, scientist, scientist.Length, StringConverterOption.None);
-        }
+            base.SetTrainerName(GetScientistName(pk.Language), pk);
         base.SetTrainerName(name, pk);
     }
 
@@ -70,6 +67,6 @@ public sealed record EncounterStatic8U : EncounterStatic8Nest<EncounterStatic8U>
         (int)LanguageID.Korean => "연구원",
         (int)LanguageID.ChineseS => "研究员",
         (int)LanguageID.ChineseT => "研究員",
-        _ => ReadOnlySpan<char>.Empty,
+        _ => [],
     };
 }

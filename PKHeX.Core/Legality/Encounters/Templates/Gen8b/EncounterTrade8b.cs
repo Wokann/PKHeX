@@ -5,7 +5,9 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 8 BD/SP Trade Encounter
 /// </summary>
-public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IFixedTrainer, IFixedNickname, IEncounterConvertible<PB8>, IScaledSizeReadOnly, IFixedOTFriendship, IMoveset, IContestStatsReadOnly, IFixedGender, IFixedNature
+public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IEncounterConvertible<PB8>,
+    IFixedTrainer, IFixedNickname, IScaledSizeReadOnly, IFixedOTFriendship, IMoveset,
+    IContestStatsReadOnly, IFixedGender, IFixedNature, IFixedIVSet, ITrainerID32ReadOnly
 {
     public byte Generation => 8;
     public EntityContext Context => EntityContext.Gen8b;
@@ -19,11 +21,13 @@ public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IFixedT
     public bool IsFixedNickname => true;
     public GameVersion Version { get; }
 
-    private string[] TrainerNames { get; }
-    private string[] Nicknames { get; }
+    private readonly ReadOnlyMemory<string> TrainerNames;
+    private readonly ReadOnlyMemory<string> Nicknames;
 
     public required Nature Nature { get; init; }
-    public required ushort ID32 { get; init; }
+    public required ushort TID16 { get; init; }
+    public ushort SID16 => 0;
+    public uint ID32 => TID16 | (uint)(SID16 << 16);
     public required AbilityPermission Ability { get; init; }
     public required byte Gender { get; init; }
     public required byte OTGender { get; init; }
@@ -91,12 +95,12 @@ public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IFixedT
             Version = version,
             Language = lang,
             OriginalTrainerGender = OTGender,
-            OriginalTrainerName = TrainerNames[lang],
+            OriginalTrainerName = TrainerNames.Span[lang],
 
             OriginalTrainerFriendship = OriginalTrainerFriendship,
 
             IsNicknamed = IsFixedNickname,
-            Nickname = IsFixedNickname ? Nicknames[lang] : SpeciesName.GetSpeciesNameGeneration(Species, lang, Generation),
+            Nickname = IsFixedNickname ? Nicknames.Span[lang] : SpeciesName.GetSpeciesNameGeneration(Species, lang, Generation),
             HeightScalar = HeightScalar,
             WeightScalar = WeightScalar,
             HandlingTrainerName = tr.OT,
@@ -121,9 +125,9 @@ public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IFixedT
 
     #region Matching
 
-    public bool IsTrainerMatch(PKM pk, ReadOnlySpan<char> trainer, int language) => (uint)language < TrainerNames.Length && trainer.SequenceEqual(TrainerNames[language]);
-    public bool IsNicknameMatch(PKM pk, ReadOnlySpan<char> nickname, int language) => (uint)language < Nicknames.Length && nickname.SequenceEqual(Nicknames[language]);
-    public string GetNickname(int language) => (uint)language < Nicknames.Length ? Nicknames[language] : Nicknames[0];
+    public bool IsTrainerMatch(PKM pk, ReadOnlySpan<char> trainer, int language) => (uint)language < TrainerNames.Length && trainer.SequenceEqual(TrainerNames.Span[language]);
+    public bool IsNicknameMatch(PKM pk, ReadOnlySpan<char> nickname, int language) => (uint)language < Nicknames.Length && nickname.SequenceEqual(Nicknames.Span[language]);
+    public string GetNickname(int language) => Nicknames.Span[(uint)language < Nicknames.Length ? language : 0];
 
     public EncounterMatchRating GetMatchRating(PKM pk) => EncounterMatchRating.Match;
 
@@ -202,11 +206,13 @@ public sealed record EncounterTrade8b : IEncounterable, IEncounterMatch, IFixedT
         if (currentLanguageID is not ((int)LanguageID.Japanese or (int)LanguageID.German))
             return -1;
 
+        var nicknames = Nicknames.Span;
+        var trainers = TrainerNames.Span;
         for (int i = 1; i < (int)LanguageID.ChineseT; i++)
         {
-            if (!nick.SequenceEqual(Nicknames[i]))
+            if (!nick.SequenceEqual(nicknames[i]))
                 continue;
-            if (!ot.SequenceEqual(TrainerNames[i]))
+            if (!ot.SequenceEqual(trainers[i]))
                 continue;
 
             // Language gets flipped to another language ID; can't be equal.

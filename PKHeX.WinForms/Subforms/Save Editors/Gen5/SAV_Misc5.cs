@@ -144,7 +144,7 @@ public partial class SAV_Misc5 : Form
                     states.Add(new ComboItem($"Unknown (0x{c:X2})", c));
                 cbr[i].Items.Clear();
                 cbr[i].InitializeBinding();
-                cbr[i].DataSource = new BindingSource(states.Where(v => v.Value >= 2 || v.Value == c).ToList(), null);
+                cbr[i].DataSource = new BindingSource(states.Where(v => v.Value >= 2 || v.Value == c).ToList(), string.Empty);
                 cbr[i].SelectedValue = (int)c;
             }
 
@@ -160,7 +160,7 @@ public partial class SAV_Misc5 : Form
                     states.Add(new ComboItem($"Unknown (0x{current:X2})", current));
                 CB_RoamStatus.Items.Clear();
                 CB_RoamStatus.InitializeBinding();
-                CB_RoamStatus.DataSource = new BindingSource(states, null);
+                CB_RoamStatus.DataSource = new BindingSource(states, string.Empty);
                 CB_RoamStatus.SelectedValue = (int)current;
             }
 
@@ -307,7 +307,7 @@ public partial class SAV_Misc5 : Form
             {
                 cb.Items.Clear();
                 cb.InitializeBinding();
-                cb.DataSource = new BindingSource(PassPowerB, null);
+                cb.DataSource = new BindingSource(PassPowerB, string.Empty);
             }
 
             CB_PassPower1.SelectedValue = (int)pass.PassPower1;
@@ -512,9 +512,9 @@ public partial class SAV_Misc5 : Form
         CB_Gender.InitializeBinding();
 
         var filtered = GameInfo.FilteredSources;
-        CB_Species.DataSource = new BindingSource(filtered.Species, null);
-        CB_Move.DataSource = new BindingSource(filtered.Moves, null);
-        CB_Areas.DataSource = new BindingSource(areas, null);
+        CB_Species.DataSource = new BindingSource(filtered.Species, string.Empty);
+        CB_Move.DataSource = new BindingSource(filtered.Moves, string.Empty);
+        CB_Areas.DataSource = new BindingSource(areas, string.Empty);
 
         CB_Areas.SelectedIndex = 0;
     }
@@ -567,7 +567,7 @@ public partial class SAV_Misc5 : Form
 
     private void UpdateSlotValue(object sender, EventArgs e)
     {
-        if (CurrentSlot == null)
+        if (CurrentSlot is null)
             return;
 
         if (sender == CB_Species)
@@ -608,7 +608,7 @@ public partial class SAV_Misc5 : Form
 
     private void SetGenders(EntreeSlot slot)
     {
-        CB_Gender.DataSource = new BindingSource(GetGenderChoices(slot.Species), null);
+        CB_Gender.DataSource = new BindingSource(GetGenderChoices(slot.Species), string.Empty);
     }
 
     private void B_RandForest_Click(object sender, EventArgs e)
@@ -660,7 +660,7 @@ public partial class SAV_Misc5 : Form
         L_Form.Visible = CB_Form.Enabled = CB_Form.Visible = hasForms;
 
         var list = FormConverter.GetFormList(slot.Species, GameInfo.Strings.types, GameInfo.Strings.forms, Main.GenderSymbols, SAV.Context);
-        CB_Form.DataSource = new BindingSource(list, null);
+        CB_Form.DataSource = new BindingSource(list, string.Empty);
     }
 
     private void ReadSubway()
@@ -685,21 +685,21 @@ public partial class SAV_Misc5 : Form
         CHK_SWNPCMet.Checked = sw.NPCMet;
 
         // Current Run Checks
-        CHK_SingleSet.Checked = sw.SingleSet == (sw.SinglePast / 7 + 1);
+        CHK_SingleSet.Checked = sw.SingleSet == ((sw.SinglePast / 7) + 1);
         L_SinglePast.Text = CHK_SingleSet.Checked ? "Current" : "Past";
-        CHK_DoubleSet.Checked = sw.DoubleSet == (sw.DoublePast / 7 + 1);
+        CHK_DoubleSet.Checked = sw.DoubleSet == ((sw.DoublePast / 7) + 1);
         L_DoublePast.Text = CHK_DoubleSet.Checked ? "Current" : "Past";
-        CHK_MultiNPCSet.Checked = sw.MultiNPCSet == (sw.MultiNPCPast / 7 + 1);
+        CHK_MultiNPCSet.Checked = sw.MultiNPCSet == ((sw.MultiNPCPast / 7) + 1);
         L_MultiNpcPast.Text = CHK_MultiNPCSet.Checked ? "Current" : "Past";
-        CHK_MultiFriendsSet.Checked = sw.MultiFriendsSet == (sw.MultiFriendsPast / 7 + 1);
+        CHK_MultiFriendsSet.Checked = sw.MultiFriendsSet == ((sw.MultiFriendsPast / 7) + 1);
         L_MultiFriendsPast.Text = CHK_MultiFriendsSet.Checked ? "Current" : "Past";
-        CHK_SuperSingleSet.Checked = sw.SuperSingleSet == (sw.SuperSinglePast / 7 + 1);
+        CHK_SuperSingleSet.Checked = sw.SuperSingleSet == ((sw.SuperSinglePast / 7) + 1);
         L_SSinglePast.Text = CHK_SuperSingleSet.Checked ? "Current" : "Past";
-        CHK_SuperDoubleSet.Checked = sw.SuperDoubleSet == (sw.SuperDoublePast / 7 + 1);
+        CHK_SuperDoubleSet.Checked = sw.SuperDoubleSet == ((sw.SuperDoublePast / 7) + 1);
         L_SDoublePast.Text = CHK_SuperDoubleSet.Checked ? "Current" : "Past";
-        CHK_SuperMultiNPCSet.Checked = sw.SuperMultiNPCSet == (sw.SuperMultiNPCPast / 7 + 1);
+        CHK_SuperMultiNPCSet.Checked = sw.SuperMultiNPCSet == ((sw.SuperMultiNPCPast / 7) + 1);
         L_SMultiNpcPast.Text = CHK_SuperMultiNPCSet.Checked ? "Current" : "Past";
-        CHK_SuperMultiFriendsSet.Checked = sw.SuperMultiFriendsSet == (sw.SuperMultiFriendsPast / 7 + 1);
+        CHK_SuperMultiFriendsSet.Checked = sw.SuperMultiFriendsSet == ((sw.SuperMultiFriendsPast / 7) + 1);
         L_SMultiFriendsPast.Text = CHK_SuperMultiFriendsSet.Checked ? "Current" : "Past";
 
         // Normal
@@ -793,14 +793,14 @@ public partial class SAV_Misc5 : Form
         sw.SuperMultiFriendsRecord = (int)NUD_SMultiFriendsRecord.Value;
 
         // Current Run Checks
-        sw.SingleSet = (CHK_SingleSet.Checked ? sw.SinglePast / 7 + 1 : 0);
-        sw.DoubleSet = (CHK_DoubleSet.Checked ? sw.DoublePast / 7 + 1 : 0);
-        sw.MultiNPCSet = (CHK_MultiNPCSet.Checked ? sw.MultiNPCPast / 7 + 1 : 0);
-        sw.MultiFriendsSet = (CHK_MultiFriendsSet.Checked ? sw.MultiFriendsPast / 7 + 1 : 0);
-        sw.SuperSingleSet = (CHK_SuperSingleSet.Checked ? sw.SuperSinglePast / 7 + 1 : 0);
-        sw.SuperDoubleSet = (CHK_SuperDoubleSet.Checked ? sw.SuperDoublePast / 7 + 1 : 0);
-        sw.SuperMultiNPCSet = (CHK_SuperMultiNPCSet.Checked ? sw.SuperMultiNPCPast / 7 + 1 : 0);
-        sw.SuperMultiFriendsSet = (CHK_SuperMultiFriendsSet.Checked ? sw.SuperMultiFriendsPast / 7 + 1 : 0);
+        sw.SingleSet = (CHK_SingleSet.Checked ? (sw.SinglePast / 7) + 1 : 0);
+        sw.DoubleSet = (CHK_DoubleSet.Checked ? (sw.DoublePast / 7) + 1 : 0);
+        sw.MultiNPCSet = (CHK_MultiNPCSet.Checked ? (sw.MultiNPCPast / 7) + 1 : 0);
+        sw.MultiFriendsSet = (CHK_MultiFriendsSet.Checked ? (sw.MultiFriendsPast / 7) + 1 : 0);
+        sw.SuperSingleSet = (CHK_SuperSingleSet.Checked ? (sw.SuperSinglePast / 7) + 1 : 0);
+        sw.SuperDoubleSet = (CHK_SuperDoubleSet.Checked ? (sw.SuperDoublePast / 7) + 1 : 0);
+        sw.SuperMultiNPCSet = (CHK_SuperMultiNPCSet.Checked ? (sw.SuperMultiNPCPast / 7) + 1 : 0);
+        sw.SuperMultiFriendsSet = (CHK_SuperMultiFriendsSet.Checked ? (sw.SuperMultiFriendsPast / 7) + 1 : 0);
     }
 
     private const string ForestCityBinFilter = "Forest City Bin|*.fc5";
@@ -816,7 +816,7 @@ public partial class SAV_Misc5 : Form
         if (sfd.ShowDialog() != DialogResult.OK)
             return;
 
-        var data = bw.Forest.ForestCity.ToArray();
+        var data = bw.Forest.ForestCity.Span;
         File.WriteAllBytes(sfd.FileName, data);
     }
 

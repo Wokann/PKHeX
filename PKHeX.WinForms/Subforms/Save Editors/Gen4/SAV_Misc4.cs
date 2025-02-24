@@ -30,7 +30,7 @@ public partial class SAV_Misc4 : Form
         accessories = GameInfo.Strings.accessories;
         backdrops = GameInfo.Strings.backdrops;
         poketchapps = GameInfo.Strings.poketchapps;
-        backdropsSorted = [.. backdrops.OrderBy(z => z)]; // sorted copy
+        backdropsSorted = [.. backdrops.Order()]; // sorted copy
 
         StatNUDA = [NUD_Stat0, NUD_Stat1, NUD_Stat2, NUD_Stat3];
         StatLabelA = [L_Stat0, L_Stat1, L_Stat2, L_Stat3]; // Current, Trade, Record, Trade
@@ -140,7 +140,7 @@ public partial class SAV_Misc4 : Form
         if (SAV is SAV4Sinnoh sinnoh)
         {
             ReadPoketch(sinnoh);
-            NUD_UGFlags.Value = Math.Clamp(sinnoh.UG_Flags, 0, 999_999);
+            NUD_UGFlags.Value = Math.Clamp(sinnoh.UG_FlagsCaptured, 0, SAV4Sinnoh.UG_MAX);
             L_PokeathlonPoints.Visible = NUD_PokeathlonPoints.Visible = false;
         }
         else if (SAV is SAV4HGSS hgss)
@@ -178,7 +178,7 @@ public partial class SAV_Misc4 : Form
         if (SAV is SAV4Sinnoh sinnoh)
         {
             SavePoketch(sinnoh);
-            sinnoh.UG_Flags = (uint)NUD_UGFlags.Value;
+            sinnoh.UG_FlagsCaptured = (uint)NUD_UGFlags.Value;
         }
         else if (SAV is SAV4HGSS hgss)
         {
@@ -360,7 +360,7 @@ public partial class SAV_Misc4 : Form
         CB_Species.InitializeBinding();
 
         var speciesList = GameInfo.FilteredSources.Species.Skip(1).ToList();
-        CB_Species.DataSource = new BindingSource(speciesList, null);
+        CB_Species.DataSource = new BindingSource(speciesList, string.Empty);
 
         editing = false;
         CB_Stats1.SelectedIndex = 0;
@@ -628,7 +628,7 @@ public partial class SAV_Misc4 : Form
         bool c = curspe == species;
         CHK_HallCurrent.Checked = c;
         CHK_HallCurrent.Text = curspe > 0 && curspe <= SAV.MaxSpeciesID
-            ? $"Current: {SpeciesName.GetSpeciesName(curspe, GameLanguage.GetLanguageIndex(Main.CurrentLanguage))}"
+            ? $"Current: {SpeciesName.GetSpeciesNameGeneration(curspe, GameLanguage.GetLanguageIndex(Main.CurrentLanguage), 4)}"
             : "Current: (None)";
 
         int s = 0;
@@ -887,7 +887,7 @@ public partial class SAV_Misc4 : Form
             DisplayIndex = 0,
             Width = 190,
             FlatStyle = FlatStyle.Flat,
-            DataSource = new BindingSource(backdropsSorted, null),
+            DataSource = new BindingSource(backdropsSorted, string.Empty),
         };
         DGV_Backdrops.Columns.Add(dgv);
 

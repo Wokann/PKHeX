@@ -127,11 +127,12 @@ public sealed class PIDVerifier : Verifier
             return; // Evolved, don't need to calculate the final evolution for the verbose report.
 
         // Indicate the evolution for the user.
+        const EntityContext mostRecent = PKX.Context; // latest ec100 form here
         uint evoVal = pk.EncryptionConstant % 100;
         bool rare = evoVal == 0;
         var (species, form) = EvolutionRestrictions.GetEvolvedSpeciesFormEC100(encSpecies, rare);
         var str = GameInfo.Strings;
-        var forms = FormConverter.GetFormList(species, str.Types, str.forms, GameInfo.GenderSymbolASCII, EntityContext.Gen9);
+        var forms = FormConverter.GetFormList(species, str.Types, str.forms, GameInfo.GenderSymbolASCII, mostRecent);
         var msg = string.Format(L_XRareFormEvo_0_1, forms[form], rare);
         data.AddLine(GetValid(msg, CheckIdentifier.EC));
     }
@@ -211,28 +212,14 @@ public sealed class PIDVerifier : Verifier
     private static void VerifyTransferEC(LegalityAnalysis data)
     {
         var pk = data.Entity;
-        // When transferred to Generation 6, the Encryption Constant is copied from the PID.
-        // The PID is then checked to see if it becomes shiny with the new Shiny rules (>>4 instead of >>3)
-        // If the PID is nonshiny->shiny, the top bit is flipped.
 
         // Check to see if the PID and EC are properly configured.
-        var bitFlipProc = GetExpectedTransferPID(pk, out var expect);
-        bool valid = pk.PID == expect;
-        if (valid)
+        var expect = PK5.GetTransferPID(pk.EncryptionConstant, pk.ID32, out var bitFlipProc);
+        if (pk.PID == expect)
             return;
 
         var msg = bitFlipProc ? LTransferPIDECBitFlip : LTransferPIDECEquals;
         data.AddLine(GetInvalid(msg, CheckIdentifier.EC));
-    }
-
-    private static bool GetExpectedTransferPID(PKM pk, out uint expect)
-    {
-        var ec = pk.EncryptionConstant; // should be original PID
-        var tmp = ec ^ pk.ID32;
-        var xor = tmp ^ (tmp >> 16);
-        bool xorPID = (xor & 0xFFF8u) == 8;
-        expect = (xorPID ? (ec ^ 0x80000000) : ec);
-        return xorPID;
     }
 
     private static bool IsEggBitRequiredMale34(ReadOnlySpan<MoveResult> moves)

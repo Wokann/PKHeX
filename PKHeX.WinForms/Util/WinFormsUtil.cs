@@ -1,4 +1,3 @@
-using PKHeX.Core;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -9,9 +8,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using PKHeX.Core;
 
 using static PKHeX.Core.MessageStrings;
-using Exception = System.Exception;
 
 namespace PKHeX.WinForms;
 
@@ -24,11 +23,11 @@ public static class WinFormsUtil
     /// </summary>
     internal static void CenterToForm(this Control child, Control? parent)
     {
-        if (parent == null)
+        if (parent is null)
             return;
         int x = parent.Location.X + ((parent.Width - child.Width) / 2);
         int y = parent.Location.Y + ((parent.Height - child.Height) / 2);
-        child.Location = new Point(Math.Max(x, 0), Math.Max(y, 0));
+        child.Location = new Point(x, y);
     }
 
     /// <summary>
@@ -41,7 +40,7 @@ public static class WinFormsUtil
             child.SetBounds(midpoint, 0, 0, 0, BoundsSpecified.X);
     }
 
-    public static T? FirstFormOfType<T>() where T : Form => (T?)Application.OpenForms.Cast<Form>().FirstOrDefault(form => form is T);
+    public static T? FirstFormOfType<T>() where T : Form => Application.OpenForms.OfType<T>().FirstOrDefault();
 
     public static T? FindFirstControlOfType<T>(Control aParent) where T : class
     {
@@ -50,7 +49,7 @@ public static class WinFormsUtil
             if (aParent is T t)
                 return t;
 
-            if (aParent.Parent != null)
+            if (aParent.Parent is not null)
                 aParent = aParent.Parent;
             else
                 return null;
@@ -72,7 +71,7 @@ public static class WinFormsUtil
                     sender = s;
                     continue;
                 default:
-                    return default;
+                    return null;
             }
         }
     }
@@ -80,7 +79,7 @@ public static class WinFormsUtil
     public static bool OpenWindowExists<T>(this Form parent) where T : Form
     {
         var form = FirstFormOfType<T>();
-        if (form == null)
+        if (form is null)
             return false;
 
         form.CenterToForm(parent);
@@ -200,7 +199,7 @@ public static class WinFormsUtil
 
     public static void RemoveDropCB(object? sender, KeyEventArgs e)
     {
-        if (sender == null)
+        if (sender is null)
             return;
         ((ComboBox)sender).DroppedDown = false;
     }
@@ -265,7 +264,6 @@ public static class WinFormsUtil
         var sb = new StringBuilder(128);
         foreach (var type in extensions)
             sb.Append($"*.{type};");
-        sb.Append("*.pk");
 
         string supported = sb.ToString();
         using var ofd = new OpenFileDialog();
@@ -276,23 +274,7 @@ public static class WinFormsUtil
                      "|Binary File|*.bin" +
                      "|Backup File|*.bak";
 
-        // Detect main
-        SaveFile? sav = null;
-        if (DetectSaveFileOnFileOpen)
-        {
-            try
-            {
-                sav = SaveFinder.FindMostRecentSaveFile();
-            }
-            catch (Exception ex)
-            {
-                Error(ex.Message);
-            }
-        }
-
-        if (sav != null)
-            ofd.FileName = sav.Metadata.FileName;
-
+        ofd.FileName = SuggestInitialFileName();
         if (ofd.ShowDialog() != DialogResult.OK)
         {
             path = null;
@@ -301,6 +283,23 @@ public static class WinFormsUtil
 
         path = ofd.FileName;
         return true;
+    }
+
+    private static string? SuggestInitialFileName()
+    {
+        if (DetectSaveFileOnFileOpen)
+        {
+            try
+            {
+                var sav = SaveFinder.FindMostRecentSaveFile();
+                return sav?.Metadata.FilePath;
+            }
+            catch (Exception ex)
+            {
+                Error(ex.Message);
+            }
+        }
+        return null;
     }
 
     /// <summary>
@@ -313,7 +312,7 @@ public static class WinFormsUtil
         string pkx = pk.Extension;
         bool allowEncrypted = pk.Format >= 3 && pkx.StartsWith('p');
         var genericFilter = $"Decrypted PKM File|*.{pkx}" +
-                            (allowEncrypted ? $"|Encrypted PKM File|*.e{pkx[1..]}" : string.Empty) +
+                            (allowEncrypted ? $"|Encrypted PKM File|*.e{pkx.AsSpan(1)}" : string.Empty) +
                             "|Binary File|*.bin" +
                             "|All Files|*.*";
         using var sfd = new SaveFileDialog();
@@ -327,11 +326,11 @@ public static class WinFormsUtil
         return true;
     }
 
-    private static void SavePKM(PKM pk, string path, string pkx)
+    private static void SavePKM(PKM pk, string path, ReadOnlySpan<char> pkx)
     {
         SaveBackup(path);
-        string ext = Path.GetExtension(path);
-        var data = $".{pkx}" == ext ? pk.DecryptedPartyData : pk.EncryptedPartyData;
+        var ext = Path.GetExtension(path);
+        var data = ext == $".{pkx}" ? pk.DecryptedPartyData : pk.EncryptedPartyData;
         File.WriteAllBytes(path, data);
     }
 
@@ -463,7 +462,7 @@ public static class WinFormsUtil
             "zh" => name switch
             {
                 "zh-Hant" or "zh-HK" or "zh-MO" or "zh-TW"   => "zh-Hant", // Traditional Chinese (Hong Kong/Macau/Taiwan)
-                "zh-Hans" or "zh-CN" or "zh-SG" or "zh" or _ => "zh-Hans", // Simplified Chinese (China/Singapore)
+                                                           _ => "zh-Hans", // Simplified Chinese (China/Singapore)
             },
 
             // Use this language code if we support it, otherwise default to English

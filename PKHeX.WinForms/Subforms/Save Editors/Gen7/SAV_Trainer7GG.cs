@@ -41,7 +41,7 @@ public partial class SAV_Trainer7GG : Form
             return;
         if (e.AllowedEffect == (DragDropEffects.Copy | DragDropEffects.Link)) // external file
             e.Effect = DragDropEffects.Copy;
-        else if (e.Data != null) // within
+        else if (e.Data is not null) // within
             e.Effect = DragDropEffects.Move;
     }
 
@@ -60,7 +60,7 @@ public partial class SAV_Trainer7GG : Form
         CB_Language.InitializeBinding();
         CB_Language.DataSource = GameInfo.LanguageDataSource(SAV.Generation);
         CB_Game.InitializeBinding();
-        CB_Game.DataSource = new BindingSource(GameInfo.VersionDataSource.Where(z => GameVersion.Gen7b.Contains(z.Value)).ToList(), null);
+        CB_Game.DataSource = new BindingSource(GameInfo.VersionDataSource.Where(z => GameVersion.Gen7b.Contains(z.Value)).ToList(), string.Empty);
     }
 
     private void LoadTrainerInfo()
@@ -152,7 +152,7 @@ public partial class SAV_Trainer7GG : Form
         TextBox tb = sender as TextBox ?? TB_OTName;
 
         // Special Character Form
-        var d = new TrashEditor(tb, SAV, SAV.Generation);
+        var d = new TrashEditor(tb, SAV, SAV.Generation, SAV.Context);
         d.ShowDialog();
         tb.Text = d.FinalString;
     }
@@ -207,7 +207,7 @@ public partial class SAV_Trainer7GG : Form
 
         var folder = fbd.SelectedPath;
         foreach (var gpk in gofiles)
-            File.WriteAllBytes(Path.Combine(folder, Util.CleanFileName(gpk.FileName)), gpk.Data.ToArray());
+            File.WriteAllBytes(Path.Combine(folder, Util.CleanFileName(gpk.FileName)), gpk.Data);
         WinFormsUtil.Alert($"Dumped {gofiles.Length} files to {folder}");
     }
 
@@ -266,7 +266,7 @@ public partial class SAV_Trainer7GG : Form
         if (sfd.ShowDialog() != DialogResult.OK)
             return;
 
-        File.WriteAllBytes(sfd.FileName, data.Data.ToArray());
+        File.WriteAllBytes(sfd.FileName, data.Data);
     }
 
     private void B_ImportGoFiles_Click(object sender, EventArgs e)

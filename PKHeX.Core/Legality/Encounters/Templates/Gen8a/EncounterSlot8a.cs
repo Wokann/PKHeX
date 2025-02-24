@@ -8,7 +8,7 @@ namespace PKHeX.Core;
 /// <param name="AlphaType">0=Never, 1=Random, 2=Guaranteed</param>
 /// <param name="FlawlessIVCount"></param>
 public sealed record EncounterSlot8a(EncounterArea8a Parent, ushort Species, byte Form, byte LevelMin, byte LevelMax, byte AlphaType, byte FlawlessIVCount, Gender Gender)
-    : IEncounterable, IEncounterMatch, IEncounterConvertible<PA8>, IAlphaReadOnly, IMasteryInitialMoveShop8, IFlawlessIVCount, ISeedCorrelation64<PKM>
+    : IEncounterable, IEncounterMatch, IEncounterConvertible<PA8>, IAlphaReadOnly, IMasteryInitialMoveShop8, IFlawlessIVCount, ISeedCorrelation64<PKM>, IGenerateSeed64
 {
     public byte Generation => 8;
     public EntityContext Context => EntityContext.Gen8a;
@@ -23,7 +23,8 @@ public sealed record EncounterSlot8a(EncounterArea8a Parent, ushort Species, byt
 
     public string Name => $"Wild Encounter ({Version})";
     public string LongName => $"{Name} {Type.ToString().Replace('_', ' ')}";
-    public GameVersion Version => Parent.Version;
+    private const GameVersion Version = GameVersion.PLA;
+    GameVersion IVersion.Version => GameVersion.PLA;
     public ushort Location => Parent.Location;
     public SlotType8a Type => Parent.Type;
 
@@ -60,7 +61,7 @@ public sealed record EncounterSlot8a(EncounterArea8a Parent, ushort Species, byt
         pk.Scale = pk.HeightScalar;
         pk.ResetHeight();
         pk.ResetWeight();
-        SetEncounterMoves(pk, LevelMin);
+        SetEncounterMoves(pk, pk.MetLevel);
         pk.ResetPartyStats();
         return pk;
     }
@@ -68,19 +69,28 @@ public sealed record EncounterSlot8a(EncounterArea8a Parent, ushort Species, byt
     private void SetPINGA(PA8 pk, EncounterCriteria criteria, PersonalInfo8LA pi)
     {
         var para = GetParams(pi);
+        bool checkLevel = criteria.IsSpecifiedLevelRange() && this.IsLevelWithinRange(criteria);
         while (true)
         {
             var (_, slotSeed) = Overworld8aRNG.ApplyDetails(pk, criteria, para, HasAlphaMove);
             if (this.IsRandomLevel())
             {
                 // Give a random level according to the RNG correlation.
-                var lvl = Overworld8aRNG.GetRandomLevel(slotSeed, LevelMin, LevelMax);
-                if (criteria.ForceMinLevelRange && lvl != LevelMin)
+                var level = Overworld8aRNG.GetRandomLevel(slotSeed, LevelMin, LevelMax);
+                if (checkLevel && !criteria.IsSatisfiedLevelRange(level))
                     continue;
-                pk.MetLevel = pk.CurrentLevel = lvl;
+                pk.MetLevel = pk.CurrentLevel = level;
             }
             break;
         }
+    }
+
+    public void GenerateSeed64(PKM pk, ulong seed)
+    {
+        var criteria = EncounterCriteria.Unrestricted;
+        var pi = PersonalTable.LA.GetFormEntry(Species, Form);
+        var para = GetParams(pi);
+        _ = Overworld8aRNG.ApplyDetails(pk, criteria, para, HasAlphaMove);
     }
 
     private OverworldParam8a GetParams(PersonalInfo8LA pi) => new()
@@ -154,7 +164,7 @@ public sealed record EncounterSlot8a(EncounterArea8a Parent, ushort Species, byt
             return EncounterMatchRating.PartialMatch;
         if (IsDeferredWurmple(pk))
             return EncounterMatchRating.PartialMatch;
-        if (!MarkRules.IsMarkValidAlpha(pk, IsAlpha))
+        if (!MarkRules.IsMarkValidAlpha(pk, IsAlpha) || (pk is IAlphaReadOnly a && a.IsAlpha != IsAlpha))
             return EncounterMatchRating.DeferredErrors;
         if (FlawlessIVCount is not 0 && pk.FlawlessIVCount < FlawlessIVCount)
             return EncounterMatchRating.DeferredErrors;
@@ -247,7 +257,7 @@ public sealed record EncounterSlot8a(EncounterArea8a Parent, ushort Species, byt
             seed = s;
             return true;
         }
-        seed = default;
+        seed = 0;
         return false;
     }
 }

@@ -4,6 +4,10 @@ namespace PKHeX.Core;
 
 public static class EntityGender
 {
+    public const byte Male = 0;
+    public const byte Female = 1;
+    public const byte Genderless = 2;
+
     /// <summary>
     /// Translates a Gender string to Gender integer.
     /// </summary>
@@ -12,7 +16,7 @@ public static class EntityGender
     public static byte GetFromString(ReadOnlySpan<char> s)
     {
         if (s.Length != 1)
-            return 2;
+            return Genderless;
         return GetFromChar(s[0]);
     }
 
@@ -21,9 +25,9 @@ public static class EntityGender
     /// </summary>
     public static byte GetFromChar(char c) => c switch
     {
-        '♂' or 'M' => 0,
-        '♀' or 'F' => 1,
-        _ => 2,
+        '♂' or 'M' => Male,
+        '♀' or 'F' => Female,
+        _ => Genderless,
     };
 
     /// <summary>
@@ -35,15 +39,15 @@ public static class EntityGender
     /// <remarks>This method should only be used for Generations 3-5 origin.</remarks>
     public static byte GetFromPID(ushort species, uint pid)
     {
-        var gt = PKX.Personal[species].Gender;
+        var gt = PKX.GetGenderRatio(species);
         return GetFromPIDAndRatio(pid, gt);
     }
 
     public static byte GetFromPIDAndRatio(uint pid, byte gr) => gr switch
     {
-        PersonalInfo.RatioMagicGenderless => 2,
-        PersonalInfo.RatioMagicFemale => 1,
-        PersonalInfo.RatioMagicMale => 0,
-        _ => (pid & 0xFF) < gr ? (byte)1 : (byte)0,
+        PersonalInfo.RatioMagicGenderless => Genderless,
+        PersonalInfo.RatioMagicFemale => Female,
+        PersonalInfo.RatioMagicMale => Male,
+        _ => (pid & 0xFF) < gr ? Female : Male,
     };
 }

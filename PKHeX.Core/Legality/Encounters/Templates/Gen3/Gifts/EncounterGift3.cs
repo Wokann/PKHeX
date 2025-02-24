@@ -8,8 +8,8 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 3 Event Gift
 /// </summary>
-public sealed class EncounterGift3 : IEncounterable, IEncounterMatch, IMoveset, IFatefulEncounterReadOnly,
-    IRibbonSetEvent3, IRandomCorrelationEvent3, IFixedTrainer, IMetLevel
+public sealed record EncounterGift3 : IEncounterable, IEncounterMatch, IMoveset, IFatefulEncounterReadOnly,
+    IRibbonSetEvent3, IRandomCorrelationEvent3, IFixedTrainer, IMetLevel, IGenerateSeed32
 {
     public ushort Species { get; }
     public byte Form => 0;
@@ -182,10 +182,13 @@ public sealed class EncounterGift3 : IEncounterable, IEncounterMatch, IMoveset, 
 
     private uint SetPINGA(PK3 pk, EncounterCriteria criteria, PersonalInfo3 pi)
     {
-        var gr = pi.Gender;
-        uint idXor = pk.TID16 ^ (uint)pk.SID16;
         if (Method is Channel)
             return SetPINGAChannel(pk, criteria);
+        if (ID32 is Wishmkr.TrainerID && criteria.Shiny.IsShiny() && TrySetWishmkrShiny(pk, criteria))
+            return 0;
+
+        var gr = pi.Gender;
+        uint idXor = pk.TID16 ^ (uint)pk.SID16;
         while (true)
         {
             uint seed = Util.Rand32();
@@ -198,17 +201,61 @@ public sealed class EncounterGift3 : IEncounterable, IEncounterMatch, IMoveset, 
                 _ when Method is Method_2 => GetMethod2(ref seed),
                 _ => GetRegular(ref seed),
             };
-            if (criteria.IsSpecifiedNature() && criteria.Nature != (Nature)(pid % 25))
+            if (criteria.IsSpecifiedNature() && !criteria.IsSatisfiedNature((Nature)(pid % 25)))
                 continue; // try again
-            var gender = EntityGender.GetFromPIDAndRatio(pid, gr);
-            if (!criteria.IsGenderSatisfied(gender))
+            if (criteria.IsSpecifiedGender() && !criteria.IsSatisfiedGender(EntityGender.GetFromPIDAndRatio(pid, gr)))
                 continue;
 
             pk.PID = pid;
-            pk.IV32 = PIDGenerator.SetIVsFromSeedSequentialLCRNG(ref seed);
+            pk.IV32 = PIDGenerator.GetIVsFromSeedSequentialLCRNG(ref seed);
             pk.RefreshAbility((int)(pk.PID & 1));
             return seed;
         }
+    }
+
+    public bool GenerateSeed32(PKM pk, uint seed)
+    {
+        var pk3 = (PK3)pk;
+        if (Method is Channel)
+        {
+            seed = ChannelJirachi.SkipToPIDIV(seed);
+            PIDGenerator.SetValuesFromSeedChannel(pk3, seed);
+            return true;
+        }
+
+        uint idXor = pk.TID16 ^ (uint)pk.SID16;
+        pk3.PID = Shiny switch
+        {
+            Shiny.Never when Method is BACD_U_AX => GetAntishiny(ref seed, idXor),
+            Shiny.Never => GetRegularAntishiny(ref seed, idXor),
+            Shiny.Always => GetForceShiny(ref seed, idXor),
+            _ when Method is Method_2 => GetMethod2(ref seed),
+            _ => GetRegular(ref seed),
+        };
+        pk3.IV32 = PIDGenerator.GetIVsFromSeedSequentialLCRNG(ref seed);
+        return true;
+    }
+
+    private static bool TrySetWishmkrShiny(PK3 pk, EncounterCriteria criteria)
+    {
+        bool filterIVs = criteria.IsSpecifiedIVsAny(out var count) && count <= 2;
+        bool filterNature = criteria.IsSpecifiedNature();
+        foreach (var s in Wishmkr.All9)
+        {
+            uint seed = s;
+            var pid = GetRegular(ref seed);
+            if (filterNature && !criteria.IsSatisfiedNature((Nature)(pid % 25)))
+                continue; // try again
+
+            var iv32 = PIDGenerator.GetIVsFromSeedSequentialLCRNG(ref seed);
+            if (criteria.IsSpecifiedHiddenPower() && !criteria.IsSatisfiedHiddenPower(iv32))
+                continue; // try again
+            if (filterIVs && !criteria.IsCompatibleIVs(iv32))
+                continue; // try again
+            pk.PID = pid;
+            pk.IV32 = iv32;
+        }
+        return false;
     }
 
     private static uint GetMethod2(ref uint seed)
@@ -227,9 +274,15 @@ public sealed class EncounterGift3 : IEncounterable, IEncounterMatch, IMoveset, 
             uint seed = Util.Rand32();
             seed = ChannelJirachi.SkipToPIDIV(seed);
             PIDGenerator.SetValuesFromSeedChannel(pk, seed);
-            if (criteria.IsSpecifiedNature() && criteria.Nature != pk.Nature)
+
+            var pid = pk.EncryptionConstant;
+            if (criteria.IsSpecifiedNature() && !criteria.IsSatisfiedNature((Nature)(pid % 25)))
                 continue; // try again
-            pk.RefreshAbility((int)(pk.PID & 1));
+            if (criteria.Shiny.IsShiny() != ShinyUtil.GetIsShiny(pk.ID32, pid, 8))
+                continue; // try again
+            if (criteria.IsSpecifiedHiddenPower() && !criteria.IsSatisfiedHiddenPower(pk.IV32))
+                continue; // try again
+
             return seed;
         }
     }
@@ -374,7 +427,7 @@ public sealed class EncounterGift3 : IEncounterable, IEncounterMatch, IMoveset, 
             BACD_RBCD => IsBerryFixShiny(ref value, type),
             BACD_M => IsMystryMew(ref value, type),
             Channel => IsChannelJirachi(ref value, type),
-            Method_2 => type is Method_2,
+            Method_2 => type is Method_2 or (Method_1 or Method_4), // via PID modulo VBlank abuse
             _ => false,
         };
     }

@@ -32,6 +32,14 @@ internal static class Program
         // Run the application
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+
+        var args = Environment.GetCommandLineArgs();
+        // if an arg is "dark", set the color mode to dark
+        if (args.Length > 1 && args[1] == "dark")
+#pragma warning disable WFO5001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            Application.SetColorMode(SystemColorMode.Dark);
+#pragma warning restore WFO5001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
         var splash = new SplashScreen();
         new Task(() => splash.ShowDialog()).Start();
         new Task(() => EncounterEvent.RefreshMGDB(WinForms.Main.MGDatabasePath)).Start();
@@ -108,7 +116,7 @@ internal static class Program
             {
                 Error("You have installed PKHeX incorrectly. Please ensure you have unzipped all files before running.");
             }
-            else if (ex != null)
+            else if (ex is not null)
             {
                 var msg = GetErrorMessage(ex);
                 ErrorWindow.ShowErrorDialog($"{msg}\nPKHeX must now close.", ex, false);

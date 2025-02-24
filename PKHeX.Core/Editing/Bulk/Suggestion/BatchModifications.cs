@@ -28,17 +28,12 @@ internal static class BatchModifications
         var pk = info.Entity;
         if (pk is ITechRecord t)
         {
-            t.ClearRecordFlags();
-            if (IsAll(propValue))
-            {
-                t.SetRecordFlagsAll(info.Legality.Info.EvoChainsAllGens.Get(pk.Context)); // all
-            }
-            else if (!IsNone(propValue))
-            {
-                Span<ushort> moves = stackalloc ushort[4];
-                pk.GetMoves(moves);
-                t.SetRecordFlags(moves, info.Legality.Info.EvoChainsAllGens.Get(pk.Context)); // whatever fit the current moves
-            }
+            if (IsNone(propValue))
+                t.SetRecordFlags(pk, TechnicalRecordApplicatorOption.None);
+            else if (IsAll(propValue))
+                t.SetRecordFlags(pk, TechnicalRecordApplicatorOption.LegalAll, info.Legality);
+            else
+                t.SetRecordFlags(pk, TechnicalRecordApplicatorOption.LegalCurrent, info.Legality);
         }
 
         pk.SetRelearnMoves(info.Legality);
@@ -63,9 +58,14 @@ internal static class BatchModifications
         if (e is IMasteryInitialMoveShop8 enc)
             enc.SetInitialMastery(pk);
         if (IsAll(propValue))
+        {
+            t.SetPurchasedFlagsAll();
             t.SetMoveShopFlagsAll(pk);
+        }
         else
+        {
             t.SetMoveShopFlags(pk);
+        }
         return ModifyResult.Modified;
     }
 
@@ -89,7 +89,7 @@ internal static class BatchModifications
     {
         var pk = info.Entity;
         var encounter = EncounterSuggestion.GetSuggestedMetInfo(pk);
-        if (encounter == null)
+        if (encounter is null)
             return ModifyResult.Error;
 
         var location = encounter.Location;

@@ -126,7 +126,7 @@ public partial class SAV_Encounters : Form
     private EncounterTypeGroup[] GetTypes()
     {
         return TypeFilters.Controls.OfType<CheckBox>().Where(z => z.Checked).Select(z => z.Name)
-            .Select(z => (EncounterTypeGroup)Enum.Parse(typeof(EncounterTypeGroup), z)).ToArray();
+            .Select(Enum.Parse<EncounterTypeGroup>).ToArray();
     }
 
     private readonly PictureBox[] PKXBOXES;
@@ -189,7 +189,8 @@ public partial class SAV_Encounters : Form
         }
 
         var set = new ShowdownSet(editor);
-        var criteria = EncounterCriteria.GetCriteria(set, editor.PersonalInfo);
+        var mutations = EncounterMutationUtil.GetSuggested(editor.Context, set.Level);
+        var criteria = EncounterCriteria.GetCriteria(set, editor.PersonalInfo, mutations);
         if (!isInChain)
             criteria = criteria with { Gender = Gender.Random }; // Genderless tabs and a gendered enc -> let's play safe.
         return criteria;
@@ -213,7 +214,7 @@ public partial class SAV_Encounters : Form
             foreach (ComboBox cb in new[] { CB_Move1, CB_Move2, CB_Move3, CB_Move4 })
             {
                 cb.InitializeBinding();
-                cb.DataSource = new BindingSource(DS_Move, null);
+                cb.DataSource = new BindingSource(DS_Move, string.Empty);
             }
         }
 
@@ -255,31 +256,20 @@ public partial class SAV_Encounters : Form
         var versions = settings.GetVersions(SAV);
         var species = settings.Species == 0 ? GetFullRange(SAV.MaxSpeciesID) : [settings.Species];
         var results = GetAllSpeciesFormEncounters(species, SAV.Personal, versions, moves, pk, token);
-        if (settings.SearchEgg != null)
+        if (settings.SearchEgg is not null)
             results = results.Where(z => z.IsEgg == settings.SearchEgg);
-        if (settings.SearchShiny != null)
+        if (settings.SearchShiny is not null)
             results = results.Where(z => z.IsShiny == settings.SearchShiny);
 
         // return filtered results
         var comparer = new ReferenceComparer<IEncounterInfo>();
         results = results.Distinct(comparer); // only distinct objects
 
-        static Func<IEncounterInfo, bool> IsPresent<TTable>(TTable pt) where TTable : IPersonalTable => z =>
-        {
-            if (pt.IsPresentInGame(z.Species, z.Form))
-                return true;
-            return z is IEncounterFormRandom { IsRandomUnspecificForm: true } && pt.IsSpeciesInGame(z.Species);
-        };
         if (Main.Settings.EncounterDb.FilterUnavailableSpecies)
         {
-            results = SAV switch
-            {
-                SAV9SV s9 => results.Where(IsPresent(s9.Personal)),
-                SAV8SWSH s8 => results.Where(IsPresent(s8.Personal)),
-                SAV8BS b8 => results.Where(IsPresent(b8.Personal)),
-                SAV8LA a8 => results.Where(IsPresent(a8.Personal)),
-                _ => results.Where(z => z.Generation <= 7),
-            };
+            var filter = EntityPresenceFilters.GetFilterGeneric<IEncounterInfo>(SAV.Context);
+            if (filter != null)
+                results = results.Where(filter);
         }
 
         if (token.IsCancellationRequested)
@@ -332,9 +322,9 @@ public partial class SAV_Encounters : Form
     {
         public bool Equals(T? x, T? y)
         {
-            if (x == null)
+            if (x is null)
                 return false;
-            if (y == null)
+            if (y is null)
                 return false;
             return RuntimeHelpers.GetHashCode(x).Equals(RuntimeHelpers.GetHashCode(y));
         }
@@ -386,6 +376,7 @@ public partial class SAV_Encounters : Form
         return settings;
     }
 
+    // ReSharper disable once AsyncVoidMethod
     private async void B_Search_Click(object sender, EventArgs e)
     {
         B_Search.Enabled = false;

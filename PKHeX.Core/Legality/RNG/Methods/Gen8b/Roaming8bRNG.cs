@@ -37,7 +37,7 @@ public static class Roaming8bRNG
         TryApplyFromSeed(pk, EncounterCriteria.Unrestricted, shiny, flawless, rnd.Rand32());
     }
 
-    private static bool TryApplyFromSeed(PKM pk, EncounterCriteria criteria, Shiny shiny, int flawless, uint seed)
+    public static bool TryApplyFromSeed(PKM pk, EncounterCriteria criteria, Shiny shiny, int flawless, uint seed)
     {
         var xoro = new Xoroshiro128Plus8b(seed);
 
@@ -86,7 +86,7 @@ public static class Roaming8bRNG
                 ivs[i] = (int)xoro.NextUInt(MAX + 1);
         }
 
-        if (!criteria.IsIVsCompatibleSpeedLast(ivs, 8))
+        if (!criteria.IsIVsCompatibleSpeedLast(ivs))
             return false;
 
         pk.IV_HP = ivs[0];
@@ -239,7 +239,7 @@ public static class Roaming8bRNG
         return s.HeightScalar == height && s.WeightScalar == weight;
     }
 
-    private static uint GetRevisedPID(uint fakeTID, uint pid, ITrainerID32 tr)
+    private static uint GetRevisedPID<T>(uint fakeTID, uint pid, T tr) where T : ITrainerID32
     {
         var xor = GetShinyXor(pid, fakeTID);
         var newXor = GetShinyXor(pid, tr.ID32);

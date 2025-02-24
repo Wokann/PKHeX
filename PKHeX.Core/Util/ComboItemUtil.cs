@@ -9,7 +9,7 @@ public static partial class Util
 {
     public static List<ComboItem> GetCountryRegionList(string textFile, string lang)
     {
-        string[] inputCSV = GetStringList(textFile);
+        var inputCSV = GetStringList(textFile);
         int index = GeoLocation.GetLanguageIndex(lang);
         var list = GetCBListFromCSV(inputCSV, index);
         if (list.Count > 1)
@@ -140,9 +140,9 @@ public static partial class Util
     {
         public int Compare(T? x, T? y)
         {
-            if (x == null)
-                return y == null ? 0 : -1;
-            return y == null ? 1 : Comparison(x, y);
+            if (x is null)
+                return y is null ? 0 : -1;
+            return y is null ? 1 : Comparison(x, y);
         }
     }
 }

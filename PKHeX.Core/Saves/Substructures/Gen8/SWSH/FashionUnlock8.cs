@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace PKHeX.Core;
 
-public sealed class FashionUnlock8(SAV8SWSH sav, SCBlock block) : SaveBlock<SAV8SWSH>(sav, block.Data)
+public sealed class FashionUnlock8(SAV8SWSH sav, SCBlock block) : SaveBlock<SAV8SWSH>(sav, block.Raw)
 {
     private const int SIZE_ENTRY = 0x80;
     private const int REGIONS = 15;
@@ -151,9 +151,9 @@ public sealed class FashionUnlock8(SAV8SWSH sav, SCBlock block) : SaveBlock<SAV8
     ];
 
     private static ReadOnlySpan<ushort> InvalidFashionOffset_M => [
-        0x969, 0xB00, 0xC48, 0xC49, 0xC4A, 0xD57, 0xE37, 0xE38, 0xE39
+        0x969, 0xB00, 0xC48, 0xC49, 0xC4A, 0xD57, 0xE37, 0xE38, 0xE39,
     ];
     private static ReadOnlySpan<ushort> InvalidFashionOffset_F => [
-        0x95D, 0xB00, 0xD76, 0xD77, 0xE41, 0xE47
+        0x95D, 0xB00, 0xD76, 0xD77, 0xE41, 0xE47,
     ];
 }

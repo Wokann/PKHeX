@@ -84,13 +84,13 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         FlickerInterface();
     }
 
-    private sealed class ValidationRequiredSet(Control[] Controls, Func<PKM, bool> ShouldCheck, Func<Control, bool> State)
+    private sealed class ValidationRequiredSet(Control[] controls, Func<PKM, bool> shouldCheck, Func<Control, bool> isState)
     {
         public Control? IsNotValid(PKM pk)
         {
-            if (!ShouldCheck(pk))
+            if (!shouldCheck(pk))
                 return null;
-            return Array.Find(Controls, z => State(z));
+            return Array.Find(controls, z => isState(z));
         }
     }
 
@@ -392,7 +392,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     }
 
     // General Use Functions //
-    private void SetDetailsOT(ITrainerInfo tr)
+    private void SetDetailsOT<T>(T tr) where T : ITrainerInfo
     {
         if (string.IsNullOrWhiteSpace(tr.OT))
             return;
@@ -423,7 +423,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         UpdateNickname(this, EventArgs.Empty);
     }
 
-    private void SetDetailsHT(ITrainerInfo tr)
+    private void SetDetailsHT<T>(T tr) where T : ITrainerInfo
     {
         var trainer = tr.OT;
         if (trainer.Length == 0)
@@ -827,7 +827,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     private bool SetSuggestedMetLocation(bool silent = false)
     {
         var encounter = EncounterSuggestion.GetSuggestedMetInfo(Entity);
-        if (encounter == null || (Entity.Format >= 3 && encounter.Location == 0))
+        if (encounter is null || (Entity.Format >= 3 && encounter.Location == 0))
         {
             if (!silent)
                 WinFormsUtil.Alert(MsgPKMSuggestionNone);
@@ -998,8 +998,8 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         if (FieldsLoaded && sender == CB_Form)
         {
             Entity.Form = (byte)CB_Form.SelectedIndex;
-            uint EXP = Experience.GetEXP(Entity.CurrentLevel, Entity.PersonalInfo.EXPGrowth);
-            TB_EXP.Text = EXP.ToString();
+            uint exp = Experience.GetEXP(Entity.CurrentLevel, Entity.PersonalInfo.EXPGrowth);
+            TB_EXP.Text = exp.ToString();
         }
 
         UpdateStats();
@@ -1182,8 +1182,8 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
             return;
 
         // Recalculate EXP for Given Level
-        uint EXP = Experience.GetEXP(Entity.CurrentLevel, Entity.PersonalInfo.EXPGrowth);
-        TB_EXP.Text = EXP.ToString();
+        uint exp = Experience.GetEXP(Entity.CurrentLevel, Entity.PersonalInfo.EXPGrowth);
+        TB_EXP.Text = exp.ToString();
 
         // Check for Gender Changes
         UC_Gender.Gender = Entity.GetSaneGender();
@@ -1242,11 +1242,11 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     private void ReloadMetLocations(GameVersion version, EntityContext context)
     {
         var metList = GameInfo.GetLocationList(version, context, egg: false);
-        CB_MetLocation.DataSource = new BindingSource(metList, null);
+        CB_MetLocation.DataSource = new BindingSource(metList, string.Empty);
         CB_MetLocation.DropDownWidth = GetWidth(metList, CB_MetLocation.Font);
 
         var eggList = GameInfo.GetLocationList(version, context, egg: true);
-        CB_EggLocation.DataSource = new BindingSource(eggList, null);
+        CB_EggLocation.DataSource = new BindingSource(eggList, string.Empty);
         CB_EggLocation.DropDownWidth = GetWidth(eggList, CB_EggLocation.Font);
 
         static int GetWidth(IReadOnlyCollection<ComboItem> items, Font f)
@@ -1406,7 +1406,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
             return;
         }
 
-        using var d = new TrashEditor(tb, trash, Entity, Entity.Format);
+        using var d = new TrashEditor(tb, trash, Entity, Entity.Format, Entity.Context);
         d.ShowDialog();
         tb.Text = d.FinalString;
         d.FinalBytes.CopyTo(trash);
@@ -1475,7 +1475,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
             if (Entity.Format >= 6 && ModifyPKM)
                 Entity.ClearMemories();
 
-            if (Entity is PK9)
+            if (Entity is PK9) // Eggs in S/V have a Version value of 0 until hatched.
                 CB_GameOrigin.SelectedValue = 0;
         }
         else // Not Egg
@@ -1660,7 +1660,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     {
         if (cb.Text.Length == 0 && cb.Items.Count > 0)
             cb.SelectedIndex = 0;
-        else if (cb.SelectedValue == null)
+        else if (cb.SelectedValue is null)
             cb.BackColor = Draw.InvalidSelection;
         else
             cb.ResetBackColor();
@@ -1800,7 +1800,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     {
         FieldsLoaded = false;
         var index = WinFormsUtil.GetIndex(c);
-        c.DataSource = new BindingSource(LegalMoveSource.Display.DataSource, null);
+        c.DataSource = new BindingSource(LegalMoveSource.Display.DataSource, string.Empty);
         c.SelectedValue = index;
         FieldsLoaded = true;
     }
@@ -1880,10 +1880,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
 
         if (ModifierKeys == Keys.Shift)
         {
-            Span<ushort> moves = stackalloc ushort[4];
-            Entity.GetMoves(moves);
-            var la = new LegalityAnalysis(Entity);
-            t.SetRecordFlags(moves, la.Info.EvoChainsAllGens.Get(Entity.Context));
+            t.SetRecordFlags(Entity, TechnicalRecordApplicatorOption.LegalCurrent);
             UpdateLegality();
             return;
         }
@@ -1937,8 +1934,9 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         PB_Favorite.Visible = t is IFavorite;
         PB_BattleVersion.Visible = FLP_BattleVersion.Visible = t is IBattleVersion;
         BTN_History.Visible = format >= 6 && !pb7;
-        BTN_Ribbons.Visible = format >= 3 && !pb7;
+        BTN_Ribbons.Visible = format >= 3; // pb7 has ribbons on HOME Meltan lol
         BTN_Medals.Visible = format is 6 or 7 && !pb7;
+        FLP_ReceivedDate.Visible = pb7;
         FLP_Country.Visible = FLP_SubRegion.Visible = FLP_3DSRegion.Visible = t is IRegionOrigin;
         FLP_OriginalNature.Visible = format >= 8;
         B_RelearnFlags.Visible = t is ITechRecord;
@@ -2008,7 +2006,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     {
         FieldsLoaded = false;
 
-        bool TranslationRequired = false;
+        bool isTranslationRequired = false;
         PopulateFilteredDataSources(sav);
         PopulateFields(Entity);
 
@@ -2027,7 +2025,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         {
             Hidden_TC.TabPages.Insert(1, Hidden_Met);
             TC_Editor.TabPages.Insert(1, Tab_Met);
-            TranslationRequired = true;
+            isTranslationRequired = true;
         }
 
         if (Entity.Format <= 2 && Hidden_TC.TabPages.Contains(Hidden_Cosmetic))
@@ -2039,7 +2037,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         {
             Hidden_TC.TabPages.Insert(4, Hidden_Cosmetic);
             TC_Editor.TabPages.Insert(4, Tab_Cosmetic);
-            TranslationRequired = true;
+            isTranslationRequired = true;
         }
 
         if (!HaX && sav is SAV7b)
@@ -2058,7 +2056,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         // pk2 save files do not have an Origin Game stored. Prompt the met location list to update.
         if (Entity.Format == 2)
             CheckMetLocationChange(GameVersion.C, Entity.Context);
-        return TranslationRequired;
+        return isTranslationRequired;
     }
 
     private void CenterSubEditors()
@@ -2082,13 +2080,12 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         }
     }
 
-    // ReSharper disable once FieldCanBeMadeReadOnly.Global
-    public Action<IBattleTemplate> LoadShowdownSet;
+    public Action<IBattleTemplate> LoadShowdownSet { get; set; }
 
-    private void LoadShowdownSetDefault(IBattleTemplate Set)
+    private void LoadShowdownSetDefault(IBattleTemplate set)
     {
         var pk = PreparePKM();
-        pk.ApplySetDetails(Set);
+        pk.ApplySetDetails(set);
         PopulateFields(pk);
     }
 
@@ -2138,8 +2135,11 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     {
         if (Entity is not IObedienceLevel l)
             return;
+
         var met = Util.ToInt32(TB_MetLevel.Text);
-        var suggest = l.GetSuggestedObedienceLevel(Entity, met);
+        var metLevel = (byte)Math.Clamp(0, 100, met);
+        var suggest = l.GetSuggestedObedienceLevel(Entity, metLevel);
+
         var current = Util.ToInt32(TB_ObedienceLevel.Text);
         if (suggest != current)
             TB_ObedienceLevel.Text = suggest.ToString();
@@ -2152,9 +2152,9 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
         SetCountrySubRegion(CB_Country, "countries");
         CB_3DSReg.DataSource = source.ConsoleRegions;
 
-        CB_GroundTile.DataSource = new BindingSource(source.G4GroundTiles, null);
-        CB_Nature.DataSource = new BindingSource(source.Natures, null);
-        CB_StatNature.DataSource = new BindingSource(source.Natures, null);
+        CB_GroundTile.DataSource = new BindingSource(source.G4GroundTiles, string.Empty);
+        CB_Nature.DataSource = new BindingSource(source.Natures, string.Empty);
+        CB_StatNature.DataSource = new BindingSource(source.Natures, string.Empty);
 
         // Sub-editors
         Stats.InitializeDataSources();
@@ -2166,7 +2166,7 @@ public sealed partial class PKMEditor : UserControl, IMainEditor
     {
         if (!force && exist.DataSource is BindingSource b && b.Count == update.Count)
             return;
-        exist.DataSource = new BindingSource(update, null);
+        exist.DataSource = new BindingSource(update, string.Empty);
     }
 
     private void PopulateFilteredDataSources(ITrainerInfo sav, bool force = false)

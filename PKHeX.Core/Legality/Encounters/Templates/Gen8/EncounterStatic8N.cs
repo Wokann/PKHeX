@@ -9,7 +9,7 @@ namespace PKHeX.Core;
 /// Generation 8 Nest Encounter (Regular Raid Dens)
 /// </summary>
 /// <inheritdoc cref="EncounterStatic8Nest{T}"/>
-public sealed record EncounterStatic8N : EncounterStatic8Nest<EncounterStatic8N>
+public sealed record EncounterStatic8N : EncounterStatic8Nest<EncounterStatic8N>, IEncounterDownlevel
 {
     private readonly byte MinRank;
     private readonly byte MaxRank;
@@ -77,6 +77,10 @@ public sealed record EncounterStatic8N : EncounterStatic8Nest<EncounterStatic8N>
         return metLevel % 10 <= 5;
     }
 
+    private const byte SharedNestMinLevel = 20;
+
+    public byte GetDownleveledMin() => SharedNestMinLevel;
+
     public bool IsDownLeveled(PKM pk)
     {
         var met = pk.MetLevel;
@@ -91,7 +95,7 @@ public sealed record EncounterStatic8N : EncounterStatic8Nest<EncounterStatic8N>
 
         // shared nests can be down-leveled to any
         if (pk.MetLocation == SharedNest)
-            return met >= 20;
+            return met >= SharedNestMinLevel;
 
         // native down-levels: only allow 1 rank down (1 badge 2star -> 25), (3badge 3star -> 35)
         return ((MinRank <= 1 && 1 <= MaxRank && met == 25)
@@ -154,6 +158,18 @@ public sealed record EncounterStatic8N : EncounterStatic8Nest<EncounterStatic8N>
         var deltaRange = rank == 4 ? 3u : 2u;
         var boost = (int)rand.NextInt(deltaRange);
         return (byte)(baseValue + boost);
+    }
+
+    public override void GenerateSeed64(PKM pk, ulong seed)
+    {
+        var (_, noShiny) = IsPossibleSeed(pk, seed, false);
+        var param = GetParam();
+        if (noShiny) // Should never be hit via ctor as we don't generate downleveled.
+            param = param with { Shiny = Shiny.Never };
+        var criteria = EncounterCriteria.Unrestricted;
+        var pk8 = (PK8)pk;
+        Span<int> iv = stackalloc int[6];
+        RaidRNG.TryApply(pk8, seed, iv, param, criteria);
     }
 
     protected override bool TryApply(PK8 pk, ulong seed, Span<int> iv, GenerateParam8 param, EncounterCriteria criteria)

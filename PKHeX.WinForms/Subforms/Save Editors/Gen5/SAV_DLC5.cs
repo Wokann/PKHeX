@@ -168,7 +168,7 @@ public partial class SAV_DLC5 : Form
         return true;
     }
 
-    private static void ExportFile(string extension, string name, byte[] data, string? initialName = null)
+    private static void ExportFile(string extension, string name, ReadOnlySpan<byte> data, string? initialName = null)
     {
         using var sfd = new SaveFileDialog();
         sfd.Filter = $"{name}|*.{extension}";
@@ -248,13 +248,15 @@ public partial class SAV_DLC5 : Form
 
     private void B_ExportPNGCGear_Click(object sender, EventArgs e)
     {
+        if (PB_CGearBackground.Image is not { } img)
+            return;
         using var sfd = new SaveFileDialog();
         sfd.Filter = "PNG File|*.png";
         sfd.FileName = "Background.png";
         if (sfd.ShowDialog() != DialogResult.OK)
             return;
 
-        PB_CGearBackground.Image.Save(sfd.FileName, ImageFormat.Png);
+        img.Save(sfd.FileName, ImageFormat.Png);
     }
 
     private void B_ImportCGB_Click(object sender, EventArgs e)
@@ -305,7 +307,7 @@ public partial class SAV_DLC5 : Form
 
         if (sfd.ShowDialog() != DialogResult.OK)
             return;
-        File.WriteAllBytes(sfd.FileName, bg.Data.ToArray());
+        File.WriteAllBytes(sfd.FileName, bg.Data);
     }
 
     private void B_Save_Click(object sender, EventArgs e)
@@ -340,7 +342,7 @@ public partial class SAV_DLC5 : Form
         var name = pwt.Name;
         if (string.IsNullOrWhiteSpace(name))
             name = "Empty";
-        ExportFile(WorldTournament5.Extension, PWTFileName, data.ToArray(), name);
+        ExportFile(WorldTournament5.Extension, PWTFileName, data.Span, name);
     }
 
     private void B_MusicalImport_Click(object sender, EventArgs e)
@@ -359,7 +361,7 @@ public partial class SAV_DLC5 : Form
     private void B_MusicalExport_Click(object sender, EventArgs e)
     {
         var data = SAV.MusicalDownloadData;
-        ExportFile(MusicalShow5.Extension, SAV.Musical.MusicalName, data.ToArray());
+        ExportFile(MusicalShow5.Extension, SAV.Musical.MusicalName, data.Span);
     }
 
     private void B_BattleVideoImport_Click(object sender, EventArgs e)
@@ -383,7 +385,7 @@ public partial class SAV_DLC5 : Form
     {
         var index = LB_BattleVideo.SelectedIndex;
         var data = SAV.GetBattleVideo(index);
-        ExportFile(BattleVideo5.Extension, BattleVideoFileName, data.ToArray());
+        ExportFile(BattleVideo5.Extension, BattleVideoFileName, data.Span);
     }
 
     private void B_BattleVideoExportDecrypted_Click(object sender, EventArgs e)
@@ -394,7 +396,7 @@ public partial class SAV_DLC5 : Form
         bool actual = !bvid.IsUninitialized;
         if (actual)
             bvid.Decrypt();
-        ExportFile(BattleVideo5.Extension, BattleVideoFileName, data.ToArray());
+        ExportFile(BattleVideo5.Extension, BattleVideoFileName, data.Span);
         if (actual)
             bvid.Encrypt();
     }
@@ -415,7 +417,7 @@ public partial class SAV_DLC5 : Form
     {
         var b2w2 = (SAV5B2W2)SAV;
         var data = b2w2.GetPokestarMovie(LB_Pokestar.SelectedIndex);
-        ExportFile(PokestarMovie5.Extension, PokeStarMovieFileName, data.ToArray());
+        ExportFile(PokestarMovie5.Extension, PokeStarMovieFileName, data.Span);
     }
 
     private void LB_Pokestar_SelectedIndexChanged(object sender, EventArgs e) { }
@@ -437,17 +439,18 @@ public partial class SAV_DLC5 : Form
     }
 
     private void B_Memory1Export_Click(object sender, EventArgs e)
-        => ExportFile(MemoryLinkExtension, MemoryLinkFileName, SAV.Link1Data.ToArray());
+        => ExportFile(MemoryLinkExtension, MemoryLinkFileName, SAV.Link1Data.Span);
     private void B_Memory2Export_Click(object sender, EventArgs e)
-        => ExportFile(MemoryLinkExtension, MemoryLinkFileName, SAV.Link2Data.ToArray());
+        => ExportFile(MemoryLinkExtension, MemoryLinkFileName, SAV.Link2Data.Span);
     private void B_PokeDexSkinSave_Click(object sender, EventArgs e)
-        => ExportFile(PokeDexSkin5.Extension, PokeDexFileName, SAV.PokedexSkinData.ToArray());
+        => ExportFile(PokeDexSkin5.Extension, PokeDexFileName, SAV.PokedexSkinData.Span);
     private void B_BattleTestExport_Click(object sender, EventArgs e)
-        => ExportFile(BattleTest5.Extension, BattleTestFileName, SAV.BattleTest.ToArray());
+        => ExportFile(BattleTest5.Extension, BattleTestFileName, SAV.BattleTest.Span);
 
     private void B_PokeDexSkinLoad_Click(object sender, EventArgs e)
     {
-        if (!ImportFile(PokeDexSkin5.Extension, PokeDexFileName, SAV.PokedexSkinData.Length, out var data))
+        const int pporg = 0x6200; // missing 4 bytes, flag
+        if (!ImportFile(PokeDexSkin5.Extension, PokeDexFileName, SAV.PokedexSkinData.Length, out var data, otherSize: pporg))
             return;
         SAV.SetPokeDexSkin(data);
         LoadPokedexSkin(data);

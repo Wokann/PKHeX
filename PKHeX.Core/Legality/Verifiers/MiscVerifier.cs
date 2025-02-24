@@ -10,6 +10,8 @@ namespace PKHeX.Core;
 /// </summary>
 public sealed class MiscVerifier : Verifier
 {
+    private static readonly LegendsArceusVerifier Arceus = new();
+
     protected override CheckIdentifier Identifier => Misc;
 
     public override void Verify(LegalityAnalysis data)
@@ -76,13 +78,13 @@ public sealed class MiscVerifier : Verifier
             var date = new DateOnly(pk.MetYear + 2000, pk.MetMonth, pk.MetDay);
 
             // HOME Gifts for Sinnoh/Hisui starters were forced JPN until May 20, 2022 (UTC).
-            if (enc is WB8 { CardID: 9015 or 9016 or 9017 } or WA8 { CardID: 9018 or 9019 or 9020 })
+            if (enc is WB8 { IsDateLockJapanese: true } or WA8 { IsDateLockJapanese: true })
             {
                 if (date < new DateOnly(2022, 5, 20) && pk.Language != (int)LanguageID.Japanese)
                     data.AddLine(GetInvalid(LDateOutsideDistributionWindow));
             }
 
-            var result = serverGift.IsValidDate(date);
+            var result = serverGift.IsWithinDistributionWindow(date);
             if (result == EncounterServerDateCheck.Invalid)
                 data.AddLine(GetInvalid(LDateOutsideDistributionWindow));
         }
@@ -133,7 +135,32 @@ public sealed class MiscVerifier : Verifier
 
         VerifyMiscFatefulEncounter(data);
         VerifyMiscPokerus(data);
-        if (pk is IScaledSize3 s3 and IScaledSize s2 && IsHeightScaleMatchRequired(pk) && s2.HeightScalar != s3.Scale)
+        VerifyMiscScaleValues(data, pk, enc);
+    }
+
+    private void VerifyMiscScaleValues(LegalityAnalysis data, PKM pk, IEncounterTemplate enc)
+    {
+        if (pk is not IScaledSize s2)
+            return;
+
+        // Check for Height/Weight
+        if (enc.Generation < 8 && pk.Format >= 9)
+        {
+            // Gen1-7 can have 0-0 if kept in PLA before HOME 3.0
+            if (s2 is { HeightScalar: 0, WeightScalar: 0 } && !data.Info.EvoChainsAllGens.HasVisitedPLA && enc is not IPogoSlot)
+                data.AddLine(Get(LStatInvalidHeightWeight, Severity.Invalid, Encounter));
+        }
+        else if (CheckHeightWeightOdds(data.EncounterMatch))
+        {
+            if (s2 is { HeightScalar: 0, WeightScalar: 0 })
+            {
+                if (ParseSettings.Settings.HOMETransfer.ZeroHeightWeight != Severity.Valid)
+                    data.AddLine(Get(LStatInvalidHeightWeight, ParseSettings.Settings.HOMETransfer.ZeroHeightWeight, Encounter));
+            }
+        }
+
+        // Check for Scale
+        if (pk is IScaledSize3 s3 && IsHeightScaleMatchRequired(pk) && s2.HeightScalar != s3.Scale)
             data.AddLine(GetInvalid(LStatIncorrectHeightValue));
     }
 
@@ -190,14 +217,6 @@ public sealed class MiscVerifier : Verifier
         }
 
         var enc = data.EncounterOriginal;
-        if (pk9 is { HeightScalar: 0, WeightScalar: 0 })
-        {
-            if (enc.Generation < 8 && !data.Info.EvoChainsAllGens.HasVisitedPLA && enc is not IPogoSlot) // <=Gen8 rerolls height/weight, never zero.
-                data.AddLine(Get(LStatInvalidHeightWeight, Severity.Invalid, Encounter));
-            else if (CheckHeightWeightOdds(enc) && ParseSettings.Settings.HOMETransfer.ZeroHeightWeight != Severity.Valid)
-                data.AddLine(Get(LStatInvalidHeightWeight, ParseSettings.Settings.HOMETransfer.ZeroHeightWeight, Encounter));
-        }
-
         if (enc is EncounterEgg { Context: EntityContext.Gen9 } g)
         {
             if (!Tera9RNG.IsMatchTeraTypePersonalEgg(g.Species, g.Form, (byte)pk9.TeraTypeOriginal))
@@ -563,23 +582,25 @@ public sealed class MiscVerifier : Verifier
 
     private static void VerifyFullness(LegalityAnalysis data, PKM pk)
     {
+        if (pk is not IFullnessEnjoyment fe)
+            return;
         if (pk.IsEgg)
         {
-            if (pk.Fullness != 0)
+            if (fe.Fullness != 0)
                 data.AddLine(GetInvalid(string.Format(LMemoryStatFullness, "0"), Encounter));
-            if (pk.Enjoyment != 0)
+            if (fe.Enjoyment != 0)
                 data.AddLine(GetInvalid(string.Format(LMemoryStatEnjoyment, "0"), Encounter));
             return;
         }
 
         if (pk.Format >= 8)
         {
-            if (pk.Fullness > 245) // Exiting camp is -10
+            if (fe.Fullness > 245) // Exiting camp is -10, so a 255=>245 is max.
                 data.AddLine(GetInvalid(string.Format(LMemoryStatFullness, "<=245"), Encounter));
-            else if (pk.Fullness is not 0 && pk is not PK8)
+            else if (fe.Fullness is not 0 && pk is not PK8) // BD/SP and PLA do not set this field, even via HOME.
                 data.AddLine(GetInvalid(string.Format(LMemoryStatFullness, "0"), Encounter));
 
-            if (pk.Enjoyment != 0)
+            if (fe.Enjoyment != 0)
                 data.AddLine(GetInvalid(string.Format(LMemoryStatEnjoyment, "0"), Encounter));
             return;
         }
@@ -588,7 +609,7 @@ public sealed class MiscVerifier : Verifier
             return;
 
         // OR/AS PK6
-        if (pk.Fullness == 0)
+        if (fe.Fullness == 0)
             return;
         if (pk.Species != data.EncounterMatch.Species)
             return; // evolved
@@ -611,19 +632,43 @@ public sealed class MiscVerifier : Verifier
         VerifyAbsoluteSizes(data, pb7);
         if (pb7.Stat_CP != pb7.CalcCP && !IsStarterLGPE(pb7))
             data.AddLine(GetInvalid(LStatIncorrectCP, Encounter));
+
+        if (pb7.ReceivedTime is null)
+            data.AddLine(GetInvalid(LDateTimeClockInvalid, Misc));
+
+        // HOME moving in and out will retain received date. ensure it matches if no HT data present.
+        // Go Park captures will have different dates, as the GO met date is retained as Met Date.
+        if (pb7.ReceivedDate is not { } date || !EncounterDate.IsValidDateSwitch(date) || (pb7.IsUntraded && data.EncounterOriginal is not EncounterSlot7GO && date != pb7.MetDate))
+            data.AddLine(GetInvalid(LDateOutsideConsoleWindow, Misc));
     }
 
-    private static void VerifyAbsoluteSizes(LegalityAnalysis data, IScaledSizeValue obj)
+    private static void VerifyAbsoluteSizes<T>(LegalityAnalysis data, T obj) where T : IScaledSizeValue
     {
-        // ReSharper disable once CompareOfFloatsByEqualityOperator -- THESE MUST MATCH EXACTLY
-        if (obj.HeightAbsolute != obj.CalcHeightAbsolute)
+        if (obj is PB7 pb7 && data.EncounterMatch is WB7 { IsHeightWeightFixed: true } enc)
+            VerifyFixedSizes(data, pb7, enc);
+        else
+            VerifyCalculatedSizes(data, obj);
+    }
+
+    // ReSharper disable 4 CompareOfFloatsByEqualityOperator -- THESE MUST MATCH EXACTLY
+    private static void VerifyFixedSizes<T>(LegalityAnalysis data, T obj, WB7 enc) where T : IScaledSizeValue
+    {
+        if (obj.HeightAbsolute != enc.GetHomeHeightAbsolute())
             data.AddLine(GetInvalid(LStatIncorrectHeight, Encounter));
-        // ReSharper disable once CompareOfFloatsByEqualityOperator -- THESE MUST MATCH EXACTLY
-        if (obj.WeightAbsolute != obj.CalcWeightAbsolute)
+        if (obj.WeightAbsolute != enc.GetHomeWeightAbsolute())
             data.AddLine(GetInvalid(LStatIncorrectWeight, Encounter));
     }
 
-    private static bool IsStarterLGPE(ISpeciesForm pk) => pk switch
+    private static void VerifyCalculatedSizes<T>(LegalityAnalysis data, T obj) where T : IScaledSizeValue
+    {
+        if (obj.HeightAbsolute != obj.CalcHeightAbsolute)
+            data.AddLine(GetInvalid(LStatIncorrectHeight, Encounter));
+        if (obj.WeightAbsolute != obj.CalcWeightAbsolute)
+            data.AddLine(GetInvalid(LStatIncorrectWeight, Encounter));
+    }
+    // ReSharper restore CompareOfFloatsByEqualityOperator
+
+    private static bool IsStarterLGPE<T>(T pk) where T : ISpeciesForm => pk switch
     {
         { Species: (int)Species.Pikachu, Form: 8 } => true,
         { Species: (int)Species.Eevee, Form: 1 } => true,
@@ -663,14 +708,12 @@ public sealed class MiscVerifier : Verifier
                 data.AddLine(GetInvalid(LStatDynamaxInvalid));
         }
 
-        if (CheckHeightWeightOdds(data.EncounterMatch) && pk8 is { HeightScalar: 0, WeightScalar: 0 } && ParseSettings.Settings.HOMETransfer.ZeroHeightWeight != Severity.Valid)
-            data.AddLine(Get(LStatInvalidHeightWeight, ParseSettings.Settings.HOMETransfer.ZeroHeightWeight, Encounter));
-
         VerifyTechRecordSWSH(data, pk8);
     }
 
     private void VerifyPLAStats(LegalityAnalysis data, PA8 pa8)
     {
+        Arceus.Verify(data);
         VerifyAbsoluteSizes(data, pa8);
 
         var social = pa8.Sociability;
@@ -690,9 +733,6 @@ public sealed class MiscVerifier : Verifier
 
         if (pa8.GetMoveRecordFlagAny() && !pa8.IsEgg) // already checked for eggs
             data.AddLine(GetInvalid(LEggRelearnFlags));
-
-        if (CheckHeightWeightOdds(data.EncounterMatch) && pa8 is { HeightScalar: 0, WeightScalar: 0 } && ParseSettings.Settings.HOMETransfer.ZeroHeightWeight != Severity.Valid)
-            data.AddLine(Get(LStatInvalidHeightWeight, ParseSettings.Settings.HOMETransfer.ZeroHeightWeight, Encounter));
 
         VerifyTechRecordSWSH(data, pa8);
     }
@@ -723,9 +763,6 @@ public sealed class MiscVerifier : Verifier
 
         if (pb8.GetMoveRecordFlagAny() && !pb8.IsEgg) // already checked for eggs
             data.AddLine(GetInvalid(LEggRelearnFlags));
-
-        if (CheckHeightWeightOdds(data.EncounterMatch) && pb8 is { HeightScalar: 0, WeightScalar: 0 } && ParseSettings.Settings.HOMETransfer.ZeroHeightWeight != Severity.Valid)
-            data.AddLine(Get(LStatInvalidHeightWeight, ParseSettings.Settings.HOMETransfer.ZeroHeightWeight, Encounter));
 
         VerifyTechRecordSWSH(data, pb8);
     }

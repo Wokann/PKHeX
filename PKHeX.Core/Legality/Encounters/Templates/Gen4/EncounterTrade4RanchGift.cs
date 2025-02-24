@@ -5,9 +5,8 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 4 Trade Encounter with a fixed PID value, met location, and version.
 /// </summary>
-public sealed record EncounterTrade4RanchGift
-    : IEncounterable, IEncounterMatch, IEncounterConvertible<PK4>, IFatefulEncounterReadOnly, IFixedTrainer,
-        IMoveset, IFixedGender, IFixedNature, IMetLevel
+public sealed record EncounterTrade4RanchGift : IEncounterable, IEncounterMatch, IEncounterConvertible<PK4>,
+    IFatefulEncounterReadOnly, IFixedTrainer, IMoveset, IFixedGender, IFixedNature, IMetLevel, ITrainerID32ReadOnly
 {
     public byte Generation => 4;
     public EntityContext Context => EntityContext.Gen4;
@@ -19,7 +18,7 @@ public sealed record EncounterTrade4RanchGift
 
     public Nature Nature => FatefulEncounter ? Nature.Random : (Nature)(PID % 25);
 
-    public ushort Location { get; init; }
+    public required ushort Location { get; init; }
     public Shiny Shiny => FatefulEncounter ? Shiny.Never : Shiny.FixedValue;
     public GameVersion Version { get; }
     public bool IsEgg => false;
@@ -36,9 +35,9 @@ public sealed record EncounterTrade4RanchGift
 
     public bool FatefulEncounter { get; }
     public required Moveset Moves { get; init; }
-    public const ushort TID16 = 1000;
+    public ushort TID16 => 1000;
     public required ushort SID16 { get; init; }
-    private uint ID32 => (uint)(TID16 | (SID16 << 16));
+    public uint ID32 => (uint)(TID16 | (SID16 << 16));
     public required byte OTGender { get; init; }
     public required byte Gender { get; init; }
     public required AbilityPermission Ability { get; init; }
@@ -75,7 +74,6 @@ public sealed record EncounterTrade4RanchGift
         MetLevel = met;
         Level = level;
         FatefulEncounter = true;
-        Location = 3000;
     }
 
     #region Generating
@@ -138,7 +136,11 @@ public sealed record EncounterTrade4RanchGift
         pk.Nature = (Nature)(pid % 25);
         pk.Gender = Gender;
         pk.RefreshAbility((int)(pid % 2));
-        criteria.SetRandomIVs(pk);
+
+        if (criteria.IsSpecifiedIVsAll())
+            pk.IV32 = criteria.GetCombinedIVs();
+        else
+            criteria.SetRandomIVs(pk);
     }
 
     #endregion
@@ -182,10 +184,7 @@ public sealed record EncounterTrade4RanchGift
     {
         if (pk.Format != 4) // Met Level lost on PK4=>PK5
             return evo.LevelMax >= Level;
-
-        if (Location != default)
-            return pk.MetLevel == MetLevel;
-        return pk.MetLevel >= LevelMin;
+        return pk.MetLevel == MetLevel;
     }
 
     private bool IsMatchNatureGenderShiny(PKM pk)

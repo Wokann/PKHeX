@@ -5,7 +5,8 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 6 Trade Encounter
 /// </summary>
-public sealed record EncounterTrade6 : IEncounterable, IEncounterMatch, IFixedTrainer, IFixedNickname, IFixedGender, IFixedNature, IEncounterConvertible<PK6>, IMemoryOTReadOnly
+public sealed record EncounterTrade6 : IEncounterable, IEncounterMatch, IEncounterConvertible<PK6>,
+    IFixedTrainer, IFixedNickname, IFixedGender, IFixedNature, IFixedIVSet, IMemoryOTReadOnly, ITrainerID32ReadOnly
 {
     public byte Generation => 6;
     public EntityContext Context => EntityContext.Gen6;
@@ -18,11 +19,13 @@ public sealed record EncounterTrade6 : IEncounterable, IEncounterMatch, IFixedTr
     public bool IsFixedTrainer => true;
     public bool IsFixedNickname { get; init; } = true;
 
-    private string[] TrainerNames { get; }
-    private string[] Nicknames { get; }
+    private readonly ReadOnlyMemory<string> TrainerNames;
+    private readonly ReadOnlyMemory<string> Nicknames;
 
     public required Nature Nature { get; init; }
-    public required ushort ID32 { get; init; }
+    public required ushort TID16 { get; init; }
+    public ushort SID16 => 0;
+    public uint ID32 => TID16;
     public required AbilityPermission Ability { get; init; }
     public required byte Gender { get; init; }
     public required byte OTGender { get; init; }
@@ -84,7 +87,7 @@ public sealed record EncounterTrade6 : IEncounterable, IEncounterMatch, IFixedTr
             Version = version,
             Language = lang,
             OriginalTrainerGender = OTGender,
-            OriginalTrainerName = TrainerNames[lang],
+            OriginalTrainerName = TrainerNames.Span[lang],
 
             OriginalTrainerMemory = OriginalTrainerMemory,
             OriginalTrainerMemoryIntensity = OriginalTrainerMemoryIntensity,
@@ -93,7 +96,7 @@ public sealed record EncounterTrade6 : IEncounterable, IEncounterMatch, IFixedTr
             OriginalTrainerFriendship = pi.BaseFriendship,
 
             IsNicknamed = IsFixedNickname,
-            Nickname = IsFixedNickname ? Nicknames[lang] : SpeciesName.GetSpeciesNameGeneration(Species, lang, Generation),
+            Nickname = IsFixedNickname ? Nicknames.Span[lang] : SpeciesName.GetSpeciesNameGeneration(Species, lang, Generation),
 
             HandlingTrainerName = tr.OT,
             HandlingTrainerGender = tr.Gender,
@@ -119,14 +122,14 @@ public sealed record EncounterTrade6 : IEncounterable, IEncounterMatch, IFixedTr
 
     #region Matching
 
-    public bool IsTrainerMatch(PKM pk, ReadOnlySpan<char> trainer, int language) => (uint)language < TrainerNames.Length && trainer.SequenceEqual(TrainerNames[language]);
+    public bool IsTrainerMatch(PKM pk, ReadOnlySpan<char> trainer, int language) => (uint)language < TrainerNames.Length && trainer.SequenceEqual(TrainerNames.Span[language]);
     public bool IsNicknameMatch(PKM pk, ReadOnlySpan<char> nickname, int language)
     {
         if (Species is (ushort)Core.Species.Farfetchd && nickname is "Quacklin’" or "Quacklin'")
             return true;
-        return (uint)language < Nicknames.Length && nickname.SequenceEqual(Nicknames[language]);
+        return (uint)language < Nicknames.Length && nickname.SequenceEqual(Nicknames.Span[language]);
     }
-    public string GetNickname(int language) => (uint)language < Nicknames.Length ? Nicknames[language] : Nicknames[0];
+    public string GetNickname(int language) => Nicknames.Span[(uint)language < Nicknames.Length ? language : 0];
 
     public bool IsMatchExact(PKM pk, EvoCriteria evo)
     {

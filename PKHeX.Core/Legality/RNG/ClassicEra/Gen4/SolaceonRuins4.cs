@@ -7,7 +7,22 @@ public static class SolaceonRuins4
     /// <summary>
     /// Checks if the requested <see cref="form"/> is valid for the given seed.
     /// </summary>
-    public static bool IsUnownFormValid(PKM pk, byte form)
+    /// <param name="seed">Seed that originated the PID/IV.</param>
+    /// <param name="form">Form to validate</param>
+    /// <returns>True if the form is valid</returns>
+    public static bool IsFormValid(uint seed, byte form)
+    {
+        if (IsSingleFormRoomUnown(form))
+            return true; // FRIEND: Specific rooms with only one form.
+
+        // ABCD|E(Item)|F(Form) determination
+        var f = LCRNG.Next6(seed) >> 16;
+        var expect = GetUnownForm(f, form);
+        return expect == form;
+    }
+
+    /// <inheritdoc cref="IsFormValid(uint,byte)"/>
+    public static bool IsFormValid(PKM pk, byte form)
     {
         if (IsSingleFormRoomUnown(form))
             return true; // FRIEND: Specific rooms with only one form.
@@ -17,6 +32,7 @@ public static class SolaceonRuins4
         if (!MethodFinder.GetLCRNGMethod1Match(pk, out var seed))
             return true; // invalid anyway, don't care.
 
+        // ABCD|E(Item)|F(Form) determination
         var f = LCRNG.Next6(seed) >> 16;
         var expect = GetUnownForm(f, form);
         return expect == form;

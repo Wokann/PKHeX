@@ -22,9 +22,9 @@ internal static class Encounters3FRLG
 
     public static readonly EncounterStatic3[] StaticFRLG =
     [
-        new(243, 50, FRLG) { Roaming = true, Location = 101 }, // Raikou
-        new(244, 50, FRLG) { Roaming = true, Location = 101 }, // Entei
-        new(245, 50, FRLG) { Roaming = true, Location = 101 }, // Suicune
+        new(243, 50, FRLG) { IsRoaming = true, Location = 101 }, // Raikou
+        new(244, 50, FRLG) { IsRoaming = true, Location = 101 }, // Entei
+        new(245, 50, FRLG) { IsRoaming = true, Location = 101 }, // Suicune
 
         // Starters @ Pallet Town
         new(001, 05, FRLG) { FixedBall = Ball.Poke, Location = 088 }, // Bulbasaur
@@ -39,7 +39,7 @@ internal static class Encounters3FRLG
         // Gift
         new(106, 25, FRLG) { FixedBall = Ball.Poke, Location = 098 }, // Hitmonlee @ Saffron City
         new(107, 25, FRLG) { FixedBall = Ball.Poke, Location = 098 }, // Hitmonchan @ Saffron City
-        new(129, 05, FRLG) { FixedBall = Ball.Poke, Location = 099 }, // Magikarp @ Route 4
+        new(129, 05, FRLG) { FixedBall = Ball.Poke, Location = 104 }, // Magikarp @ Route 4 (not Pokémon Center)
         new(131, 25, FRLG) { FixedBall = Ball.Poke, Location = 134 }, // Lapras @ Silph Co.
         new(133, 25, FRLG) { FixedBall = Ball.Poke, Location = 094 }, // Eevee @ Celadon City
         new(175, 05, FRLG) { FixedBall = Ball.Poke, Location = 253, IsEgg = true, Moves = new(045,204,118) }, // Togepi Egg

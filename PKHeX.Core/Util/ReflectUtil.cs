@@ -40,7 +40,7 @@ public static class ReflectUtil
     {
         if (TryGetPropertyInfo(obj.GetType().GetTypeInfo(), name, out var pi))
             return pi.GetValue(obj, null);
-        return default;
+        return null;
     }
 
     public static bool SetValue(object obj, string name, object value)
@@ -143,7 +143,7 @@ public static class ReflectUtil
 
     public static IEnumerable<TypeInfo> GetAllTypeInfo(this TypeInfo? typeInfo)
     {
-        while (typeInfo != null)
+        while (typeInfo is not null)
         {
             yield return typeInfo;
             typeInfo = typeInfo.BaseType?.GetTypeInfo();
@@ -168,12 +168,12 @@ public static class ReflectUtil
         foreach (var t in typeInfo.GetAllTypeInfo())
         {
             pi = t.GetDeclaredProperty(name);
-            if (pi != null)
+            if (pi is not null)
                 return true;
             foreach (var i in t.ImplementedInterfaces)
             {
                 pi = i.GetTypeInfo().GetDeclaredProperty(name);
-                if (pi != null)
+                if (pi is not null)
                     return true;
             }
         }
@@ -197,9 +197,10 @@ public static class ReflectUtil
     {
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
         var result = new Dictionary<string, T>(props.Length);
+        var requestType = typeof(T);
         foreach (var pi in props)
         {
-            if (!typeof(T).IsAssignableFrom(pi.PropertyType))
+            if (!requestType.IsAssignableFrom(pi.PropertyType))
                 continue;
 
             var name = pi.Name;

@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using static System.Buffers.Binary.BinaryPrimitives;
 
@@ -6,7 +7,8 @@ namespace PKHeX.Core;
 
 /// <summary> Generation 7 <see cref="PKM"/> format used for <see cref="GameVersion.GG"/>. </summary>
 public sealed class PB7 : G6PKM, IHyperTrain, IAwakened, IScaledSizeValue, ICombatPower, IFavorite,
-    IFormArgument, IAppliedMarkings7
+    IRibbonSetEvent3, IRibbonSetEvent4, IRibbonSetCommon3, IRibbonSetCommon4, IRibbonSetCommon6, IRibbonSetMemory6, IRibbonSetCommon7, IRibbonSetRibbons,
+    IFormArgument, IAppliedMarkings7, IFullnessEnjoyment
 {
     public override ReadOnlySpan<ushort> ExtraBytes =>
     [
@@ -128,6 +130,73 @@ public sealed class PB7 : G6PKM, IHyperTrain, IAwakened, IScaledSizeValue, IComb
     public override int PokerusDays { get => PokerusState & 0xF; set => PokerusState = (byte)((PokerusState & ~0xF) | value); }
     public override int PokerusStrain { get => PokerusState >> 4; set => PokerusState = (byte)((PokerusState & 0xF) | (value << 4)); }
     public float HeightAbsolute { get => ReadSingleLittleEndian(Data.AsSpan(0x2C)); set => WriteSingleLittleEndian(Data.AsSpan(0x2C), value); }
+    private byte RIB0 { get => Data[0x30]; set => Data[0x30] = value; } // Ribbons are read as uints, but let's keep them per byte.
+    private byte RIB1 { get => Data[0x31]; set => Data[0x31] = value; }
+    private byte RIB2 { get => Data[0x32]; set => Data[0x32] = value; }
+    private byte RIB3 { get => Data[0x33]; set => Data[0x33] = value; }
+    private byte RIB4 { get => Data[0x34]; set => Data[0x34] = value; }
+    private byte RIB5 { get => Data[0x35]; set => Data[0x35] = value; }
+    private byte RIB6 { get => Data[0x36]; set => Data[0x36] = value; }
+    //private byte RIB7 { get => Data[0x37]; set => Data[0x37] = value; } // Unused
+    public bool RibbonChampionKalos         { get => (RIB0 & (1 << 0)) == 1 << 0; set => RIB0 = (byte)((RIB0 & ~(1 << 0)) | (value ? 1 << 0 : 0)); }
+    public bool RibbonChampionG3            { get => (RIB0 & (1 << 1)) == 1 << 1; set => RIB0 = (byte)((RIB0 & ~(1 << 1)) | (value ? 1 << 1 : 0)); }
+    public bool RibbonChampionSinnoh        { get => (RIB0 & (1 << 2)) == 1 << 2; set => RIB0 = (byte)((RIB0 & ~(1 << 2)) | (value ? 1 << 2 : 0)); }
+    public bool RibbonBestFriends           { get => (RIB0 & (1 << 3)) == 1 << 3; set => RIB0 = (byte)((RIB0 & ~(1 << 3)) | (value ? 1 << 3 : 0)); }
+    public bool RibbonTraining              { get => (RIB0 & (1 << 4)) == 1 << 4; set => RIB0 = (byte)((RIB0 & ~(1 << 4)) | (value ? 1 << 4 : 0)); }
+    public bool RibbonBattlerSkillful       { get => (RIB0 & (1 << 5)) == 1 << 5; set => RIB0 = (byte)((RIB0 & ~(1 << 5)) | (value ? 1 << 5 : 0)); }
+    public bool RibbonBattlerExpert         { get => (RIB0 & (1 << 6)) == 1 << 6; set => RIB0 = (byte)((RIB0 & ~(1 << 6)) | (value ? 1 << 6 : 0)); }
+    public bool RibbonEffort                { get => (RIB0 & (1 << 7)) == 1 << 7; set => RIB0 = (byte)((RIB0 & ~(1 << 7)) | (value ? 1 << 7 : 0)); }
+    public bool RibbonAlert                 { get => (RIB1 & (1 << 0)) == 1 << 0; set => RIB1 = (byte)((RIB1 & ~(1 << 0)) | (value ? 1 << 0 : 0)); }
+    public bool RibbonShock                 { get => (RIB1 & (1 << 1)) == 1 << 1; set => RIB1 = (byte)((RIB1 & ~(1 << 1)) | (value ? 1 << 1 : 0)); }
+    public bool RibbonDowncast              { get => (RIB1 & (1 << 2)) == 1 << 2; set => RIB1 = (byte)((RIB1 & ~(1 << 2)) | (value ? 1 << 2 : 0)); }
+    public bool RibbonCareless              { get => (RIB1 & (1 << 3)) == 1 << 3; set => RIB1 = (byte)((RIB1 & ~(1 << 3)) | (value ? 1 << 3 : 0)); }
+    public bool RibbonRelax                 { get => (RIB1 & (1 << 4)) == 1 << 4; set => RIB1 = (byte)((RIB1 & ~(1 << 4)) | (value ? 1 << 4 : 0)); }
+    public bool RibbonSnooze                { get => (RIB1 & (1 << 5)) == 1 << 5; set => RIB1 = (byte)((RIB1 & ~(1 << 5)) | (value ? 1 << 5 : 0)); }
+    public bool RibbonSmile                 { get => (RIB1 & (1 << 6)) == 1 << 6; set => RIB1 = (byte)((RIB1 & ~(1 << 6)) | (value ? 1 << 6 : 0)); }
+    public bool RibbonGorgeous              { get => (RIB1 & (1 << 7)) == 1 << 7; set => RIB1 = (byte)((RIB1 & ~(1 << 7)) | (value ? 1 << 7 : 0)); }
+    public bool RibbonRoyal                 { get => (RIB2 & (1 << 0)) == 1 << 0; set => RIB2 = (byte)((RIB2 & ~(1 << 0)) | (value ? 1 << 0 : 0)); }
+    public bool RibbonGorgeousRoyal         { get => (RIB2 & (1 << 1)) == 1 << 1; set => RIB2 = (byte)((RIB2 & ~(1 << 1)) | (value ? 1 << 1 : 0)); }
+    public bool RibbonArtist                { get => (RIB2 & (1 << 2)) == 1 << 2; set => RIB2 = (byte)((RIB2 & ~(1 << 2)) | (value ? 1 << 2 : 0)); }
+    public bool RibbonFootprint             { get => (RIB2 & (1 << 3)) == 1 << 3; set => RIB2 = (byte)((RIB2 & ~(1 << 3)) | (value ? 1 << 3 : 0)); }
+    public bool RibbonRecord                { get => (RIB2 & (1 << 4)) == 1 << 4; set => RIB2 = (byte)((RIB2 & ~(1 << 4)) | (value ? 1 << 4 : 0)); }
+    public bool RibbonLegend                { get => (RIB2 & (1 << 5)) == 1 << 5; set => RIB2 = (byte)((RIB2 & ~(1 << 5)) | (value ? 1 << 5 : 0)); }
+    public bool RibbonCountry               { get => (RIB2 & (1 << 6)) == 1 << 6; set => RIB2 = (byte)((RIB2 & ~(1 << 6)) | (value ? 1 << 6 : 0)); }
+    public bool RibbonNational              { get => (RIB2 & (1 << 7)) == 1 << 7; set => RIB2 = (byte)((RIB2 & ~(1 << 7)) | (value ? 1 << 7 : 0)); }
+    public bool RibbonEarth                 { get => (RIB3 & (1 << 0)) == 1 << 0; set => RIB3 = (byte)((RIB3 & ~(1 << 0)) | (value ? 1 << 0 : 0)); }
+    public bool RibbonWorld                 { get => (RIB3 & (1 << 1)) == 1 << 1; set => RIB3 = (byte)((RIB3 & ~(1 << 1)) | (value ? 1 << 1 : 0)); }
+    public bool RibbonClassic               { get => (RIB3 & (1 << 2)) == 1 << 2; set => RIB3 = (byte)((RIB3 & ~(1 << 2)) | (value ? 1 << 2 : 0)); }
+    public bool RibbonPremier               { get => (RIB3 & (1 << 3)) == 1 << 3; set => RIB3 = (byte)((RIB3 & ~(1 << 3)) | (value ? 1 << 3 : 0)); }
+    public bool RibbonEvent                 { get => (RIB3 & (1 << 4)) == 1 << 4; set => RIB3 = (byte)((RIB3 & ~(1 << 4)) | (value ? 1 << 4 : 0)); }
+    public bool RibbonBirthday              { get => (RIB3 & (1 << 5)) == 1 << 5; set => RIB3 = (byte)((RIB3 & ~(1 << 5)) | (value ? 1 << 5 : 0)); }
+    public bool RibbonSpecial               { get => (RIB3 & (1 << 6)) == 1 << 6; set => RIB3 = (byte)((RIB3 & ~(1 << 6)) | (value ? 1 << 6 : 0)); }
+    public bool RibbonSouvenir              { get => (RIB3 & (1 << 7)) == 1 << 7; set => RIB3 = (byte)((RIB3 & ~(1 << 7)) | (value ? 1 << 7 : 0)); }
+    public bool RibbonWishing               { get => (RIB4 & (1 << 0)) == 1 << 0; set => RIB4 = (byte)((RIB4 & ~(1 << 0)) | (value ? 1 << 0 : 0)); }
+    public bool RibbonChampionBattle        { get => (RIB4 & (1 << 1)) == 1 << 1; set => RIB4 = (byte)((RIB4 & ~(1 << 1)) | (value ? 1 << 1 : 0)); }
+    public bool RibbonChampionRegional      { get => (RIB4 & (1 << 2)) == 1 << 2; set => RIB4 = (byte)((RIB4 & ~(1 << 2)) | (value ? 1 << 2 : 0)); }
+    public bool RibbonChampionNational      { get => (RIB4 & (1 << 3)) == 1 << 3; set => RIB4 = (byte)((RIB4 & ~(1 << 3)) | (value ? 1 << 3 : 0)); }
+    public bool RibbonChampionWorld         { get => (RIB4 & (1 << 4)) == 1 << 4; set => RIB4 = (byte)((RIB4 & ~(1 << 4)) | (value ? 1 << 4 : 0)); }
+    public bool HasContestMemoryRibbon      { get => (RIB4 & (1 << 5)) == 1 << 5; set => RIB4 = (byte)((RIB4 & ~(1 << 5)) | (value ? 1 << 5 : 0)); }
+    public bool HasBattleMemoryRibbon       { get => (RIB4 & (1 << 6)) == 1 << 6; set => RIB4 = (byte)((RIB4 & ~(1 << 6)) | (value ? 1 << 6 : 0)); }
+    public bool RibbonChampionG6Hoenn       { get => (RIB4 & (1 << 7)) == 1 << 7; set => RIB4 = (byte)((RIB4 & ~(1 << 7)) | (value ? 1 << 7 : 0)); }
+    public bool RibbonContestStar           { get => (RIB5 & (1 << 0)) == 1 << 0; set => RIB5 = (byte)((RIB5 & ~(1 << 0)) | (value ? 1 << 0 : 0)); }
+    public bool RibbonMasterCoolness        { get => (RIB5 & (1 << 1)) == 1 << 1; set => RIB5 = (byte)((RIB5 & ~(1 << 1)) | (value ? 1 << 1 : 0)); }
+    public bool RibbonMasterBeauty          { get => (RIB5 & (1 << 2)) == 1 << 2; set => RIB5 = (byte)((RIB5 & ~(1 << 2)) | (value ? 1 << 2 : 0)); }
+    public bool RibbonMasterCuteness        { get => (RIB5 & (1 << 3)) == 1 << 3; set => RIB5 = (byte)((RIB5 & ~(1 << 3)) | (value ? 1 << 3 : 0)); }
+    public bool RibbonMasterCleverness      { get => (RIB5 & (1 << 4)) == 1 << 4; set => RIB5 = (byte)((RIB5 & ~(1 << 4)) | (value ? 1 << 4 : 0)); }
+    public bool RibbonMasterToughness       { get => (RIB5 & (1 << 5)) == 1 << 5; set => RIB5 = (byte)((RIB5 & ~(1 << 5)) | (value ? 1 << 5 : 0)); }
+    public bool RibbonChampionAlola         { get => (RIB5 & (1 << 6)) == 1 << 6; set => RIB5 = (byte)((RIB5 & ~(1 << 6)) | (value ? 1 << 6 : 0)); }
+    public bool RibbonBattleRoyale          { get => (RIB5 & (1 << 7)) == 1 << 7; set => RIB5 = (byte)((RIB5 & ~(1 << 7)) | (value ? 1 << 7 : 0)); }
+    public bool RibbonBattleTreeGreat       { get => (RIB6 & (1 << 0)) == 1 << 0; set => RIB6 = (byte)((RIB6 & ~(1 << 0)) | (value ? 1 << 0 : 0)); }
+    public bool RibbonBattleTreeMaster      { get => (RIB6 & (1 << 1)) == 1 << 1; set => RIB6 = (byte)((RIB6 & ~(1 << 1)) | (value ? 1 << 1 : 0)); }
+    public bool RIB6_2                      { get => (RIB6 & (1 << 2)) == 1 << 2; set => RIB6 = (byte)((RIB6 & ~(1 << 2)) | (value ? 1 << 2 : 0)); } // Unused
+    public bool RIB6_3                      { get => (RIB6 & (1 << 3)) == 1 << 3; set => RIB6 = (byte)((RIB6 & ~(1 << 3)) | (value ? 1 << 3 : 0)); } // Unused
+    public bool RIB6_4                      { get => (RIB6 & (1 << 4)) == 1 << 4; set => RIB6 = (byte)((RIB6 & ~(1 << 4)) | (value ? 1 << 4 : 0)); } // Unused
+    public bool RIB6_5                      { get => (RIB6 & (1 << 5)) == 1 << 5; set => RIB6 = (byte)((RIB6 & ~(1 << 5)) | (value ? 1 << 5 : 0)); } // Unused
+    public bool RIB6_6                      { get => (RIB6 & (1 << 6)) == 1 << 6; set => RIB6 = (byte)((RIB6 & ~(1 << 6)) | (value ? 1 << 6 : 0)); } // Unused
+    public bool RIB6_7                      { get => (RIB6 & (1 << 7)) == 1 << 7; set => RIB6 = (byte)((RIB6 & ~(1 << 7)) | (value ? 1 << 7 : 0)); } // Unused
+    public byte RibbonCountMemoryContest { get => Data[0x38]; set => Data[0x38] = value; }
+    public byte RibbonCountMemoryBattle  { get => Data[0x39]; set => Data[0x39] = value; }
+
     // 0x38 Unused
     // 0x39 Unused
     public byte HeightScalar { get => Data[0x3A]; set => Data[0x3A] = value; }
@@ -136,6 +205,8 @@ public sealed class PB7 : G6PKM, IHyperTrain, IAwakened, IScaledSizeValue, IComb
     public byte FormArgumentRemain { get => (byte)FormArgument; set => FormArgument = (FormArgument & ~0xFFu) | value; }
     public byte FormArgumentElapsed { get => (byte)(FormArgument >> 8); set => FormArgument = (FormArgument & ~0xFF00u) | (uint)(value << 8); }
     public byte FormArgumentMaximum { get => (byte)(FormArgument >> 16); set => FormArgument = (FormArgument & ~0xFF0000u) | (uint)(value << 16); }
+
+    public int RibbonCount => BitOperations.PopCount(ReadUInt64LittleEndian(Data.AsSpan(0x30)) & 0b00000000_00000011__11111111_11111111__11111111_11111111__11111111_11111111);
 
     #endregion
     #region Block B
@@ -248,8 +319,8 @@ public sealed class PB7 : G6PKM, IHyperTrain, IAwakened, IScaledSizeValue, IComb
     // 0xAB Unused
     public byte FieldEventFatigue1 { get => Data[0xAC]; set => Data[0xAC] = value; }
     public byte FieldEventFatigue2 { get => Data[0xAD]; set => Data[0xAD] = value; }
-    public override byte Fullness { get => Data[0xAE]; set => Data[0xAE] = value; }
-    public override byte Enjoyment { get => Data[0xAF]; set => Data[0xAF] = value; }
+    public byte Fullness { get => Data[0xAE]; set => Data[0xAE] = value; }
+    public byte Enjoyment { get => Data[0xAF]; set => Data[0xAF] = value; }
     #endregion
     #region Block D
     public override string OriginalTrainerName
@@ -259,12 +330,70 @@ public sealed class PB7 : G6PKM, IHyperTrain, IAwakened, IScaledSizeValue, IComb
     }
 
     public override byte OriginalTrainerFriendship { get => Data[0xCA]; set => Data[0xCA] = value; }
-    // 0xCB Unused
-    // 0xCC Unused
-    // 0xCD Unused
-    // 0xCE Unused
-    // 0xCF Unused
-    // 0xD0 Unused
+
+    // Local time of the console when the Pokémon was received
+    public byte ReceivedYear { get => Data[0xCB]; set => Data[0xCB] = value; }
+    public byte ReceivedMonth { get => Data[0xCC]; set => Data[0xCC] = value; }
+    public byte ReceivedDay { get => Data[0xCD]; set => Data[0xCD] = value; }
+    public byte ReceivedHour { get => Data[0xCE]; set => Data[0xCE] = value; }
+    public byte ReceivedMinute { get => Data[0xCF]; set => Data[0xCF] = value; }
+    public byte ReceivedSecond { get => Data[0xD0]; set => Data[0xD0] = value; }
+    public DateOnly? ReceivedDate
+    {
+        get
+        {
+            if (!DateUtil.IsDateValid(2000 + ReceivedYear, ReceivedMonth, ReceivedDay))
+                return null;
+            return new DateOnly(ReceivedYear + 2000, ReceivedMonth, ReceivedDay);
+        }
+        set
+        {
+            if (value is { } d)
+            {
+                // Only update the properties if a value is provided.
+                ReceivedYear = (byte)(d.Year - 2000);
+                ReceivedMonth = (byte)d.Month;
+                ReceivedDay = (byte)d.Day;
+            }
+            else
+            {
+                // Clear the Date.
+                // If code tries to access Date again, null will be returned.
+                ReceivedYear = 0;
+                ReceivedMonth = 0;
+                ReceivedDay = 0;
+            }
+        }
+    }
+
+    public TimeOnly? ReceivedTime
+    {
+        get
+        {
+            if (!DateUtil.IsTimeValid(ReceivedHour, ReceivedMinute, ReceivedSecond))
+                return null;
+            return new TimeOnly(ReceivedHour, ReceivedMinute, ReceivedSecond);
+        }
+        set
+        {
+            if (value is { } t)
+            {
+                // Only update the properties if a value is provided.
+                ReceivedHour = (byte)t.Hour;
+                ReceivedMinute = (byte)t.Minute;
+                ReceivedSecond = (byte)t.Second;
+            }
+            else
+            {
+                // Clear the Time.
+                // If code tries to access Time again, null will be returned.
+                ReceivedHour = 0;
+                ReceivedMinute = 0;
+                ReceivedSecond = 0;
+            }
+        }
+    }
+
     public override byte EggYear { get => Data[0xD1]; set => Data[0xD1] = value; }
     public override byte EggMonth { get => Data[0xD2]; set => Data[0xD2] = value; }
     public override byte EggDay { get => Data[0xD3]; set => Data[0xD3] = value; }
@@ -340,7 +469,12 @@ public sealed class PB7 : G6PKM, IHyperTrain, IAwakened, IScaledSizeValue, IComb
         if (!BelongsTo(tr))
             return false;
 
-        CurrentHandler = 0;
+        if (CurrentHandler != 0)
+        {
+            CurrentHandler = 0;
+            ReceivedDate = IsUntraded ? MetDate : EncounterDate.GetDateSwitch();
+            ReceivedTime = EncounterDate.GetTime();
+        }
         return true;
     }
 
@@ -355,6 +489,9 @@ public sealed class PB7 : G6PKM, IHyperTrain, IAwakened, IScaledSizeValue, IComb
         {
             HandlingTrainerName = other;
             HandlingTrainerFriendship = CurrentFriendship; // copy friendship instead of resetting (don't alter CP)
+
+            ReceivedDate = EncounterDate.GetDateSwitch();
+            ReceivedTime = EncounterDate.GetTime();
         }
         CurrentHandler = 1;
         HandlingTrainerGender = tr.Gender;

@@ -436,9 +436,9 @@ public partial class Main : Form
         SpriteBuilderUtil.SpriterPreference = settings.Sprite.SpritePreference;
 
         var write = settings.SlotWrite;
-        SaveFile.SetUpdateDex = write.SetUpdateDex ? PKMImportSetting.Update : PKMImportSetting.Skip;
-        SaveFile.SetUpdatePKM = write.SetUpdatePKM ? PKMImportSetting.Update : PKMImportSetting.Skip;
-        SaveFile.SetUpdateRecords = write.SetUpdateRecords ? PKMImportSetting.Update : PKMImportSetting.Skip;
+        SaveFile.SetUpdateDex = write.SetUpdateDex ? EntityImportOption.Enable : EntityImportOption.Disable;
+        SaveFile.SetUpdatePKM = write.SetUpdatePKM ? EntityImportOption.Enable : EntityImportOption.Disable;
+        SaveFile.SetUpdateRecords = write.SetUpdateRecords ? EntityImportOption.Enable : EntityImportOption.Disable;
 
         C_SAV.ModifyPKM = PKME_Tabs.ModifyPKM = settings.SlotWrite.SetUpdatePKM;
         CommonEdits.ShowdownSetIVMarkings = settings.Import.ApplyMarkings;
@@ -522,18 +522,21 @@ public partial class Main : Form
         { WinFormsUtil.Alert(MsgClipboardFailRead); return; }
 
         // Get Simulator Data
-        var Set = new ShowdownSet(Clipboard.GetText());
+        var text = Clipboard.GetText();
+        var set = new ShowdownSet(text);
 
-        if (Set.Species == 0)
+        if (set.Species == 0)
         { WinFormsUtil.Alert(MsgSimulatorFailClipboard); return; }
 
-        if (DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, MsgSimulatorLoad, Set.Text))
+        var reformatted = set.Text;
+        if (DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, MsgSimulatorLoad, reformatted))
             return;
 
-        if (Set.InvalidLines.Count > 0)
-            WinFormsUtil.Alert(MsgSimulatorInvalid, string.Join(Environment.NewLine, Set.InvalidLines));
+        var invalid = set.InvalidLines;
+        if (invalid.Count != 0)
+            WinFormsUtil.Alert(MsgSimulatorInvalid, string.Join(Environment.NewLine, invalid));
 
-        PKME_Tabs.LoadShowdownSet(Set);
+        PKME_Tabs.LoadShowdownSet(set);
     }
 
     private void ClickShowdownExportPKM(object sender, EventArgs e)
@@ -605,7 +608,7 @@ public partial class Main : Form
     private void OpenFile(byte[] input, string path, string ext)
     {
         var obj = FileUtil.GetSupportedFile(input, ext, C_SAV.SAV);
-        if (obj != null && LoadFile(obj, path))
+        if (obj is not null && LoadFile(obj, path))
             return;
 
         WinFormsUtil.Error(GetHintInvalidFile(input, path),
@@ -632,7 +635,7 @@ public partial class Main : Form
 
     private bool LoadFile(object? input, string path)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         switch (input)
@@ -661,9 +664,9 @@ public partial class Main : Form
         var destType = C_SAV.SAV.PKMType;
         var tmp = EntityConverter.ConvertToType(pk, destType, out var c);
         Debug.WriteLine(c.GetDisplayString(pk, destType));
-        if (tmp == null)
+        if (tmp is null)
             return false;
-        C_SAV.SAV.AdaptPKM(tmp);
+        C_SAV.SAV.AdaptToSaveFile(tmp);
         PKME_Tabs.PopulateFields(tmp);
         return true;
     }
@@ -689,13 +692,13 @@ public partial class Main : Form
         var destType = C_SAV.SAV.PKMType;
         var pk = EntityConverter.ConvertToType(temp, destType, out var c);
 
-        if (pk == null)
+        if (pk is null)
         {
             WinFormsUtil.Alert(c.GetDisplayString(temp, destType));
             return true;
         }
 
-        C_SAV.SAV.AdaptPKM(pk);
+        C_SAV.SAV.AdaptToSaveFile(pk);
         PKME_Tabs.PopulateFields(pk);
         Debug.WriteLine(c);
         return true;
@@ -1100,7 +1103,8 @@ public partial class Main : Form
 
         var qr = QREncode.GenerateQRCode(pk);
 
-        var sprite = dragout.Image;
+        if (dragout.Image is not Bitmap sprite)
+            return;
         var la = new LegalityAnalysis(pk, C_SAV.SAV.Personal);
         if (la.Parsed && pk.Species != 0)
         {
@@ -1131,10 +1135,15 @@ public partial class Main : Form
 
     private static void DisplayLegalityReport(LegalityAnalysis la)
     {
-        bool verbose = ModifierKeys == Keys.Control;
+        bool verbose = ModifierKeys == Keys.Control ^ Settings.Display.ExportLegalityAlwaysVerbose;
         var report = la.Report(verbose);
         if (verbose)
         {
+            if (Settings.Display.ExportLegalityNeverClipboard)
+            {
+                WinFormsUtil.Alert(report);
+                return;
+            }
             var dr = WinFormsUtil.Prompt(MessageBoxButtons.YesNo, report, MsgClipboardLegalityExport);
             if (dr != DialogResult.Yes)
                 return;
@@ -1166,7 +1175,7 @@ public partial class Main : Form
         pk ??= PreparePKM(false); // don't perform control loss click
 
         var menu = dragout.ContextMenuStrip;
-        if (menu != null)
+        if (menu is not null)
             menu.Enabled = pk.Species != 0 || HaX; // Species
 
         pb.Image = pk.Sprite(C_SAV.SAV);
@@ -1202,7 +1211,7 @@ public partial class Main : Form
             return;
         if (e.AllowedEffect == (DragDropEffects.Copy | DragDropEffects.Link)) // external file
             e.Effect = DragDropEffects.Copy;
-        else if (e.Data != null) // within
+        else if (e.Data is not null) // within
             e.Effect = DragDropEffects.Copy;
     }
 
@@ -1214,6 +1223,7 @@ public partial class Main : Form
         e.Effect = DragDropEffects.Copy;
     }
 
+    // ReSharper disable once AsyncVoidMethod
     private async void Dragout_MouseDown(object sender, MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left)
@@ -1292,17 +1302,24 @@ public partial class Main : Form
 
     private async void Main_FormClosing(object sender, FormClosingEventArgs e)
     {
-        if (C_SAV.SAV.State.Edited || PKME_Tabs.PKMIsUnsaved)
+        try
         {
-            var prompt = WinFormsUtil.Prompt(MessageBoxButtons.YesNo, MsgProgramCloseUnsaved, MsgProgramCloseConfirm);
-            if (prompt != DialogResult.Yes)
+            if (C_SAV.SAV.State.Edited || PKME_Tabs.PKMIsUnsaved)
             {
-                e.Cancel = true;
-                return;
+                var prompt = WinFormsUtil.Prompt(MessageBoxButtons.YesNo, MsgProgramCloseUnsaved, MsgProgramCloseConfirm);
+                if (prompt != DialogResult.Yes)
+                {
+                    e.Cancel = true;
+                    return;
+                }
             }
-        }
 
-        await PKHeXSettings.SaveSettings(ConfigPath, Settings).ConfigureAwait(false);
+            await PKHeXSettings.SaveSettings(ConfigPath, Settings).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Ignore; program is shutting down.
+        }
     }
 
     #endregion
