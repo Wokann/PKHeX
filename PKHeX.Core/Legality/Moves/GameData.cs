@@ -3,10 +3,23 @@ using static PKHeX.Core.GameVersion;
 
 namespace PKHeX.Core;
 
+/// <summary>
+/// Provides access to game-specific data for Personal and LearnSource.
+/// </summary>
 public static class GameData
 {
+    /// <summary>
+    /// Gets the Personal table for the specified game version.
+    /// </summary>
+    /// <param name="game">The game version to retrieve data for.</param>
+    /// <returns>The Personal table for the specified game version.</returns>
     public static IPersonalTable GetPersonal(GameVersion game) => Personal(game);
 
+    /// <summary>
+    /// Gets the LearnSource for the specified game version.
+    /// </summary>
+    /// <param name="game">The game version to retrieve data for.</param>
+    /// <returns>The LearnSource for the specified game version.</returns>
     public static ILearnSource GetLearnSource(GameVersion game) => game switch
     {
         RD or GN or BU or RB => LearnSource1RB.Instance,
@@ -15,7 +28,7 @@ public static class GameData
         C or GSC => LearnSource2C.Instance,
 
         R or S or RS or RSE => LearnSource3RS.Instance,
-        E or COLO or XD or FRLG or CXD => LearnSource3E.Instance,
+        E or COLO or XD or FRLG or CXD or EFL => LearnSource3E.Instance,
         FR => LearnSource3FR.Instance,
         LG => LearnSource3LG.Instance,
 
@@ -51,11 +64,16 @@ public static class GameData
         Gen9 => LearnSource9SV.Instance,
 
         Stadium => LearnSource1YW.Instance,
-        Stadium2 => LearnSource2GS.Instance,
+        Stadium2 => LearnSource2Stadium.Instance,
 
         _ => throw new ArgumentOutOfRangeException(nameof(game), $"{game} is not a valid entry in the expression."),
     };
 
+    /// <summary>
+    /// Retrieves the personal table for the specified game version.
+    /// </summary>
+    /// <param name="game">The game version to retrieve data for.</param>
+    /// <returns>The Personal table of the specified game version.</returns>
     private static IPersonalTable Personal(GameVersion game) => game switch
     {
         RD or GN or BU or RB => PersonalTable.RB,
@@ -64,7 +82,7 @@ public static class GameData
         C or GSC => PersonalTable.C,
 
         R or S or RS or RSE => PersonalTable.RS,
-        E or COLO or XD or FRLG or CXD => PersonalTable.E,
+        E or COLO or XD or FRLG or CXD or EFL => PersonalTable.E,
         FR => PersonalTable.FR,
         LG => PersonalTable.LG,
 

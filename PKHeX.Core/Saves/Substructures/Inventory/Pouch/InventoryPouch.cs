@@ -33,7 +33,7 @@ public abstract class InventoryPouch
 
     protected InventoryPouch(InventoryType type, IItemStorage storage, int maxCount, int offset, int size = -1)
     {
-        Items = Array.Empty<InventoryItem>();
+        Items = [];
         Type = type;
         Info = storage;
         MaxCount = maxCount;
@@ -262,7 +262,7 @@ public abstract class InventoryPouch
             {
                 // Cap at absolute maximum
                 <= 2 when count > byte.MaxValue => byte.MaxValue,
-                >= 3 when count > ushort.MaxValue => ushort.MaxValue,
+                _ when count > ushort.MaxValue => ushort.MaxValue,
                 _ => count,
             };
             return true;
@@ -280,7 +280,8 @@ public abstract class InventoryPouch
             return false;
         }
 
-        count = GetSuggestedItemCount(sav, item, count);
+        if (count > 0)
+            count = GetSuggestedItemCount(sav, item, count);
         return true;
     }
 

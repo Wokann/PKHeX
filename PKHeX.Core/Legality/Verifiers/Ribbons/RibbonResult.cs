@@ -28,7 +28,7 @@ public readonly record struct RibbonResult
     public bool Equals(RibbonIndex4 index) => Type == Index4 && Value == (byte)index;
 
     /// <summary>
-    /// Property Name that the ribbon can be get/set with, or looked up for localization.
+    /// Property Name of the ribbon based on the source code's getters/setters, allowing lookup for localization.
     /// </summary>
     public string PropertyName => Type switch
     {
@@ -41,7 +41,7 @@ public readonly record struct RibbonResult
     /// <summary>
     /// Updates the ribbon state depending on the <see cref="args"/> and <see cref="IsMissing"/> state.
     /// </summary>
-    public void Fix(RibbonVerifierArguments args)
+    public void Fix(in RibbonVerifierArguments args)
     {
         switch (Type)
         {

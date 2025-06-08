@@ -20,7 +20,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
     /// </summary>
     public readonly IReadOnlyDictionary<ushort, Zukan8Index> DexLookup;
 
-    public Zukan8(SAV8SWSH sav, SCBlock galar, SCBlock rigel1, SCBlock rigel2) : base(sav, 0)
+    public Zukan8(SAV8SWSH sav, SCBlock galar, SCBlock rigel1, SCBlock rigel2) : base(sav, default)
     {
         Galar = galar;
         Rigel1 = rigel1;
@@ -41,7 +41,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         return 2;
     }
 
-    private byte[] GetDexBlock(Zukan8Type infoDexType) => infoDexType switch
+    private Span<byte> GetDexBlock(Zukan8Type infoDexType) => infoDexType switch
     {
         Zukan8Type.Galar => Galar.Data,
         Zukan8Type.Armor => Rigel1.Data,
@@ -49,8 +49,8 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         _ => throw new ArgumentOutOfRangeException(nameof(infoDexType), infoDexType, null),
     };
 
-    private static bool GetFlag(byte[] data, int baseOffset, int bitIndex) => FlagUtil.GetFlag(data, baseOffset + (bitIndex >> 3), bitIndex);
-    private static void SetFlag(byte[] data, int baseOffset, int bitIndex, bool value = true) => FlagUtil.SetFlag(data, baseOffset + (bitIndex >> 3), bitIndex, value);
+    private static bool GetFlag(ReadOnlySpan<byte> data, int baseOffset, int bitIndex) => FlagUtil.GetFlag(data, baseOffset + (bitIndex >> 3), bitIndex);
+    private static void SetFlag(Span<byte> data, int baseOffset, int bitIndex, bool value = true) => FlagUtil.SetFlag(data, baseOffset + (bitIndex >> 3), bitIndex, value);
 
     private static Dictionary<ushort, Zukan8Index> GetDexLookup(PersonalTable8SWSH pt, int dexRevision, int count)
     {
@@ -130,20 +130,6 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         _ => lang - 1,
     };
 
-#if DEBUG
-    public IList<string> GetEntryNames(IReadOnlyList<string> speciesNames)
-    {
-        var dex = new List<string>();
-        foreach (var (species, entry) in DexLookup)
-        {
-            var name = entry.GetEntryName(speciesNames, species);
-            dex.Add(name);
-        }
-        dex.Sort();
-        return dex;
-    }
-#endif
-
     #region Structure
 
     internal const int EntrySize = 0x30;
@@ -191,12 +177,12 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
 
     public bool GetSeen(Zukan8Index entry)
     {
-        byte[] data = GetDexBlock(entry.DexType);
+        var data = GetDexBlock(entry.DexType);
         int offset = entry.Offset;
         for (int i = 0; i < SeenRegionCount; i++)
         {
             var ofs = offset + (SeenRegionSize * i);
-            if (ReadUInt64LittleEndian(data.AsSpan(ofs)) != 0)
+            if (ReadUInt64LittleEndian(data[ofs..]) != 0)
                 return true;
         }
 
@@ -318,7 +304,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
     {
         var data = GetDexBlock(entry.DexType);
         var index = entry.Offset;
-        var value = ReadUInt32LittleEndian(data.AsSpan(index + OFS_CAUGHT));
+        var value = ReadUInt32LittleEndian(data[(index + OFS_CAUGHT)..]);
         return (value >> 15) & 0x1FFF; // (0x1FFF is really overkill, GameFreak)
     }
 
@@ -334,7 +320,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
     {
         var data = GetDexBlock(entry.DexType);
         var index = entry.Offset;
-        var span = data.AsSpan(index + OFS_CAUGHT);
+        var span = data[(index + OFS_CAUGHT)..];
         var current = ReadUInt32LittleEndian(span);
         uint update = (current & ~(0x1FFFu << 15)) | ((value & 0x1FFF) << 15);
         WriteUInt32LittleEndian(span, update);
@@ -352,7 +338,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
     {
         var data = GetDexBlock(entry.DexType);
         var index = entry.Offset;
-        var value = ReadUInt32LittleEndian(data.AsSpan(index + OFS_CAUGHT));
+        var value = ReadUInt32LittleEndian(data[(index + OFS_CAUGHT)..]);
         return (value >> 29) & 3;
     }
 
@@ -368,7 +354,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
     {
         var data = GetDexBlock(entry.DexType);
         var index = entry.Offset;
-        var span = data.AsSpan(index + OFS_CAUGHT);
+        var span = data[(index + OFS_CAUGHT)..];
         var current = ReadUInt32LittleEndian(span);
         uint update = (current & ~(3u << 29)) | ((value & 3) << 29);
         WriteUInt32LittleEndian(span, update);
@@ -446,7 +432,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         var dex = entry.DexType;
         var index = entry.Offset;
         var data = GetDexBlock(dex);
-        return ReadUInt32LittleEndian(data.AsSpan(index + ofs));
+        return ReadUInt32LittleEndian(data[(index + ofs)..]);
     }
 
     private void SetU32(ushort species, uint value, int ofs)
@@ -462,7 +448,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         var dex = entry.DexType;
         var index = entry.Offset;
         var data = GetDexBlock(dex);
-        WriteUInt32LittleEndian(data.AsSpan(index + ofs), value);
+        WriteUInt32LittleEndian(data[(index + ofs)..], value);
     }
 
     #endregion
@@ -514,9 +500,9 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
 
     public override void SeenNone()
     {
-        Array.Clear(Galar.Data, 0, Galar.Data.Length);
-        Array.Clear(Rigel1.Data, 0, Rigel1.Data.Length);
-        Array.Clear(Rigel2.Data, 0, Rigel2.Data.Length);
+        Galar .Data.Clear();
+        Rigel1.Data.Clear();
+        Rigel2.Data.Clear();
     }
 
     public override void CaughtNone()
@@ -610,7 +596,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
             if (shinyToo)
                 SetDisplayShiny(species);
 
-            SetGenderDisplayed(species, (uint)pi.RandomGender());
+            SetGenderDisplayed(species, pi.RandomGender());
         }
         else
         {
@@ -646,7 +632,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
                 SeenAll(species, i, value, pi, shinyToo);
         }
 
-        if (SpeciesWithGigantamaxData.Contains(species))
+        if (IsGigantamaxFormStored(species))
         {
             SeenAll(species, 63, value, pi, shinyToo);
             if (species == (int)Species.Urshifu)
@@ -675,7 +661,7 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
     private void ClearDexEntryAll(Zukan8Index entry)
     {
         var data = GetDexBlock(entry.DexType);
-        Array.Clear(data, entry.Offset, EntrySize);
+        data.Slice(entry.Offset, EntrySize).Clear();
     }
 
     public void SetAllBattledCount(uint count = 500)
@@ -687,41 +673,10 @@ public sealed class Zukan8 : ZukanBase<SAV8SWSH>
         }
     }
 
-    private static readonly HashSet<ushort> SpeciesWithGigantamaxData = new()
+    public static bool IsGigantamaxFormStored(ushort species)
     {
-        (int)Species.Charizard,
-        (int)Species.Butterfree,
-        (int)Species.Pikachu,
-        (int)Species.Meowth,
-        (int)Species.Machamp,
-        (int)Species.Gengar,
-        (int)Species.Kingler,
-        (int)Species.Lapras,
-        (int)Species.Eevee,
-        (int)Species.Snorlax,
-        (int)Species.Garbodor,
-        (int)Species.Corviknight,
-        (int)Species.Orbeetle,
-        (int)Species.Drednaw,
-        (int)Species.Coalossal,
-        (int)Species.Flapple,
-        (int)Species.Appletun,
-        (int)Species.Sandaconda,
-        (int)Species.Toxtricity,
-        (int)Species.Centiskorch,
-        (int)Species.Hatterene,
-        (int)Species.Grimmsnarl,
-        (int)Species.Alcremie,
-        (int)Species.Copperajah,
-        (int)Species.Duraludon,
-        (int)Species.Eternatus,
-
-        // DLC 1
-        (int)Species.Rillaboom,
-        (int)Species.Cinderace,
-        (int)Species.Inteleon,
-        (int)Species.Urshifu,
-    };
+        return Gigantamax.CanToggle(species) || species == (int)Species.Eternatus;
+    }
     #endregion
 }
 
@@ -749,30 +704,6 @@ public readonly record struct Zukan8Index(Zukan8Type DexType, ushort Index)
     private const int Rigel1Count = 211; // Count within Armor dex
     private const int Rigel2Count = 210; // Count within Crown dex
     public const int TotalCount = GalarCount + Rigel1Count + Rigel2Count;
-#if DEBUG
-    /// <summary>
-    /// Gets the <see cref="Zukan8Index"/> from the absolute (overall) dex index. Don't use this method unless you're analyzing things.
-    /// </summary>
-    /// <param name="index">Unique Pokédex index (incremental). Should be 0-indexed.</param>
-    public static Zukan8Index GetFromAbsoluteIndex(ushort index)
-    {
-        if (index > TotalCount)
-            return new Zukan8Index();
-
-        if (index < GalarCount)
-            return new Zukan8Index(Zukan8Type.Galar, ++index);
-        index -= GalarCount;
-
-        if (index < Rigel1Count)
-            return new Zukan8Index(Zukan8Type.Armor, ++index);
-        index -= Rigel1Count;
-
-        if (index < Rigel2Count)
-            return new Zukan8Index(Zukan8Type.Crown, ++index);
-
-        throw new ArgumentOutOfRangeException(nameof(index));
-    }
-#endif
 
     public string DexPrefix => DexType.GetZukanTypeInternalPrefix();
 

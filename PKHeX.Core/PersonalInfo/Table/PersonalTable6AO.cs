@@ -11,15 +11,15 @@ public sealed class PersonalTable6AO : IPersonalTable, IPersonalTable<PersonalIn
     private readonly PersonalInfo6AO[] Table;
     private const int SIZE = PersonalInfo6AO.SIZE;
     private const int MaxSpecies = Legal.MaxSpeciesID_6;
-    public int MaxSpeciesID => MaxSpecies;
+    public ushort MaxSpeciesID => MaxSpecies;
 
-    public PersonalTable6AO(ReadOnlySpan<byte> data)
+    public PersonalTable6AO(Memory<byte> data)
     {
         Table = new PersonalInfo6AO[data.Length / SIZE];
         var count = data.Length / SIZE;
         for (int i = 0, ofs = 0; i < count; i++, ofs += SIZE)
         {
-            var slice = data.Slice(ofs, SIZE).ToArray();
+            var slice = data.Slice(ofs, SIZE);
             Table[i] = new PersonalInfo6AO(slice);
         }
     }

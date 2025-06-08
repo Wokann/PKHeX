@@ -130,3 +130,72 @@ Zone Zéro
 
 Académie Orange
 Académie Raisin
+Route de Septentria
+
+Jaderaude
+
+Coteau Pommes
+
+Parc Adorami
+
+Sentier de la Liesse
+
+Septemplion
+
+Mont Strueux
+
+Antre Interdit
+Mont Strueux
+Gueule du Monstre
+Mont Strueux
+Mont Strueux
+
+Lac Cristallin
+Sommet du Mont Strueux
+Lac Cristallin
+Sommet du Mont Strueux
+Plaine des Glycines
+
+Rives du Confluent
+
+Gorge de la Corne
+
+Lande de la Quiétude
+
+Terres Vierges de Septentria
+
+Forêt Ternelle
+Terres Vierges de Septentria
+Val Infernal
+Mont Strueux
+Grotte Douche Froide
+
+Institut Myrtille
+
+Zone Savane
+
+Zone Côtière
+
+Zone Canyon
+
+Zone Polaire
+
+Poste Central
+
+Poste Savane
+
+Poste Côtier
+
+Poste Canyon
+
+Poste Polaire
+
+Caverne Électrolithe
+
+Dédale des Torches
+
+Abîme Zéro
+
+Abîme Zéro
+
+Terra-Dôme

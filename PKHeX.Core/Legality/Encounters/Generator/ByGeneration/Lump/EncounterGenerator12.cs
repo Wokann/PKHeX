@@ -9,6 +9,7 @@ namespace PKHeX.Core;
 public sealed class EncounterGenerator12 : IEncounterGenerator
 {
     public static readonly EncounterGenerator12 Instance = new();
+    public bool CanGenerateEggs => false;
 
     public IEnumerable<IEncounterable> GetEncounters(PKM pk, LegalInfo info)
     {
@@ -22,7 +23,7 @@ public sealed class EncounterGenerator12 : IEncounterGenerator
     private static IEnumerable<IEncounterable> GetEncounters(PKM pk)
     {
         // If the current data indicates that it must have originated from Crystal, only yield encounter data from Crystal.
-        bool crystal = pk is ICaughtData2 { CaughtData: not 0 } or { Format: >= 7, OT_Gender: 1 };
+        bool crystal = pk is ICaughtData2 { CaughtData: not 0 } or { Format: >= 7, OriginalTrainerGender: 1 };
         if (crystal)
             return EncounterGenerator2.Instance.GetEncounters(pk, GameVersion.C);
 
@@ -92,7 +93,7 @@ public sealed class EncounterGenerator12 : IEncounterGenerator
         EncounterTrade1 => GBEncounterPriority.TradeEncounterG1,
         EncounterTrade2 => GBEncounterPriority.TradeEncounterG2,
         EncounterSlot1 or EncounterSlot2 => GBEncounterPriority.WildEncounter,
-        EncounterEgg => GBEncounterPriority.EggEncounter,
+        EncounterEgg2 => GBEncounterPriority.EggEncounter,
         _ => GBEncounterPriority.StaticEncounter,
     };
 

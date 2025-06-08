@@ -15,8 +15,7 @@ public sealed class SlotHoverHandler : IDisposable
     public DrawConfig Draw { private get; set; } = new();
     public bool GlowHover { private get; set; } = true;
 
-    public static readonly CryPlayer CryPlayer = new();
-    public static readonly SummaryPreviewer Preview = new();
+    private readonly SummaryPreviewer Preview = new();
     private static Bitmap Hover => SpriteUtil.Spriter.Hover;
 
     private readonly BitmapAnimator HoverWorker = new();
@@ -27,7 +26,7 @@ public sealed class SlotHoverHandler : IDisposable
     public void Start(PictureBox pb, SlotTrackerImage lastSlot)
     {
         var view = WinFormsUtil.FindFirstControlOfType<ISlotViewer<PictureBox>>(pb);
-        if (view == null)
+        if (view is null)
             throw new InvalidCastException(nameof(view));
         var data = view.GetSlotData(pb);
         var pk = data.Read(view.SAV);
@@ -53,7 +52,7 @@ public sealed class SlotHoverHandler : IDisposable
             bg = Hover;
         }
 
-        if (orig != null)
+        if (orig is not null)
             bg = ImageUtil.LayerImage(orig, bg, 0, 0);
         pb.BackgroundImage = LastSlot.CurrentBackground = bg;
 
@@ -62,7 +61,7 @@ public sealed class SlotHoverHandler : IDisposable
 
     public void Stop()
     {
-        if (Slot != null)
+        if (Slot is not null)
         {
             if (HoverWorker.Enabled)
                 HoverWorker.Stop();
@@ -79,5 +78,10 @@ public sealed class SlotHoverHandler : IDisposable
         HoverWorker.Dispose();
         Slot = null;
         Draw.Dispose();
+    }
+
+    public void UpdateMousePosition(Point location)
+    {
+        Preview.UpdatePreviewPosition(location);
     }
 }

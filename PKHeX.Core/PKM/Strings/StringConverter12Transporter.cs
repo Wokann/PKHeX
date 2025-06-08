@@ -66,10 +66,7 @@ public static class StringConverter12Transporter
     /// <summary>
     /// Checks if any char is from the clashing Katakana range.
     /// </summary>
-    private static bool IsAnyKataRemap(ReadOnlySpan<char> chars)
-    {
-        return chars.IndexOfAny(Katakana) != -1;
-    }
+    private static bool IsAnyKataRemap(ReadOnlySpan<char> chars) => chars.ContainsAny(Katakana);
 
     private static bool IsAnyKataOnly(ReadOnlySpan<char> chars)
     {
@@ -97,8 +94,8 @@ public static class StringConverter12Transporter
     /// <br>0xCD at arr[0xC9] = Í (Spanish In-game Trade Shuckle, MANÍA)</br>
     /// <br>All other new language sensitive re-mapping (or lack thereof) are inaccessible via the character entry screen.</br>
     /// </remarks>
-    private static ReadOnlySpan<ushort> CharTableINT => new ushort[]
-    {
+    private static ReadOnlySpan<ushort> CharTableINT =>
+    [
         0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, // 0
         0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, // 1
         0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, // 2
@@ -115,13 +112,14 @@ public static class StringConverter12Transporter
         0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, // D
         0x0020, 0x0050, 0x004D, 0x002D, 0x0020, 0x0020, 0x003F, 0x0021, 0x002D, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0xE08E, // E
         0x0020, 0x0078, 0x002E, 0x002F, 0x002C, 0xE08F, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, 0x0020, // F
-    };
+    ];
 
     /// <summary>
     /// Japanese 1/2->7 character translation table
     /// </summary>
-    private static ReadOnlySpan<ushort> CharTableJPN => new ushort[]
-    {
+    /// <remarks>Full-width 0-9 removed from the Japanese table as these glyphs are inaccessible via the character entry screen.</remarks>
+    private static ReadOnlySpan<ushort> CharTableJPN =>
+    [
         0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x30AC, 0x30AE, 0x30B0, 0x30B2, 0x30B4, 0x30B6, 0x30B8, 0x30BA, 0x30BC, 0x30BE, 0x30C0, // 0
         0x30C2, 0x30C5, 0x30C7, 0x30C9, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x30D0, 0x30D3, 0x30D6, 0x30DC, 0x3000, 0x3000, 0x3000, // 1
         0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x304C, 0x304E, 0x3050, 0x3052, 0x3054, 0x3056, 0x3058, 0x305A, 0x305C, 0x305E, // 2
@@ -138,5 +136,100 @@ public static class StringConverter12Transporter
         0x307F, 0x3080, 0x3081, 0x3082, 0x3084, 0x3086, 0x3088, 0x3089, 0x30EA, 0x308B, 0x308C, 0x308D, 0x308F, 0x3092, 0x3093, 0x3063, // D
         0x3083, 0x3085, 0x3087, 0x30FC, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x30A1, 0x30A5, 0x30A7, 0x3000, 0x3000, 0x3000, 0x2642, // E
         0x3000, 0x3000, 0x3000, 0x3000, 0x30A9, 0x2640, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, 0x3000, // F
+    ];
+
+    /// <summary>
+    /// Gets the Trainer Name for a Generation 1 in-game trade (NPC).
+    /// </summary>
+    /// <param name="language">Language to localize with</param>
+    public static string GetTradeNameGen1(int language) => language switch
+    {
+        1 => "トレーナー",
+        2 => "Trainer",
+        3 => "Dresseur",
+        4 => "Allenatore",
+        5 => "Trainer",
+        7 => "Entrenador",
+      //8 => "트레이너",
+      //9 => "训练家",
+      //10 => "訓練家",
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// Gets a "safe" Trainer Name for a Generation 1 or 2 trainer, in the event the original was naughty.
+    /// </summary>
+    /// <param name="language">Language to localize with</param>
+    /// <param name="version">Version transferred from to Bank</param>
+    public static string GetFilteredOT(int language, GameVersion version) => version switch
+    {
+        GameVersion.RD => language switch
+        {
+            1 => "レッド．",
+            2 => "Red*",
+            3 => "Rouge*",
+            4 => "Rosso*",
+            5 => "Rot*",
+            7 => "Rojo*",
+            _ => string.Empty,
+        },
+        GameVersion.GN => language switch
+        {
+            1 => "グリーン．",
+            2 => "Blue*",
+            3 => "Bleu*",
+            4 => "Blu*",
+            5 => "Blau*",
+            7 => "Azul*",
+            _ => string.Empty,
+        },
+        GameVersion.BU => language switch
+        {
+            1 => "ブルー．",
+            _ => string.Empty,
+        },
+        GameVersion.YW => language switch
+        {
+            1 => "イエロー．",
+            2 => "Yellow*",
+            3 => "Jaune*",
+            4 => "Giallo*",
+            5 => "Gelb*",
+            7 => "Amarillo*",
+            _ => string.Empty,
+        },
+        GameVersion.GD => language switch
+        {
+            1 => "ゴールド．",
+            2 => "Gold*",
+            3 => "Or*",
+            4 => "Oro*",
+            5 => "Gold*",
+            7 => "Oro*",
+            8 => "금.",
+            _ => string.Empty,
+        },
+        GameVersion.SI => language switch
+        {
+            1 => "シルバー．",
+            2 => "Silver*",
+            3 => "Argent*",
+            4 => "Argento*",
+            5 => "Silber*",
+            7 => "Plata*",
+            8 => "은.",
+            _ => string.Empty,
+        },
+        GameVersion.C => language switch
+        {
+            1 => "クリスタル．",
+            2 => "Crystal*",
+            3 => "Cristal*",
+            4 => "Cristallo*",
+            5 => "Kristall*",
+            7 => "Cristal*",
+            _ => string.Empty,
+        },
+        _ => string.Empty,
     };
 }

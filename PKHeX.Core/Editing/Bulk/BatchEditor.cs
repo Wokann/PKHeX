@@ -34,10 +34,14 @@ public sealed class BatchEditor
         }
 
         var result = BatchEditing.TryModifyPKM(pk, filters, modifications);
-        if (result != ModifyResult.Invalid)
+        if (result != ModifyResult.Skipped)
             Iterated++;
-        if (result == ModifyResult.Error)
+        if (result.HasFlag(ModifyResult.Error))
+        {
             Failed++;
+            // Still need to fix checksum if another modification was successful.
+            result &= ~ModifyResult.Error;
+        }
         if (result != ModifyResult.Modified)
             return false;
 
@@ -69,7 +73,7 @@ public sealed class BatchEditor
     /// </summary>
     /// <param name="lines">Batch instruction line(s)</param>
     /// <param name="data">Entities to modify</param>
-    /// <returns>Editor object if follow up modifications are desired.</returns>
+    /// <returns>Editor object if follow-up modifications are desired.</returns>
     public static BatchEditor Execute(ReadOnlySpan<string> lines, IEnumerable<PKM> data)
     {
         var editor = new BatchEditor();

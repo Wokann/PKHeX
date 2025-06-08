@@ -11,7 +11,7 @@ public partial class SAV_Trainer : Form
     private readonly SaveFile Origin;
     private readonly SAV6 SAV;
 
-    public SAV_Trainer(SaveFile sav)
+    public SAV_Trainer(SAV6 sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
@@ -23,7 +23,7 @@ public partial class SAV_Trainer : Form
                 TB_TRNick.Font = TB_OTName.Font;
         }
 
-        B_MaxCash.Click += (sender, e) => MT_Money.Text = "9,999,999";
+        B_MaxCash.Click += (_, _) => MT_Money.Text = "9,999,999";
 
         CB_Gender.Items.Clear();
         CB_Gender.Items.AddRange(Main.GenderSymbols.Take(2).ToArray()); // m/f depending on unicode selection
@@ -31,15 +31,15 @@ public partial class SAV_Trainer : Form
         TrainerStats.LoadRecords(SAV, RecordLists.RecordList_6);
         TrainerStats.GetToolTipText = UpdateTip;
 
-        MaisonRecords = new[]
-        {
+        MaisonRecords =
+        [
             TB_MCSN,TB_MCSS,TB_MBSN,TB_MBSS,
             TB_MCDN,TB_MCDS,TB_MBDN,TB_MBDS,
             TB_MCTN,TB_MCTS,TB_MBTN,TB_MBTS,
             TB_MCRN,TB_MCRS,TB_MBRN,TB_MBRS,
             TB_MCMN,TB_MCMS,TB_MBMN,TB_MBMS,
-        };
-        cba = new[] { CHK_Badge1, CHK_Badge2, CHK_Badge3, CHK_Badge4, CHK_Badge5, CHK_Badge6, CHK_Badge7, CHK_Badge8 };
+        ];
+        cba = [CHK_Badge1, CHK_Badge2, CHK_Badge3, CHK_Badge4, CHK_Badge5, CHK_Badge6, CHK_Badge7, CHK_Badge8];
 
         L_MultiplayerSprite.Enabled = CB_MultiplayerSprite.Enabled =
             L_MultiplayerSprite.Visible = CB_MultiplayerSprite.Visible = PB_Sprite.Visible = SAV is not SAV6AODemo;
@@ -81,13 +81,12 @@ public partial class SAV_Trainer : Form
         CB_Region.InitializeBinding();
         Main.SetCountrySubRegion(CB_Country, "countries");
 
-        var names = Enum.GetNames(typeof(TrainerSprite6));
-        var values = (int[])Enum.GetValues(typeof(TrainerSprite6));
-        var data = names.Zip(values, (a, b) => new ComboItem(a, b))
-            .ToList();
-        if (SAV is not SAV6AO)
-            data.RemoveAll(z => z.Value > 36);
-
+        var names = WinFormsTranslator.GetEnumTranslation<TrainerSprite6>(Main.CurrentLanguage);
+        var values = Enum.GetValues<TrainerSprite6>();
+        var max = SAV is not SAV6AO ? (int)TrainerSprite6.Trevor : names.Length;
+        var data = new ComboItem[max];
+        for (int i = 0; i < max; i++)
+            data[i] = new ComboItem(names[i], (int)values[i]);
         CB_MultiplayerSprite.InitializeBinding();
         CB_MultiplayerSprite.DataSource = data;
 
@@ -105,7 +104,7 @@ public partial class SAV_Trainer : Form
         // Get Data
         string OT_NAME = SAV.OT;
 
-        CB_Game.SelectedIndex = SAV.Game - 0x18;
+        CB_Game.SelectedIndex = (int)(SAV.Version - 0x18);
         CB_Gender.SelectedIndex = SAV.Gender;
 
         // Display Data
@@ -136,22 +135,15 @@ public partial class SAV_Trainer : Form
 
         var sit = SAV.Situation;
         NUD_M.Value = sit.M;
+        NUD_R.Value = sit.R;
         // Sanity Check Map Coordinates
-        if (!GB_Map.Enabled || sit.X % 0.5 != 0 || sit.Z % 0.5 != 0 || sit.Y % 0.5 != 0)
+        try
         {
-            GB_Map.Enabled = false;
+            NUD_X.Value = (decimal)(sit.X / 18.0);
+            NUD_Z.Value = (decimal)(sit.Z / 18.0);
+            NUD_Y.Value = (decimal)(sit.Y / 18.0);
         }
-        else
-        {
-            try
-            {
-                NUD_X.Value = (decimal)sit.X;
-                NUD_Z.Value = (decimal)sit.Z;
-                NUD_Y.Value = (decimal)sit.Y;
-            }
-            // If we can't accurately represent the coordinates, don't allow them to be changed.
-            catch { GB_Map.Enabled = false; }
-        }
+        catch { GB_Map.Enabled = false; }
 
         // Load BP and PokeMiles
         TB_BP.Text = SAV.BP.ToString();
@@ -173,7 +165,7 @@ public partial class SAV_Trainer : Form
         {
             var xystat = (MyStatus6XY)xy.Status;
             PG_CurrentAppearance.SelectedObject = xystat.Fashion;
-            TB_TRNick.Text = xystat.OT_Nick;
+            TB_TRNick.Text = xystat.Nickname;
         }
 
         CB_Vivillon.SelectedIndex = SAV.Vivillon;
@@ -198,8 +190,9 @@ public partial class SAV_Trainer : Form
 
     private void Save()
     {
-        SAV.Game = (byte)(CB_Game.SelectedIndex + 0x18);
+        SAV.Version = (GameVersion)(CB_Game.SelectedIndex + 0x18);
         SAV.Gender = (byte)CB_Gender.SelectedIndex;
+        SAV.Overworld.ResetPlayerModel();
 
         SAV.TID16 = (ushort)Util.ToUInt32(MT_TID.Text);
         SAV.SID16 = (ushort)Util.ToUInt32(MT_SID.Text);
@@ -230,9 +223,10 @@ public partial class SAV_Trainer : Form
         if (GB_Map.Enabled && MapUpdated)
         {
             sit.M = (int)NUD_M.Value;
-            sit.X = (float)NUD_X.Value;
-            sit.Z = (float)NUD_Z.Value;
-            sit.Y = (float)NUD_Y.Value;
+            sit.X = (float)(NUD_X.Value * 18);
+            sit.Z = (float)(NUD_Z.Value * 18);
+            sit.Y = (float)(NUD_Y.Value * 18);
+            sit.R = (int)NUD_R.Value;
         }
 
         SAV.BP = ushort.Parse(TB_BP.Text);
@@ -255,14 +249,14 @@ public partial class SAV_Trainer : Form
 
         // Sprite
         if (SAV is IMultiplayerSprite ms)
-            ms.MultiplayerSpriteID = Convert.ToByte(CB_MultiplayerSprite.SelectedValue);
+            ms.MultiplayerSpriteID = (byte)WinFormsUtil.GetIndex(CB_MultiplayerSprite);
 
         // Appearance
         if (SAV is SAV6XY xy)
         {
             var xystat = (MyStatus6XY)xy.Status;
-            xystat.Fashion = (TrainerFashion6)PG_CurrentAppearance.SelectedObject;
-            xystat.OT_Nick = TB_TRNick.Text;
+            xystat.Fashion = (TrainerFashion6)PG_CurrentAppearance.SelectedObject!;
+            xystat.Nickname = TB_TRNick.Text;
         }
 
         // Vivillon
@@ -285,7 +279,7 @@ public partial class SAV_Trainer : Form
         if (ModifierKeys != Keys.Control)
             return;
 
-        var d = new TrashEditor(tb, SAV);
+        var d = new TrashEditor(tb, SAV, SAV.Generation, SAV.Context);
         d.ShowDialog();
         tb.Text = d.FinalString;
     }
@@ -314,8 +308,10 @@ public partial class SAV_Trainer : Form
     private void Change255(object sender, EventArgs e)
     {
         MaskedTextBox box = (MaskedTextBox)sender;
-        if (box.Text.Length == 0) box.Text = "0";
-        if (Util.ToInt32(box.Text) > 255) box.Text = "255";
+        if (box.Text.Length == 0)
+            box.Text = "0";
+        else if (Util.ToInt32(box.Text) > 255)
+            box.Text = "255";
     }
 
     private void ChangeFFFF(object sender, EventArgs e)
@@ -330,7 +326,10 @@ public partial class SAV_Trainer : Form
     private void GiveAllAccessories(object sender, EventArgs e)
     {
         if (SAV is SAV6XY xy)
+        {
             xy.Blocks.Fashion.UnlockAllAccessories();
+            System.Media.SystemSounds.Asterisk.Play();
+        }
     }
 
     private void UpdateCountry(object sender, EventArgs e)

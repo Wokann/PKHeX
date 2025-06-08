@@ -6,11 +6,11 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 8 <see cref="SaveFile"/> object for <see cref="GameVersion.SWSH"/> games.
 /// </summary>
-public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, ISaveFileRevision, ISCBlockArray
+public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, ISaveFileRevision, ISCBlockArray, IBoxDetailName, IBoxDetailWallpaper
 {
     public SAV8SWSH(byte[] data) : this(SwishCrypto.Decrypt(data)) { }
 
-    private SAV8SWSH(IReadOnlyList<SCBlock> blocks) : base(Array.Empty<byte>())
+    private SAV8SWSH(IReadOnlyList<SCBlock> blocks) : base([])
     {
         AllBlocks = blocks;
         Blocks = new SaveBlockAccessor8SWSH(this);
@@ -20,7 +20,7 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
 
     public SAV8SWSH()
     {
-        AllBlocks = Meta8.GetBlankDataSWSH();
+        AllBlocks = BlankBlocks8.GetBlankBlocks();
         Blocks = new SaveBlockAccessor8SWSH(this);
         SaveRevision = Zukan.GetRevision();
         Initialize();
@@ -66,16 +66,17 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
     public Party8 PartyInfo => Blocks.PartyInfo;
     public MyItem8 Items => Blocks.Items;
     public MyStatus8 MyStatus => Blocks.MyStatus;
+    public Coordinates8 Coordinates => Blocks.Coordinates;
     public Misc8 Misc => Blocks.Misc;
     public Zukan8 Zukan => Blocks.Zukan;
     public BoxLayout8 BoxLayout => Blocks.BoxLayout;
-    public PlayTime8 Played => Blocks.Played;
+    public PlayTime7b Played => Blocks.Played;
     public Fused8 Fused => Blocks.Fused;
     public Daycare8 Daycare => Blocks.Daycare;
     public Record8 Records => Blocks.Records;
     public TrainerCard8 TrainerCard => Blocks.TrainerCard;
     public FashionUnlock8 Fashion => Blocks.Fashion;
-    public RaidSpawnList8 Raid => Blocks.Raid;
+    public RaidSpawnList8 RaidGalar => Blocks.RaidGalar;
     public RaidSpawnList8 RaidArmor => Blocks.RaidArmor;
     public RaidSpawnList8 RaidCrown => Blocks.RaidCrown;
     public TitleScreen8 TitleScreen => Blocks.TitleScreen;
@@ -95,49 +96,29 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
     public override ushort MaxSpeciesID => m_spec;
     public override int MaxItemID => m_item;
     public override int MaxBallID => Legal.MaxBallID_8;
-    public override int MaxGameID => Legal.MaxGameID_8;
+    public override GameVersion MaxGameID => Legal.MaxGameID_8;
     public override int MaxAbilityID => m_abil;
 
+    public override bool HasPokeDex => true;
     private void Initialize()
     {
         Box = 0;
         Party = 0;
-        PokeDex = 0;
         TeamIndexes.LoadBattleTeams();
 
-        int rev = SaveRevision;
-        if (rev == 0)
+        (m_move, m_spec, m_item, m_abil) = SaveRevision switch
         {
-            m_move = Legal.MaxMoveID_8_O0;
-            m_spec = Legal.MaxSpeciesID_8_O0;
-            m_item = Legal.MaxItemID_8_O0;
-            m_abil = Legal.MaxAbilityID_8_O0;
-        }
-        else if (rev == 1)
-        {
-            m_move = Legal.MaxMoveID_8_R1;
-            m_spec = Legal.MaxSpeciesID_8_R1;
-            m_item = Legal.MaxItemID_8_R1;
-            m_abil = Legal.MaxAbilityID_8_R1;
-        }
-        else
-        {
-            m_move = Legal.MaxMoveID_8_R2;
-            m_spec = Legal.MaxSpeciesID_8_R2;
-            m_item = Legal.MaxItemID_8_R2;
-            m_abil = Legal.MaxAbilityID_8_R2;
-        }
+            0 => (Legal.MaxMoveID_8_O0, Legal.MaxSpeciesID_8_O0, Legal.MaxItemID_8_O0, Legal.MaxAbilityID_8_O0),
+            1 => (Legal.MaxMoveID_8_R1, Legal.MaxSpeciesID_8_R1, Legal.MaxItemID_8_R1, Legal.MaxAbilityID_8_R1),
+            2 => (Legal.MaxMoveID_8_R2, Legal.MaxSpeciesID_8_R2, Legal.MaxItemID_8_R2, Legal.MaxAbilityID_8_R2),
+            _ => throw new ArgumentOutOfRangeException(nameof(SaveRevision)),
+        };
     }
 
     // Save Data Attributes
     protected internal override string ShortSummary => $"{OT} ({Version}) - {Played.LastSavedTime}";
     public override string Extension => string.Empty;
-
-    public override IReadOnlyList<string> PKMExtensions => Array.FindAll(PKM.Extensions, f =>
-    {
-        int gen = f[^1] - 0x30;
-        return gen <= 8;
-    });
+    public override IReadOnlyList<string> PKMExtensions => EntityFileExtension.GetExtensionsHOME();
 
     // Configuration
     protected override int SIZE_STORED => PokeCrypto.SIZE_8STORED;
@@ -147,22 +128,20 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
     public override Type PKMType => typeof(PK8);
 
     public override int BoxCount => BoxLayout8.BoxCount;
-    public override int MaxEV => 252;
-    public override int Generation => 8;
+    public override int MaxEV => EffortValues.Max252;
+    public override byte Generation => 8;
     public override EntityContext Context => EntityContext.Gen8;
-    public override int MaxStringLengthOT => 12;
+    public override int MaxStringLengthTrainer => 12;
     public override int MaxStringLengthNickname => 12;
     protected override PK8 GetPKM(byte[] data) => new(data);
     protected override byte[] DecryptPKM(byte[] data) => PokeCrypto.DecryptArray8(data);
 
-    public override GameVersion Version => Game switch
-    {
-        (int)GameVersion.SW => GameVersion.SW,
-        (int)GameVersion.SH => GameVersion.SH,
-        _ => GameVersion.Invalid,
-    };
+    public override bool IsVersionValid() => Version is GameVersion.SW or GameVersion.SH;
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter8.GetString(data);
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter8.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter8.LoadString(data, destBuffer);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
         => StringConverter8.SetString(destBuffer, value, maxLength, option);
 
@@ -170,8 +149,8 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
     public override uint ID32 { get => MyStatus.ID32; set => MyStatus.ID32 = value; }
     public override ushort TID16 { get => MyStatus.TID16; set => MyStatus.TID16 = value; }
     public override ushort SID16 { get => MyStatus.SID16; set => MyStatus.SID16 = value; }
-    public override int Game { get => MyStatus.Game; set => MyStatus.Game = value; }
-    public override int Gender { get => MyStatus.Gender; set => MyStatus.Gender = value; }
+    public override GameVersion Version { get => (GameVersion)MyStatus.Game; set => MyStatus.Game = (byte)value; }
+    public override byte Gender { get => MyStatus.Gender; set => MyStatus.Gender = value; }
     public override int Language { get => MyStatus.Language; set => MyStatus.Language = value; }
     public override string OT { get => MyStatus.OT; set => MyStatus.OT = value; }
     public override uint Money { get => Misc.Money; set => Misc.Money = value; }
@@ -187,16 +166,15 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
     // Storage
     public override int GetPartyOffset(int slot) => Party + (SIZE_PARTY * slot);
     public override int GetBoxOffset(int box) => Box + (SIZE_PARTY * box * 30);
-    public override string GetBoxName(int box) => BoxLayout[box];
-    public override void SetBoxName(int box, ReadOnlySpan<char> value) => BoxLayout.SetBoxName(box, value);
+    public string GetBoxName(int box) => BoxLayout[box];
+    public void SetBoxName(int box, ReadOnlySpan<char> value) => BoxLayout.SetBoxName(box, value);
     public override byte[] GetDataForBox(PKM pk) => pk.EncryptedPartyData;
 
     protected override void SetPKM(PKM pk, bool isParty = false)
     {
         PK8 pk8 = (PK8)pk;
         // Apply to this Save File
-        DateTime Date = DateTime.Now;
-        pk8.Trade(this, Date.Day, Date.Month, Date.Year);
+        pk8.UpdateHandler(this);
 
         if (FormArgumentUtil.IsFormArgumentTypeDatePair(pk8.Species, pk8.Form))
         {
@@ -205,8 +183,9 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
         }
 
         pk8.RefreshChecksum();
-        AddCountAcquired(pk8);
     }
+
+    protected override void SetRecord(PKM pk) => AddCountAcquired(pk);
 
     private static uint GetFormArgument(PKM pk)
     {
@@ -250,7 +229,7 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
     protected override Span<byte> BoxBuffer => BoxInfo.Data;
     protected override Span<byte> PartyBuffer => PartyInfo.Data;
     public override PK8 GetDecryptedPKM(byte[] data) => GetPKM(DecryptPKM(data));
-    public override PK8 GetBoxSlot(int offset) => GetDecryptedPKM(BoxInfo.Data.AsSpan(offset, SIZE_PARTY).ToArray()); // party format in boxes!
+    public override PK8 GetBoxSlot(int offset) => GetDecryptedPKM(BoxInfo.Data.Slice(offset, SIZE_PARTY).ToArray()); // party format in boxes!
 
     public int GetRecord(int recordID) => Records.GetRecord(recordID);
     public void SetRecord(int recordID, int value) => Records.SetRecord(recordID, value);
@@ -258,7 +237,7 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
     public int GetRecordOffset(int recordID) => Records.GetRecordOffset(recordID);
     public int RecordCount => Record8.RecordCount;
 
-    public override StorageSlotSource GetSlotFlags(int index)
+    public override StorageSlotSource GetBoxSlotFlags(int index)
     {
         int team = Array.IndexOf(TeamIndexes.TeamSlots, index);
         if (team < 0)
@@ -276,7 +255,10 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
 
     public override byte[] BoxFlags
     {
-        get => new [] {(byte)(Blocks.GetBlock(SaveBlockAccessor8SWSH.KSecretBoxUnlocked).Type - 1)};
+        get =>
+        [
+            (byte)(Blocks.GetBlock(SaveBlockAccessor8SWSH.KSecretBoxUnlocked).Type - 1),
+        ];
         set
         {
             if (value.Length != 1)
@@ -286,10 +268,7 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
         }
     }
 
-    public override bool HasBoxWallpapers => true;
-    public override bool HasNamableBoxes => true;
-
-    public override int GetBoxWallpaper(int box)
+    public int GetBoxWallpaper(int box)
     {
         if ((uint)box >= BoxCount)
             return box;
@@ -297,7 +276,7 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
         return b.Data[box];
     }
 
-    public override void SetBoxWallpaper(int box, int value)
+    public void SetBoxWallpaper(int box, int value)
     {
         if ((uint)box >= BoxCount)
             return;
@@ -312,7 +291,7 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
 
         // Zone specific values
         (int Zone, int Max)[] zones =
-        {
+        [
             (0201, 16), // Fields of Honor
             (0202, 18), // Soothing Wetlands
             (0203, 6), // Forest of Focus
@@ -329,7 +308,7 @@ public sealed class SAV8SWSH : SaveFile, ISaveBlock8SWSH, ITrainerStatRecord, IS
             (0223, 3), // Insular Sea
             (0224, 1), // Honeycalm Sea
             (0231, 9), // Honeycalm Island
-        };
+        ];
         var s = Blocks;
         foreach (var (zone, max) in zones)
         {

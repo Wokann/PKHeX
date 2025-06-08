@@ -22,7 +22,7 @@ public static class GanbaruExtensions
     /// </summary>
     public const byte TrueMax = 10;
 
-    private static ReadOnlySpan<byte> GanbaruMultiplier => new byte[] { 0, 2, 3, 4, 7, 8, 9, 14, 15, 16, 25 };
+    private static ReadOnlySpan<byte> GanbaruMultiplier => [ 0, 2, 3, 4, 7, 8, 9, 14, 15, 16, 25 ];
 
     /// <summary>
     /// Gets the max possible value that can be legally stored for the specific stat <see cref="index"/>.
@@ -136,6 +136,23 @@ public static class GanbaruExtensions
         5 => pk.GV_SPD,
         _ => throw new ArgumentOutOfRangeException(nameof(index), index, "Index must be between 0 and 5."),
     };
+
+    /// <summary>
+    /// Loads the <see cref="IGanbaru"/> values and stores them in the provided <see cref="Span{T}"/>.
+    /// </summary>
+    /// <param name="pk">Pokémon to check.</param>
+    /// <param name="value">Span to store values in.</param>
+    public static void GetGVs(this IGanbaru pk, Span<byte> value)
+    {
+        if (value.Length != 6)
+            return;
+        value[0] = pk.GV_HP;
+        value[1] = pk.GV_ATK;
+        value[2] = pk.GV_DEF;
+        value[3] = pk.GV_SPE;
+        value[4] = pk.GV_SPA;
+        value[5] = pk.GV_SPD;
+    }
 
     /// <summary>
     /// Checks if any of the <see cref="IGanbaru"/> values are below a reference's minimum value.

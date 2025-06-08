@@ -1,394 +1,204 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-
-using static PKHeX.Core.EncounterStateUtil;
-using static PKHeX.Core.EncounterTypeGroup;
-using static PKHeX.Core.EncounterMatchRating;
+using System.Diagnostics.CodeAnalysis;
+using static PKHeX.Core.RandomCorrelationRating;
 
 namespace PKHeX.Core;
 
 public sealed class EncounterGenerator4 : IEncounterGenerator
 {
     public static readonly EncounterGenerator4 Instance = new();
+    public bool CanGenerateEggs => true;
 
     // Utility
-    private static readonly PGT RangerManaphy = new() { Data = { [0] = 7, [8] = 1 } };
+    internal static readonly PGT RangerManaphy = new() { Data = { [0] = 7, [8] = 1 } };
 
     public IEnumerable<IEncounterable> GetEncounters(PKM pk, LegalInfo info)
     {
-        var chain = EncounterOrigin.GetOriginChain(pk);
-       return GetEncounters(pk, chain, info);
+        var chain = EncounterOrigin.GetOriginChain(pk, 4);
+        if (chain.Length == 0)
+            return [];
+        return GetEncounters(pk, chain, info);
     }
 
-    public IEnumerable<IEncounterable> GetPossible(PKM _, EvoCriteria[] chain, GameVersion game, EncounterTypeGroup groups)
+    public IEnumerable<IEncounterable> GetPossible(PKM pk, EvoCriteria[] chain, GameVersion game, EncounterTypeGroup groups)
     {
-        if (groups.HasFlag(Mystery))
-        {
-            if (chain[^1].Species == (int)Species.Manaphy)
-                yield return RangerManaphy;
-
-            var table = EncounterEvent.MGDB_G4;
-            foreach (var enc in GetPossibleGifts(chain, table, game))
-                yield return enc;
-        }
-        if (groups.HasFlag(Egg))
-        {
-            var eggs = GetEggs(chain, game);
-            foreach (var enc in eggs)
-                yield return enc;
-        }
-        if (groups.HasFlag(Static))
-        {
-            var table = GetStatic(game);
-            foreach (var enc in GetPossibleStatic(chain, table))
-                yield return enc;
-        }
-        if (groups.HasFlag(Slot))
-        {
-            var areas = GetAreas(game);
-            foreach (var enc in GetPossibleSlots(chain, areas))
-                yield return enc;
-        }
-        if (groups.HasFlag(Trade))
-        {
-            var table = GetTrades(game);
-            foreach (var enc in GetPossibleTrades(chain, table))
-                yield return enc;
-        }
+        var iterator = new EncounterPossible4(chain, groups, game, pk);
+        foreach (var enc in iterator)
+            yield return enc;
     }
 
-    private static IEnumerable<IEncounterable> GetPossibleGifts(EvoCriteria[] chain, IReadOnlyList<PCD> table, GameVersion game)
+    private enum DeferralType
     {
-        foreach (var enc in table)
-        {
-            if (!enc.CanBeReceivedByVersion((int)game))
-                continue;
-            foreach (var evo in chain)
-            {
-                if (evo.Species != enc.Species)
-                    continue;
-                yield return enc;
-                break;
-            }
-        }
+        // Legal
+        None,
+        PIDIVDefer,
+
+        // Illegal
+        PIDIV,
+        Tile,
+        Ball,
+        SlotNumber,
     }
 
-    private static IEnumerable<IEncounterable> GetPossibleStatic(EvoCriteria[] chain, EncounterStatic[] table)
+    private struct Deferral
     {
-        foreach (var enc in table)
-        {
-            foreach (var evo in chain)
-            {
-                if (evo.Species != enc.Species)
-                    continue;
-                yield return enc;
-                break;
-            }
-        }
-    }
+        public DeferralType Type;
+        public IEncounterable? Encounter;
 
-    private static IEnumerable<IEncounterable> GetPossibleSlots(EvoCriteria[] chain, EncounterArea4[] areas)
-    {
-        foreach (var area in areas)
+        public void Update(DeferralType type, IEncounterable enc)
         {
-            foreach (var slot in area.Slots)
-            {
-                foreach (var evo in chain)
-                {
-                    if (evo.Species != slot.Species)
-                        continue;
-                    yield return slot;
-                    break;
-                }
-            }
-        }
-    }
-
-    private static IEnumerable<IEncounterable> GetPossibleTrades(EvoCriteria[] chain, EncounterTrade[] table)
-    {
-        foreach (var enc in table)
-        {
-            foreach (var evo in chain)
-            {
-                if (evo.Species != enc.Species)
-                    continue;
-                yield return enc;
-                break;
-            }
+            if (Type >= type)
+                return;
+            Type = type;
+            Encounter = enc;
         }
     }
 
     public IEnumerable<IEncounterable> GetEncounters(PKM pk, EvoCriteria[] chain, LegalInfo info)
     {
         info.PIDIV = MethodFinder.Analyze(pk);
-        var deferredPIDIV = new List<IEncounterable>();
-        var deferredEType = new List<IEncounterable>();
+        var game = pk.Version;
+        var iterator = new EncounterEnumerator4(pk, chain, game);
+        Deferral defer = default;
+        var leadQueue = new LeadEncounterQueue<EncounterSlot4>();
 
-        foreach (var z in GetEncountersInner(pk, chain, info))
+        foreach (var enc in iterator)
         {
-            if (!info.PIDIV.Type.IsCompatible4(z, pk))
-                deferredPIDIV.Add(z);
-            else if (pk is IGroundTile e && !(z is IGroundTypeTile t ? t.GroundTile.Contains(e.GroundTile) : e.GroundTile == 0))
-                deferredEType.Add(z);
-            else
-                yield return z;
-        }
-
-        foreach (var z in deferredEType)
-            yield return z;
-
-        if (deferredPIDIV.Count == 0)
-            yield break;
-
-        info.PIDIVMatches = false;
-        foreach (var z in deferredPIDIV)
-            yield return z;
-    }
-
-    private static IEnumerable<IEncounterable> GetEncountersInner(PKM pk, EvoCriteria[] chain, LegalInfo info)
-    {
-        var game = (GameVersion)pk.Version;
-        if (pk.FatefulEncounter)
-        {
-            if (PGT.IsRangerManaphy(pk))
+            var e = enc.Encounter;
+            if (!IsTileCompatible(e, pk))
             {
-                yield return RangerManaphy;
-                yield break;
+                defer.Update(DeferralType.Tile, e);
+                continue;
             }
 
-            bool yielded = false;
-            foreach (var mg in EncounterEvent.MGDB_G4)
+            var typeCheck = IsTypeCompatible(e, pk, info.PIDIV.Type);
+            if (typeCheck is not Match)
             {
-                foreach (var evo in chain)
-                {
-                    if (evo.Species != mg.Species)
-                        continue;
-                    if (mg.IsMatchExact(pk, evo))
-                    {
-                        yield return mg;
-                        yielded = true;
-                    }
-                    break;
-                }
+                var rating = typeCheck == NotIdeal
+                    ? DeferralType.PIDIVDefer
+                    : DeferralType.PIDIV;
+                defer.Update(rating, e);
+                continue;
             }
-            if (yielded)
-                yield break;
-        }
-        if (Locations.IsEggLocationBred4(pk.Egg_Location, game))
-        {
-            var eggs = GetEggs(chain, game);
-            foreach (var egg in eggs)
-                yield return egg;
-        }
-
-        var encTrade = GetTrades(game);
-        foreach (var enc in encTrade)
-        {
-            foreach (var evo in chain)
+            if (!IsBallCompatible(e, pk))
             {
-                if (evo.Species != enc.Species)
-                    continue;
-                if (enc.IsMatchExact(pk, evo))
-                    yield return enc;
-                break;
+                defer.Update(DeferralType.Ball, e);
+                continue;
             }
-        }
-
-        IEncounterable? deferred = null;
-        IEncounterable? partial = null;
-
-        bool safariSport = pk.Ball is (int)Ball.Sport or (int)Ball.Safari; // never static encounters
-        if (!safariSport)
-        {
-            var encStatic = GetStatic(game);
-            foreach (var enc in encStatic)
+            if (e is not EncounterSlot4 slot)
             {
-                foreach (var evo in chain)
-                {
-                    if (evo.Species != enc.Species)
-                        continue;
-                    if (!enc.IsMatchExact(pk, evo))
-                        break;
-
-                    var match = enc.GetMatchRating(pk);
-                    if (match == PartialMatch)
-                        partial ??= enc;
-                    else
-                        yield return enc;
-                    break;
-                }
-            }
-        }
-
-        if (CanBeWildEncounter(pk))
-        {
-            var wildFrames = AnalyzeFrames(pk, info);
-            var areas = GetAreas(game);
-            foreach (var area in areas)
-            {
-                var slots = area.GetMatchingSlots(pk, chain);
-                foreach (var slot in slots)
-                {
-                    var match = slot.GetMatchRating(pk);
-                    if (match == PartialMatch)
-                    {
-                        partial ??= slot;
-                        continue;
-                    }
-
-                    // Can use Radar to force the encounter slot to stay consistent across encounters.
-                    if (slot.CanUseRadar)
-                    {
-                        yield return slot;
-                        continue;
-                    }
-
-                    var frame = wildFrames.Find(s => s.IsSlotCompatibile(slot, pk));
-                    if (frame == null)
-                    {
-                        deferred ??= slot;
-                        continue;
-                    }
-                    yield return slot;
-                }
-            }
-
-            info.FrameMatches = false;
-            if (deferred is EncounterSlot4 x)
-                yield return x;
-
-            if (partial is EncounterSlot4 y)
-            {
-                var frame = wildFrames.Find(s => s.IsSlotCompatibile(y, pk));
-                info.FrameMatches = frame != null;
-                yield return y;
-            }
-        }
-
-        // do static encounters if they were deferred to end, spit out any possible encounters for invalid pk
-        if (!safariSport)
-            yield break;
-
-        var encStatic2 = GetStatic(game);
-        foreach (var enc in encStatic2)
-        {
-            foreach (var evo in chain)
-            {
-                if (evo.Species != enc.Species)
-                    continue;
-                if (!enc.IsMatchExact(pk, evo))
-                    break;
-
-                var match = enc.GetMatchRating(pk);
-                if (match == PartialMatch)
-                    partial ??= enc;
+                if (pk.Ball is (byte)Ball.Safari or (byte)Ball.Sport)
+                    defer.Update(DeferralType.Ball, e);
                 else
-                    yield return enc;
-                break;
+                    yield return e;
+                continue;
             }
+
+            var evo = LeadFinder.GetLevelConstraint(pk, chain, slot, 4);
+            var lead = LeadFinder.GetLeadInfo4(pk, slot, info.PIDIV, evo);
+            if (!lead.IsValid())
+            {
+                defer.Update(DeferralType.SlotNumber, slot);
+                continue;
+            }
+            leadQueue.Insert(lead, slot);
         }
 
-        if (partial is not null)
-            yield return partial;
-    }
-
-    private static List<Frame> AnalyzeFrames(PKM pk, LegalInfo info)
-    {
-        return FrameFinder.GetFrames(info.PIDIV, pk).ToList();
-    }
-
-    private static EncounterStatic[] GetStatic(GameVersion gameSource) => gameSource switch
-    {
-        GameVersion.D => Encounters4DPPt.StaticD,
-        GameVersion.P => Encounters4DPPt.StaticP,
-        GameVersion.Pt => Encounters4DPPt.StaticPt,
-        GameVersion.HG => Encounters4HGSS.StaticHG,
-        GameVersion.SS => Encounters4HGSS.StaticSS,
-        _ => throw new ArgumentOutOfRangeException(nameof(gameSource), gameSource, null),
-    };
-
-    private static EncounterArea4[] GetAreas(GameVersion gameSource) => gameSource switch
-    {
-        GameVersion.D => Encounters4DPPt.SlotsD,
-        GameVersion.P => Encounters4DPPt.SlotsP,
-        GameVersion.Pt => Encounters4DPPt.SlotsPt,
-        GameVersion.HG => Encounters4HGSS.SlotsHG,
-        GameVersion.SS => Encounters4HGSS.SlotsSS,
-        _ => throw new ArgumentOutOfRangeException(nameof(gameSource), gameSource, null),
-    };
-
-    private static EncounterTrade[] GetTrades(GameVersion gameSource) => gameSource switch
-    {
-        GameVersion.D => Encounters4DPPt.TradeGift_DPPt,
-        GameVersion.P => Encounters4DPPt.TradeGift_DPPt,
-        GameVersion.Pt => Encounters4DPPt.TradeGift_DPPt,
-        GameVersion.HG => Encounters4HGSS.TradeGift_HGSS,
-        GameVersion.SS => Encounters4HGSS.TradeGift_HGSS,
-        _ => throw new ArgumentOutOfRangeException(nameof(gameSource), gameSource, null),
-    };
-
-    private const int Generation = 4;
-    private const EntityContext Context = EntityContext.Gen4;
-    private const byte EggLevel = 1;
-
-    private static IEnumerable<EncounterEgg> GetEggs(EvoCriteria[] chain, GameVersion version)
-    {
-        var devolved = chain[^1];
-        if (!devolved.InsideLevelRange(EggLevel))
-            yield break;
-
-        // Ensure most devolved species is the same as the egg species.
-        var (species, form) = GetBaby(devolved);
-        if (species != devolved.Species && !IsValidBabySpecies(devolved.Species))
-            yield break; // not a split-breed.
-
-        // Sanity Check 1
-        if (!Breeding.CanHatchAsEgg(species))
-            yield break;
-        // Sanity Check 2
-        if (!Breeding.CanHatchAsEgg(species, form, Context))
-            yield break;
-        // Sanity Check 3
-        if (!PersonalTable.HGSS.IsPresentInGame(species, form))
-            yield break;
-
-        yield return CreateEggEncounter(species, form, version);
-        // Version is not updated when hatching an Egg in Gen4. Version is a clear indicator of the game it originated on.
-
-        // Check for split-breed
-        if (species == devolved.Species)
+        foreach (var cache in leadQueue.List)
         {
-            if (chain.Length < 2)
-                yield break; // no split-breed
-            devolved = chain[^2];
+            info.PIDIV = info.PIDIV.AsEncounteredVia(cache.Lead);
+            yield return cache.Encounter;
         }
-        var splitSet = Breeding.GetSplitBreedGeneration(Generation);
-        if (splitSet is null)
-            yield break; // Shouldn't happen.
-        if (!splitSet.Contains(devolved.Species))
+        if (leadQueue.List.Count != 0)
             yield break;
 
-        species = devolved.Species;
-        form = devolved.Form;
-        yield return CreateEggEncounter(species, form, version);
+        // Errors will be flagged later for those not manually handled below.
+        if (defer.Encounter is not { } lastResort)
+            yield break;
+        if (defer.Type is DeferralType.PIDIV)
+            info.ManualFlag = EncounterYieldFlag.InvalidPIDIV;
+        else if (defer.Type is DeferralType.SlotNumber)
+            info.ManualFlag = EncounterYieldFlag.InvalidFrame;
+        yield return lastResort;
     }
 
-    private static bool IsValidBabySpecies(ushort species)
+    private static bool IsBallCompatible(IFixedBall e, PKM pk) => e.FixedBall switch
     {
-        var split = Breeding.GetSplitBreedGeneration(Generation);
-        return split is not null && split.Contains(species);
+        Ball.Safari when pk.Ball is (byte)Ball.Safari => true,
+        Ball.Sport when pk.Ball is (byte)Ball.Sport => true,
+        _ => pk.Ball is not ((byte)Ball.Safari or (byte)Ball.Sport),
+    };
+
+    private static bool IsTileCompatible(IEncounterTemplate enc, PKM pk)
+    {
+        if (pk is not IGroundTile e)
+            return true; // No longer has the data to check
+        if (enc is not IGroundTypeTile t)
+            return e.GroundTile == 0;
+        return t.GroundTile.Contains(e.GroundTile);
     }
 
-    private static EncounterEgg CreateEggEncounter(ushort species, byte form, GameVersion version)
+    private static RandomCorrelationRating IsTypeCompatible(IEncounterTemplate enc, PKM pk, PIDType type)
     {
-        if (FormInfo.IsBattleOnlyForm(species, form, Generation) || species is (int)Species.Rotom or (int)Species.Castform)
-            form = FormInfo.GetOutOfBattleForm(species, form, Generation);
-        return new EncounterEgg(species, form, EggLevel, Generation, version, Context);
+        if (enc is IRandomCorrelation r)
+            return r.IsCompatible(type, pk);
+        return type is PIDType.None ? Match : Mismatch;
     }
+
+    private const EntityContext Context = EntityContext.Gen4;
+    private const byte EggLevel = EncounterEgg4.Level;
+
+    private static EncounterEgg4 CreateEggEncounter(ushort species, GameVersion version) => new(species, version);
 
     private static (ushort Species, byte Form) GetBaby(EvoCriteria lowest)
     {
         return EvolutionTree.Evolves4.GetBaseSpeciesForm(lowest.Species, lowest.Form);
+    }
+
+    public static bool TryGetEgg(ReadOnlySpan<EvoCriteria> chain, GameVersion version, [NotNullWhen(true)] out EncounterEgg4? result)
+    {
+        result = null;
+        var devolved = chain[^1];
+        if (!devolved.InsideLevelRange(EggLevel))
+            return false;
+
+        // Ensure most devolved species is the same as the egg species.
+        var (species, form) = GetBaby(devolved);
+        if (species != devolved.Species && !Breeding.IsSplitBreedNotBabySpecies4(devolved.Species))
+            return false; // not a split-breed.
+
+        // Sanity Check 1
+        if (!Breeding.CanHatchAsEgg(species))
+            return false;
+        // Sanity Check 2
+        if (!Breeding.CanHatchAsEgg(species, form, Context))
+            return false;
+        // Sanity Check 3
+        if (!PersonalTable.HGSS.IsPresentInGame(species, form))
+            return false;
+
+        result = CreateEggEncounter(species, version);
+        return true;
+    }
+
+    // Version is not updated when hatching an Egg in Gen4. Version is a clear indicator of the game it originated on.
+
+    public static bool TryGetSplit(EncounterEgg4 other, ReadOnlySpan<EvoCriteria> chain, [NotNullWhen(true)] out EncounterEgg4? result)
+    {
+        result = null;
+        // Check for split-breed
+        var devolved = chain[^1];
+        if (other.Species == devolved.Species)
+        {
+            if (chain.Length < 2)
+                return false; // no split-breed
+            devolved = chain[^2];
+        }
+        if (!Breeding.IsSplitBreedNotBabySpecies4(devolved.Species))
+            return false;
+
+        result = other with { Species = devolved.Species };
+        return true;
     }
 }

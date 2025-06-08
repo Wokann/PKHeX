@@ -36,8 +36,22 @@ public static class ReflectUtil
         pi.SetValue(obj, c, null);
     }
 
-    public static object? GetValue(object obj, string name) => GetPropertyInfo(obj.GetType().GetTypeInfo(), name)?.GetValue(obj);
-    public static void SetValue(object obj, string name, object value) => GetPropertyInfo(obj.GetType().GetTypeInfo(), name)?.SetValue(obj, value, null);
+    public static object? GetValue(object obj, string name)
+    {
+        if (TryGetPropertyInfo(obj.GetType().GetTypeInfo(), name, out var pi))
+            return pi.GetValue(obj, null);
+        return null;
+    }
+
+    public static bool SetValue(object obj, string name, object value)
+    {
+        if (!TryGetPropertyInfo(obj.GetType().GetTypeInfo(), name, out var pi))
+            return false;
+        if (!pi.CanWrite)
+            return false;
+        pi.SetValue(obj, value);
+        return true;
+    }
 
     public static IEnumerable<string> GetPropertiesStartWithPrefix(Type type, string prefix)
     {
@@ -98,7 +112,7 @@ public static class ReflectUtil
         if (type.IsEnum)
         {
             var str = value.ToString() ?? string.Empty;
-            if (int.TryParse(str, out var integer))
+            if (Enum.IsDefined(type, str) && int.TryParse(str, out var integer))
                 return Convert.ChangeType(integer, type);
             return Enum.Parse(type, str, true);
         }
@@ -129,7 +143,7 @@ public static class ReflectUtil
 
     public static IEnumerable<TypeInfo> GetAllTypeInfo(this TypeInfo? typeInfo)
     {
-        while (typeInfo != null)
+        while (typeInfo is not null)
         {
             yield return typeInfo;
             typeInfo = typeInfo.BaseType?.GetTypeInfo();
@@ -142,12 +156,29 @@ public static class ReflectUtil
     /// <param name="obj">Object to check for property existence.</param>
     /// <param name="name">Name of the property.</param>
     /// <param name="pi">Reference to the property info for the object, if it exists.</param>
-    /// <returns>True if has property, and false if does not have property. <see cref="pi"/> is null when returning false.</returns>
-    public static bool HasProperty(object obj, string name, [NotNullWhen(true)] out PropertyInfo? pi) => (pi = GetPropertyInfo(obj.GetType().GetTypeInfo(), name)) != null;
-
-    public static PropertyInfo? GetPropertyInfo(this TypeInfo typeInfo, string name)
+    /// <returns>True if it has property, and false if it does not have property. <see cref="pi"/> is null when returning false.</returns>
+    public static bool HasProperty(object obj, string name, [NotNullWhen(true)] out PropertyInfo? pi)
     {
-        return typeInfo.GetAllTypeInfo().Select(t => t.GetDeclaredProperty(name)).FirstOrDefault(pi => pi != null);
+        var type = obj.GetType();
+        return TryGetPropertyInfo(type.GetTypeInfo(), name, out pi);
+    }
+
+    public static bool TryGetPropertyInfo(this TypeInfo typeInfo, string name, [NotNullWhen(true)] out PropertyInfo? pi)
+    {
+        foreach (var t in typeInfo.GetAllTypeInfo())
+        {
+            pi = t.GetDeclaredProperty(name);
+            if (pi is not null)
+                return true;
+            foreach (var i in t.ImplementedInterfaces)
+            {
+                pi = i.GetTypeInfo().GetDeclaredProperty(name);
+                if (pi is not null)
+                    return true;
+            }
+        }
+        pi = null;
+        return false;
     }
 
     private static IEnumerable<T> GetAll<T>(this TypeInfo typeInfo, Func<TypeInfo, IEnumerable<T>> accessor)
@@ -162,10 +193,22 @@ public static class ReflectUtil
         return consts.ToDictionary(z => (T)(z.GetRawConstantValue() ?? throw new NullReferenceException(nameof(z.Name))), z => z.Name);
     }
 
-    public static Dictionary<T, string> GetAllPropertiesOfType<T>(this Type type, object obj) where T : class
+    public static Dictionary<string, T> GetAllPropertiesOfType<T>(this Type type, object obj) where T : class
     {
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-        var ofType = props.Where(fi => typeof(T).IsAssignableFrom(fi.PropertyType));
-        return ofType.ToDictionary(x => (T)(x.GetValue(obj) ?? throw new NullReferenceException(nameof(x.Name))), z => z.Name);
+        var result = new Dictionary<string, T>(props.Length);
+        var requestType = typeof(T);
+        foreach (var pi in props)
+        {
+            if (!requestType.IsAssignableFrom(pi.PropertyType))
+                continue;
+
+            var name = pi.Name;
+            var value = pi.GetValue(obj);
+            if (value is not T t)
+                continue;
+            result.TryAdd(name, t);
+        }
+        return result;
     }
 }

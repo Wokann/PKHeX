@@ -1,6 +1,6 @@
 using System;
 using System.Buffers;
-using System.Text;
+using System.Diagnostics;
 
 namespace PKHeX.Core;
 
@@ -12,8 +12,8 @@ public static class QRMessageUtil
     private const string QR6PathBad = "null/#";
     private const string QR6Path = "http://lunarcookies.github.io/b1s1.html#";
     private const string QR6PathWC = "http://lunarcookies.github.io/wc.html#";
-    private static string GetExploitURLPrefixPKM(int format) => format == 6 ? QR6Path : QR6PathBad;
-    private static string GetExploitURLPrefixWC(int format) => format == 6 ? QR6PathWC : QR6PathBad;
+    private static string GetExploitURLPrefixPKM(byte format) => format == 6 ? QR6Path : QR6PathBad;
+    private static string GetExploitURLPrefixWC(byte format) => format == 6 ? QR6PathWC : QR6PathBad;
 
     /// <summary>
     /// Gets the <see cref="PKM"/> data from the message that is encoded in a QR.
@@ -24,7 +24,7 @@ public static class QRMessageUtil
     public static PKM? GetPKM(ReadOnlySpan<char> message, EntityContext context)
     {
         var data = DecodeMessagePKM(message);
-        if (data == null)
+        if (data is null)
             return null;
         return EntityFormat.GetFromBytes(data, context);
     }
@@ -38,7 +38,8 @@ public static class QRMessageUtil
     {
         if (pk is PK7 pk7)
         {
-            byte[] payload = QR7.GenerateQRData(pk7);
+            Span<byte> payload = stackalloc byte[QR7.SIZE];
+            QR7.SetQRData(pk7, payload);
             return GetMessage(payload);
         }
 
@@ -54,10 +55,10 @@ public static class QRMessageUtil
     /// <returns>QR Message</returns>
     public static string GetMessage(ReadOnlySpan<byte> payload)
     {
-        var sb = new StringBuilder(payload.Length);
-        foreach (var b in payload)
-            sb.Append((char)b);
-        return sb.ToString();
+        Span<char> result = stackalloc char[payload.Length];
+        for (int i = 0; i < payload.Length; i++)
+            result[i] = (char)payload[i];
+        return new string(result);
     }
 
     /// <summary>
@@ -93,7 +94,7 @@ public static class QRMessageUtil
         if (message.StartsWith("http", StringComparison.Ordinal)) // inject url
             return DecodeMessageDataBase64(message);
 
-        const int g7size = 0xE8;
+        const int g7size = PokeCrypto.SIZE_6STORED; // 0xE8;
         const int g7intro = 0x30;
         if (message.StartsWith("POKE", StringComparison.Ordinal) && message.Length > g7intro + g7size) // G7 data
             return GetBytesFromMessage(message[g7intro..], g7size);
@@ -112,15 +113,21 @@ public static class QRMessageUtil
         // Decode unicode string -- size might be pretty big (user input), so just rent instead of stackalloc
         var tmp = ArrayPool<byte>.Shared.Rent(url.Length);
         var result = Convert.TryFromBase64Chars(url, tmp, out int bytesWritten) ? tmp[..bytesWritten] : null;
-        ArrayPool<byte>.Shared.Return(tmp);
+        ArrayPool<byte>.Shared.Return(tmp, true);
         return result;
     }
 
     private static byte[] GetBytesFromMessage(ReadOnlySpan<char> input, int count)
     {
-        byte[] data = new byte[count];
-        for (int i = data.Length - 1; i >= 0; i--)
-            data[i] = (byte)input[i];
-        return data;
+        byte[] result = new byte[count];
+        GetBytesFromMessage(input, result);
+        return result;
+    }
+
+    private static void GetBytesFromMessage(ReadOnlySpan<char> input, Span<byte> output)
+    {
+        Debug.Assert(input.Length >= output.Length);
+        for (int i = 0; i < output.Length; i++)
+            output[i] = (byte)input[i];
     }
 }

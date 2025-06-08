@@ -24,17 +24,19 @@ public static class MoveListSuggest
         }
 
         // try to give current moves
-        if (enc.Generation <= 2)
+        if (enc.Generation <= 2 && pk.Format < 8)
         {
-            var lvl = pk.Format >= 7 ? pk.Met_Level : pk.CurrentLevel;
+            var lvl = pk.Format >= 7 ? pk.MetLevel : pk.CurrentLevel;
             var source = GameData.GetLearnSource(enc.Version);
             source.SetEncounterMoves(enc.Species, 0, lvl, moves);
             return;
         }
 
-        if (pk.Species == enc.Species)
+        if (pk.Species == enc.Species || pk.Context.Generation() >= 8)
         {
-            var game = (GameVersion)pk.Version; // account for SW/SH foreign mutated versions
+            var game = pk.Version; // account for SW/SH foreign mutated versions
+            if (pk.Context.Generation() >= 8)
+                game = pk.Context.GetSingleGameVersion();
             var source = GameData.GetLearnSource(game);
             source.SetEncounterMoves(pk.Species, pk.Form, pk.CurrentLevel, moves);
             return;
@@ -130,7 +132,7 @@ public static class MoveListSuggest
     {
         if (enc is IRelearn { Relearn: { HasMoves: true } r })
             r.CopyTo(moves);
-        else if (enc is EncounterEgg or EncounterInvalid { EggEncounter: true })
+        else if (enc is IEncounterEgg or EncounterInvalid { IsEgg: true })
             GetSuggestedRelearnEgg(enc, pk, moves);
     }
 
@@ -155,7 +157,7 @@ public static class MoveListSuggest
         if (LearnVerifierRelearn.ShouldNotHaveRelearnMoves(enc, pk))
             return;
 
-        if (enc is EncounterEgg or EncounterInvalid {EggEncounter: true})
+        if (enc is IEncounterEgg or EncounterInvalid {IsEgg: true})
             enc.GetSuggestedRelearnEgg(info.Moves, pk, moves);
         else
             enc.GetSuggestedRelearnInternal(pk, moves);
@@ -164,14 +166,15 @@ public static class MoveListSuggest
     private static void GetSuggestedRelearnEgg(this IEncounterTemplate enc, ReadOnlySpan<MoveResult> parse, PKM pk, Span<ushort> moves)
     {
         enc.GetEggRelearnMoves(parse, pk, moves);
-        int generation = enc.Generation;
-        if (generation <= 5) // gen2 does not have splitbreed, <=5 do not have relearn moves and shouldn't even be here.
+        byte generation = enc.Generation;
+
+        // Gen2 does not have split breed, Gen5 and below do not store relearn moves in the data structure.
+        if (generation <= 5)
             return;
 
         // Split-breed species like Budew & Roselia may be legal for one, and not the other.
         // If we're not a split-breed or are already legal, return.
-        var split = Breeding.GetSplitBreedGeneration(generation);
-        if (split?.Contains(enc.Species) != true)
+        if (!Breeding.IsSplitBreedNotBabySpecies(enc.Species, generation))
             return;
 
         var tmp = pk.Clone();
@@ -182,10 +185,13 @@ public static class MoveListSuggest
             return;
 
         // Try again with the other split-breed species if possible.
-        var generator = EncounterGenerator.GetGenerator(enc.Version);
-        var tree = EvolutionTree.GetEvolutionTree(enc.Context);
-        var chain = tree.GetValidPreEvolutions(pk, 100, skipChecks: true, stopSpecies: enc.Species);
-        var other = generator.GetPossible(pk, chain, enc.Version, EncounterTypeGroup.Egg);
+        var generator = EncounterGenerator.GetGenerator(enc.Version, enc.Generation);
+
+        Span<EvoCriteria> chain = stackalloc EvoCriteria[EvolutionTree.MaxEvolutions];
+        var origin = new EvolutionOrigin(enc.Species, enc.Version, enc.Generation, 1, 100, OriginOptions.EncounterTemplate);
+        int count = EvolutionChain.GetOriginChain(chain, pk, origin);
+        var evos = chain[..count].ToArray();
+        var other = generator.GetPossible(pk, evos, enc.Version, EncounterTypeGroup.Egg);
         foreach (var incense in other)
         {
             if (incense.Species == enc.Species)

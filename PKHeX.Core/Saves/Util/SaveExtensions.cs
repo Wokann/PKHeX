@@ -32,13 +32,13 @@ public static class SaveExtensions
         if (sav.PKMType != pk.GetType())
             return false;
 
-        if (sav is ILangDeviantSave il && EntityConverter.IsIncompatibleGB(pk, il.Japanese, pk.Japanese))
+        if (sav is ILangDeviantSave il && !EntityConverter.IsCompatibleGB(pk, il.Japanese, pk.Japanese))
             return false;
 
         return true;
     }
 
-    private static IReadOnlyList<string> GetSaveFileErrata(this SaveFile sav, PKM pk, IBasicStrings strings)
+    private static List<string> GetSaveFileErrata(this SaveFile sav, PKM pk, IBasicStrings strings)
     {
         var errata = new List<string>();
         ushort held = (ushort)pk.HeldItem;
@@ -49,14 +49,14 @@ public static class SaveExtensions
                 msg = MsgIndexItemGame;
             else if (!pk.CanHoldItem(sav.HeldItems))
                 msg = MsgIndexItemHeld;
-            if (msg != null)
+            if (msg is not null)
             {
-                var itemstr = GameInfo.Strings.GetItemStrings(pk.Context, (GameVersion)pk.Version);
+                var itemstr = GameInfo.Strings.GetItemStrings(pk.Context, pk.Version);
                 errata.Add($"{msg} {(held >= itemstr.Length ? held.ToString() : itemstr[held])}");
             }
         }
 
-        if (pk.Species > strings.Species.Count)
+        if (pk.Species >= strings.Species.Count)
             errata.Add($"{MsgIndexSpeciesRange} {pk.Species}");
         else if (sav.MaxSpeciesID < pk.Species)
             errata.Add($"{MsgIndexSpeciesGame} {strings.Species[pk.Species]}");
@@ -68,7 +68,7 @@ public static class SaveExtensions
         for (int i = 0; i < 4; i++)
         {
             var move = pk.GetMove(i);
-            if ((uint)move > movestr.Count)
+            if ((uint)move >= movestr.Count)
                 errata.Add($"{MsgIndexMoveRange} {move}");
             else if (move > sav.MaxMoveID)
                 errata.Add($"{MsgIndexMoveGame} {movestr[move]}");
@@ -89,9 +89,9 @@ public static class SaveExtensions
     /// <param name="compat">Compatible <see cref="PKM"/> data that can be set to the <see cref="sav"/> without conversion.</param>
     /// <param name="overwrite">Overwrite existing full slots. If true, will only overwrite empty slots.</param>
     /// <param name="boxStart">First box to start loading to. All prior boxes are not modified.</param>
-    /// <param name="noSetb">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
+    /// <param name="settings">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
     /// <returns>Count of injected <see cref="PKM"/>.</returns>
-    public static int ImportPKMs(this SaveFile sav, IEnumerable<PKM> compat, bool overwrite = false, int boxStart = 0, PKMImportSetting noSetb = PKMImportSetting.UseDefault)
+    public static int ImportPKMs(this SaveFile sav, IEnumerable<PKM> compat, bool overwrite = false, int boxStart = 0, EntityImportSettings settings = default)
     {
         int startCount = boxStart * sav.BoxSlotCount;
         int maxCount = sav.SlotCount;
@@ -102,14 +102,14 @@ public static class SaveExtensions
         {
             if (overwrite)
             {
-                while (sav.IsSlotOverwriteProtected(index))
+                while (sav.IsBoxSlotOverwriteProtected(index))
                     ++index;
 
                 // The above will return false if out of range. We need to double-check.
                 if (index >= maxCount) // Boxes full!
                     break;
 
-                sav.SetBoxSlotAtIndex(pk, index, noSetb);
+                sav.SetBoxSlotAtIndex(pk, index, settings);
             }
             else
             {
@@ -117,7 +117,7 @@ public static class SaveExtensions
                 if (index < 0) // Boxes full!
                     break;
 
-                sav.SetBoxSlotAtIndex(pk, index, noSetb);
+                sav.SetBoxSlotAtIndex(pk, index, settings);
                 nonOverwriteImport++;
             }
 
@@ -134,13 +134,13 @@ public static class SaveExtensions
         foreach (var temp in pks)
         {
             var pk = EntityConverter.ConvertToType(temp, savtype, out var c);
-            if (pk == null)
+            if (pk is null)
             {
                 Debug.WriteLine(c.GetDisplayString(temp, savtype));
                 continue;
             }
 
-            if (sav is ILangDeviantSave il && EntityConverter.IsIncompatibleGB(temp, il.Japanese, pk.Japanese))
+            if (sav is ILangDeviantSave il && !EntityConverter.IsCompatibleGB(temp, il.Japanese, pk.Japanese))
             {
                 var str = EntityConverterResult.IncompatibleLanguageGB.GetIncompatibleGBMessage(pk, il.Japanese);
                 Debug.WriteLine(str);
@@ -165,7 +165,7 @@ public static class SaveExtensions
     {
         if (pk.Format >= 3 || sav.Generation >= 7)
             return EntityConverter.ConvertToType(pk, sav.PKMType, out _) ?? sav.BlankPKM;
-        // gen1-2 compatibility check
+        // Gen1/2 compatibility check
         if (pk.Japanese != ((ILangDeviantSave)sav).Japanese)
             return sav.BlankPKM;
         if (sav is SAV2 s2 && s2.Korean != pk.Korean)
@@ -193,7 +193,7 @@ public static class SaveExtensions
     /// <returns>Template if it exists, or a blank <see cref="PKM"/> from the <see cref="sav"/></returns>
     public static PKM LoadTemplate(this SaveFile sav, string? templatePath = null)
     {
-        if (templatePath == null || !Directory.Exists(templatePath))
+        if (!Directory.Exists(templatePath))
             return LoadTemplateInternal(sav);
 
         var di = new DirectoryInfo(templatePath);

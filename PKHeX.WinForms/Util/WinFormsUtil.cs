@@ -1,14 +1,17 @@
-using PKHeX.Core;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
 using System.Windows.Forms;
+using PKHeX.Core;
 
 using static PKHeX.Core.MessageStrings;
-using Exception = System.Exception;
 
 namespace PKHeX.WinForms;
 
@@ -19,15 +22,13 @@ public static class WinFormsUtil
     /// <summary>
     /// Centers the <see cref="child"/> horizontally and vertically so that its center is the same as the <see cref="parent"/>'s center.
     /// </summary>
-    /// <param name="child"></param>
-    /// <param name="parent"></param>
     internal static void CenterToForm(this Control child, Control? parent)
     {
-        if (parent == null)
+        if (parent is null)
             return;
         int x = parent.Location.X + ((parent.Width - child.Width) / 2);
         int y = parent.Location.Y + ((parent.Height - child.Height) / 2);
-        child.Location = new Point(Math.Max(x, 0), Math.Max(y, 0));
+        child.Location = new Point(x, y);
     }
 
     /// <summary>
@@ -36,10 +37,11 @@ public static class WinFormsUtil
     internal static void HorizontallyCenter(this Control child, Control parent)
     {
         int midpoint = (parent.Width - child.Width) / 2;
-        child.SetBounds(midpoint, 0, 0, 0, BoundsSpecified.X);
+        if (child.Location.X != midpoint)
+            child.SetBounds(midpoint, 0, 0, 0, BoundsSpecified.X);
     }
 
-    public static T? FirstFormOfType<T>() where T : Form => (T?)Application.OpenForms.Cast<Form>().FirstOrDefault(form => form is T);
+    public static T? FirstFormOfType<T>() where T : Form => Application.OpenForms.OfType<T>().FirstOrDefault();
 
     public static T? FindFirstControlOfType<T>(Control aParent) where T : class
     {
@@ -48,7 +50,7 @@ public static class WinFormsUtil
             if (aParent is T t)
                 return t;
 
-            if (aParent.Parent != null)
+            if (aParent.Parent is not null)
                 aParent = aParent.Parent;
             else
                 return null;
@@ -70,7 +72,7 @@ public static class WinFormsUtil
                     sender = s;
                     continue;
                 default:
-                    return default;
+                    return null;
             }
         }
     }
@@ -78,7 +80,7 @@ public static class WinFormsUtil
     public static bool OpenWindowExists<T>(this Form parent) where T : Form
     {
         var form = FirstFormOfType<T>();
-        if (form == null)
+        if (form is null)
             return false;
 
         form.CenterToForm(parent);
@@ -186,14 +188,37 @@ public static class WinFormsUtil
         control.ValueMember = nameof(ComboItem.Value);
     }
 
+    /// <inheritdoc cref="InitializeBinding(ListControl)"/>
+    public static void InitializeBinding(this DataGridViewComboBoxColumn control)
+    {
+        control.DisplayMember = nameof(ComboItem.Text);
+        control.ValueMember = nameof(ComboItem.Value);
+    }
+
     public static void SetValueClamped(this NumericUpDown nud, int value) => nud.Value = Math.Min(nud.Maximum, Math.Max(nud.Minimum, value));
     public static void SetValueClamped(this NumericUpDown nud, uint value) => nud.Value = Math.Min(nud.Maximum, Math.Max(nud.Minimum, value));
 
     public static void RemoveDropCB(object? sender, KeyEventArgs e)
     {
-        if (sender == null)
+        if (sender is null)
             return;
         ((ComboBox)sender).DroppedDown = false;
+    }
+
+    public static void MouseWheelIncrement1(object? sender, MouseEventArgs e) => Adjust(sender, e, 1);
+    public static void MouseWheelIncrement4(object? sender, MouseEventArgs e) => Adjust(sender, e, 4);
+
+    private static void Adjust(object? sender, MouseEventArgs e, uint increment)
+    {
+        if (sender is not TextBoxBase tb)
+            return;
+        var text = tb.Text;
+        var value = Util.ToUInt32(text);
+        if (e.Delta > 0)
+            value += increment;
+        else if (value >= increment)
+            value -= increment;
+        tb.Text = value.ToString();
     }
 
     /// <summary>
@@ -201,7 +226,7 @@ public static class WinFormsUtil
     /// </summary>
     /// <typeparam name="T">Type of control</typeparam>
     /// <param name="control"></param>
-    /// <returns>All children and subchildren contained by <see cref="control"/>.</returns>
+    /// <returns>All children and sub-children contained by <see cref="control"/>.</returns>
     public static IEnumerable<Control> GetAllControlsOfType<T>(Control control) where T : Control
     {
         foreach (var c in control.Controls.Cast<Control>())
@@ -228,19 +253,18 @@ public static class WinFormsUtil
         }
     }
 
-    private static readonly List<string> CustomSaveExtensions = new()
-    {
-        // THESE ARE SAVE FILE EXTENSION TYPES. SAVE STATE (RAM SNAPSHOT) EXTENSIONS DO NOT GO HERE.
-        "sav", // standard
-        "dat", // VC data
-        "gci", // Dolphin GameCubeImage
-        "dsv", // DeSmuME
-        "srm", // RetroArch save files
-        "fla", // flash
-        "SaveRAM", // BizHawk
-    };
+    private static List<string> CustomSaveExtensions => SaveFileMetadata.CustomSaveExtensions;
 
-    public static bool IsFileExtensionSAV(string file) => CustomSaveExtensions.Contains(Path.GetExtension(file));
+    public static bool IsFileExtensionSAV(ReadOnlySpan<char> file)
+    {
+        var ext = Path.GetExtension(file);
+        foreach (var other in CustomSaveExtensions)
+        {
+            if (ext.EndsWith(other))
+                return true;
+        }
+        return false;
+    }
 
     private static string ExtraSaveExtensions => ";" + string.Join(";", CustomSaveExtensions.Select(z => $"*.{z}"));
 
@@ -251,37 +275,23 @@ public static class WinFormsUtil
     /// </summary>
     /// <param name="extensions">Misc extensions of <see cref="PKM"/> files supported by the Save File.</param>
     /// <param name="path">Output result path</param>
-    /// <returns>Result of whether or not a file is to be loaded from the output path.</returns>
-    public static bool OpenSAVPKMDialog(IEnumerable<string> extensions, out string? path)
+    /// <returns>Result of the dialog menu indicating if a file is to be loaded from the output path.</returns>
+    public static bool OpenSAVPKMDialog(IEnumerable<string> extensions, [NotNullWhen(true)] out string? path)
     {
-        string supported = string.Join(";", extensions.Select(s => $"*.{s}").Concat(new[] { "*.pk" }));
-        using var ofd = new OpenFileDialog
-        {
-            Filter = "All Files|*.*" +
+        var sb = new StringBuilder(128);
+        foreach (var type in extensions)
+            sb.Append($"*.{type};");
+
+        string supported = sb.ToString();
+        using var ofd = new OpenFileDialog();
+        ofd.Filter = "All Files|*.*" +
                      $"|Supported Files (*.*)|main;*.bin;{supported};*.bak" + ExtraSaveExtensions +
                      "|Save Files (*.sav)|main" + ExtraSaveExtensions +
                      "|Decrypted PKM File (*.pk)|" + supported +
                      "|Binary File|*.bin" +
-                     "|Backup File|*.bak",
-        };
+                     "|Backup File|*.bak";
 
-        // Detect main
-        SaveFile? sav = null;
-        if (DetectSaveFileOnFileOpen)
-        {
-            try
-            {
-                sav = SaveFinder.FindMostRecentSaveFile();
-            }
-            catch (Exception ex)
-            {
-                Error(ex.Message);
-            }
-        }
-
-        if (sav != null)
-            ofd.FileName = sav.Metadata.FileName;
-
+        ofd.FileName = SuggestInitialFileName();
         if (ofd.ShowDialog() != DialogResult.OK)
         {
             path = null;
@@ -292,25 +302,41 @@ public static class WinFormsUtil
         return true;
     }
 
+    private static string? SuggestInitialFileName()
+    {
+        if (DetectSaveFileOnFileOpen)
+        {
+            try
+            {
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var sav = SaveFinder.FindMostRecentSaveFile(cts.Token);
+                return sav?.Metadata.FilePath;
+            }
+            catch (Exception ex)
+            {
+                Error(ex.Message);
+            }
+        }
+        return null;
+    }
+
     /// <summary>
     /// Opens a dialog to save a <see cref="PKM"/> file.
     /// </summary>
     /// <param name="pk"><see cref="PKM"/> file to be saved.</param>
-    /// <returns>Result of whether or not the file was saved.</returns>
+    /// <returns>True if the file was saved.</returns>
     public static bool SavePKMDialog(PKM pk)
     {
         string pkx = pk.Extension;
-        bool allowEncrypted = pk.Format >= 3 && pkx[0] == 'p';
+        bool allowEncrypted = pk.Format >= 3 && pkx.StartsWith('p');
         var genericFilter = $"Decrypted PKM File|*.{pkx}" +
-                            (allowEncrypted ? $"|Encrypted PKM File|*.e{pkx[1..]}" : string.Empty) +
+                            (allowEncrypted ? $"|Encrypted PKM File|*.e{pkx.AsSpan(1)}" : string.Empty) +
                             "|Binary File|*.bin" +
                             "|All Files|*.*";
-        using var sfd = new SaveFileDialog
-        {
-            Filter = genericFilter,
-            DefaultExt = pkx,
-            FileName = Util.CleanFileName(pk.FileName),
-        };
+        using var sfd = new SaveFileDialog();
+        sfd.Filter = genericFilter;
+        sfd.DefaultExt = pkx;
+        sfd.FileName = Util.CleanFileName(pk.FileName);
         if (sfd.ShowDialog() != DialogResult.OK)
             return false;
 
@@ -318,11 +344,11 @@ public static class WinFormsUtil
         return true;
     }
 
-    private static void SavePKM(PKM pk, string path, string pkx)
+    private static void SavePKM(PKM pk, string path, ReadOnlySpan<char> pkx)
     {
         SaveBackup(path);
-        string ext = Path.GetExtension(path);
-        var data = $".{pkx}" == ext ? pk.DecryptedPartyData : pk.EncryptedPartyData;
+        var ext = Path.GetExtension(path);
+        var data = ext == $".{pkx}" ? pk.DecryptedPartyData : pk.EncryptedPartyData;
         File.WriteAllBytes(path, data);
     }
 
@@ -341,17 +367,15 @@ public static class WinFormsUtil
     /// Opens a dialog to save a <see cref="SaveFile"/> file.
     /// </summary>
     /// <param name="sav"><see cref="SaveFile"/> to be saved.</param>
-    /// <param name="currentBox">Box the player will be greeted with when accessing the PC ingame.</param>
-    /// <returns>Result of whether or not the file was saved.</returns>
+    /// <param name="currentBox">Box the player will be greeted with when accessing the PC in-game.</param>
+    /// <returns>True if the file was saved.</returns>
     public static bool ExportSAVDialog(SaveFile sav, int currentBox = 0)
     {
-        using var sfd = new SaveFileDialog
-        {
-            Filter = sav.Metadata.Filter,
-            FileName = sav.Metadata.FileName,
-            FilterIndex = 1000, // default to last, All Files
-            RestoreDirectory = true,
-        };
+        using var sfd = new SaveFileDialog();
+        sfd.Filter = sav.Metadata.Filter;
+        sfd.FileName = sav.Metadata.FileName;
+        sfd.FilterIndex = 1000; // default to last, All Files
+        sfd.RestoreDirectory = true;
         if (Directory.Exists(sav.Metadata.FileFolder))
             sfd.InitialDirectory = sav.Metadata.FileFolder;
 
@@ -370,7 +394,7 @@ public static class WinFormsUtil
 
     private static void ExportSAV(SaveFile sav, string path)
     {
-        var ext = Path.GetExtension(path).ToLowerInvariant();
+        var ext = Path.GetExtension(path.AsSpan());
         var flags = sav.Metadata.GetSuggestedFlags(ext);
 
         try
@@ -382,16 +406,10 @@ public static class WinFormsUtil
         }
         catch (Exception x)
         {
-            switch (x)
-            {
-                case UnauthorizedAccessException:
-                case FileNotFoundException:
-                case IOException:
-                    Error(MsgFileWriteFail + Environment.NewLine + x.Message, MsgFileWriteProtectedAdvice);
-                    break;
-                default:
-                    throw;
-            }
+            if (x is UnauthorizedAccessException or FileNotFoundException or IOException)
+                Error(MsgFileWriteFail + Environment.NewLine + x.Message, MsgFileWriteProtectedAdvice);
+            else // Don't know what threw, but it wasn't I/O related.
+                throw;
         }
     }
 
@@ -399,14 +417,12 @@ public static class WinFormsUtil
     /// Opens a dialog to save a <see cref="MysteryGift"/> file.
     /// </summary>
     /// <param name="gift"><see cref="MysteryGift"/> to be saved.</param>
-    /// <returns>Result of whether or not the file was saved.</returns>
+    /// <returns>True if the file was saved.</returns>
     public static bool ExportMGDialog(DataMysteryGift gift)
     {
-        using var sfd = new SaveFileDialog
-        {
-            Filter = GetMysterGiftFilter(gift.Context),
-            FileName = Util.CleanFileName(gift.FileName),
-        };
+        using var sfd = new SaveFileDialog();
+        sfd.Filter = GetMysterGiftFilter(gift.Context);
+        sfd.FileName = Util.CleanFileName(gift.FileName);
         if (sfd.ShowDialog() != DialogResult.OK)
             return false;
 
@@ -437,4 +453,45 @@ public static class WinFormsUtil
     };
 
     private const string all = "|All Files|*.*";
+
+    /// <summary>
+    /// Gets the language code for a supported <see cref="GameLanguage"/> based on the current UI culture.
+    /// </summary>
+    /// <remarks>
+    /// Initially, CurrentUICulture is set based on the user's language preferences in Windows.
+    /// Once <see cref="SetCultureLanguage"/> is called, it becomes the current display language instead.
+    /// </remarks>
+    /// <returns>A supported language code.</returns>
+    public static string GetCultureLanguage()
+    {
+        var ci = Thread.CurrentThread.CurrentUICulture;
+        var name = ci.Name;
+        var code = ci.TwoLetterISOLanguageName;
+        return code switch
+        {
+            // For languages with multiple supported variants, map the language tag to one of the supported ones
+            // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/a9eac961-e77d-41a6-90a5-ce1a8b0cdb9c
+            "zh" => name switch
+            {
+                "zh-Hant" or "zh-HK" or "zh-MO" or "zh-TW"   => "zh-Hant", // Traditional Chinese (Hong Kong/Macau/Taiwan)
+                                                           _ => "zh-Hans", // Simplified Chinese (China/Singapore)
+            },
+
+            // Use this language code if we support it, otherwise default to English
+            _ => GameLanguage.IsLanguageValid(code) ? code : GameLanguage.DefaultLanguage,
+        };
+    }
+
+    /// <summary>
+    /// Sets the culture.
+    /// </summary>
+    /// <param name="lang">Language code</param>
+    /// <remarks>
+    /// Makes it easy to pass language to other forms.
+    /// </remarks>
+    public static void SetCultureLanguage(string lang)
+    {
+        var ci = new CultureInfo(lang);
+        Thread.CurrentThread.CurrentCulture = Thread.CurrentThread.CurrentUICulture = ci;
+    }
 }

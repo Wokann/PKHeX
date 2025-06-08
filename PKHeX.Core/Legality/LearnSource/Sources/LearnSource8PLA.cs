@@ -8,12 +8,12 @@ namespace PKHeX.Core;
 /// <summary>
 /// Exposes information about how moves are learned in <see cref="PLA"/>.
 /// </summary>
-public sealed class LearnSource8LA : ILearnSource<PersonalInfo8LA>
+public sealed class LearnSource8LA : ILearnSource<PersonalInfo8LA>, IHomeSource, ILearnSourceBonus
 {
     public static readonly LearnSource8LA Instance = new();
     private static readonly PersonalTable8LA Personal = PersonalTable.LA;
-    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_la.pkl"), "la"));
-    private static readonly Learnset[] Mastery = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("mastery_la.pkl"), "la"));
+    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_la.pkl"), "la"u8));
+    private static readonly Learnset[] Mastery = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("mastery_la.pkl"), "la"u8));
     private const int MaxSpecies = Legal.MaxSpeciesID_8a;
     private const LearnEnvironment Game = PLA;
 
@@ -24,6 +24,9 @@ public sealed class LearnSource8LA : ILearnSource<PersonalInfo8LA>
         var index = Personal.GetFormIndex(species, form);
         return (Learnsets[index], Mastery[index]);
     }
+
+    public (Learnset Learn, Learnset Other) GetLearnsetAndOther(ushort species, byte form)
+        => GetLearnsetAndMastery(species, form);
 
     public bool TryGetPersonal(ushort species, byte form, [NotNullWhen(true)] out PersonalInfo8LA? pi)
     {
@@ -39,9 +42,8 @@ public sealed class LearnSource8LA : ILearnSource<PersonalInfo8LA>
         if (types.HasFlag(MoveSourceType.LevelUp))
         {
             var learn = GetLearnset(evo.Species, evo.Form);
-            var level = learn.GetLevelLearnMove(move);
-            if (level != -1 && level <= evo.LevelMax)
-                return new(LevelUp, Game, (byte)level);
+            if (learn.TryGetLevelLearnMove(move, out var level) && level <= evo.LevelMax)
+                return new(LevelUp, Game, level);
         }
 
         if (types.HasFlag(MoveSourceType.Machine) && pi.GetIsLearnMoveShop(move))
@@ -53,17 +55,20 @@ public sealed class LearnSource8LA : ILearnSource<PersonalInfo8LA>
         return default;
     }
 
-    private static bool GetIsEnhancedTutor(EvoCriteria evo, ISpeciesForm current, ushort move, LearnOption option) => evo.Species is (int)Species.Rotom && move switch
+    private static bool GetIsEnhancedTutor<T1, T2>(T1 evo, T2 current, ushort move, LearnOption option)
+        where T1 : ISpeciesForm
+        where T2 : ISpeciesForm
+        => evo.Species is (int)Species.Rotom && move switch
     {
-        (int)Move.Overheat  => option == LearnOption.AtAnyTime || current.Form == 1,
-        (int)Move.HydroPump => option == LearnOption.AtAnyTime || current.Form == 2,
-        (int)Move.Blizzard  => option == LearnOption.AtAnyTime || current.Form == 3,
-        (int)Move.AirSlash  => option == LearnOption.AtAnyTime || current.Form == 4,
-        (int)Move.LeafStorm => option == LearnOption.AtAnyTime || current.Form == 5,
+        (int)Move.Overheat  => option.IsPast() || current.Form == 1,
+        (int)Move.HydroPump => option.IsPast() || current.Form == 2,
+        (int)Move.Blizzard  => option.IsPast() || current.Form == 3,
+        (int)Move.AirSlash  => option.IsPast() || current.Form == 4,
+        (int)Move.LeafStorm => option.IsPast() || current.Form == 5,
         _ => false,
     };
 
-    public void GetAllMoves(Span<bool> result, PKM pk, EvoCriteria evo, MoveSourceType types = MoveSourceType.All)
+    public void GetAllMoves(Span<bool> result, PKM _, EvoCriteria evo, MoveSourceType types = MoveSourceType.All)
     {
         if (!TryGetPersonal(evo.Species, evo.Form, out var pi))
             return;
@@ -85,5 +90,27 @@ public sealed class LearnSource8LA : ILearnSource<PersonalInfo8LA>
             if (species is (int)Species.Rotom && evo.Form is not 0)
                 result[MoveTutor.GetRotomFormMove(evo.Form)] = true;
         }
+    }
+
+    public LearnEnvironment Environment => Game;
+    public MoveLearnInfo GetCanLearnHOME(PKM pk, EvoCriteria evo, ushort move, MoveSourceType types = MoveSourceType.All)
+    {
+        if (!TryGetPersonal(evo.Species, evo.Form, out var pi))
+            return default;
+
+        if (types.HasFlag(MoveSourceType.LevelUp))
+        {
+            var learn = GetLearnset(evo.Species, evo.Form);
+            if (learn.TryGetLevelLearnMove(move, out var level))
+                return new(LevelUp, Game, level);
+        }
+
+        if (types.HasFlag(MoveSourceType.Machine) && pi.GetIsLearnMoveShop(move))
+            return new(TMHM, Game);
+
+        if (types.HasFlag(MoveSourceType.EnhancedTutor) && GetIsEnhancedTutor(evo, pk, move, LearnOption.HOME))
+            return new(Tutor, Game);
+
+        return default;
     }
 }

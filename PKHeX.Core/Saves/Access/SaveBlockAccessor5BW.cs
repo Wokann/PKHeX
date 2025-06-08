@@ -1,14 +1,15 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 
 namespace PKHeX.Core;
 
 /// <summary>
 /// Information for Accessing individual blocks within a <see cref="SAV5BW"/>.
 /// </summary>
-public sealed class SaveBlockAccessor5BW : ISaveBlockAccessor<BlockInfoNDS>, ISaveBlock5BW
+public sealed class SaveBlockAccessor5BW(SAV5BW sav) : ISaveBlockAccessor<BlockInfoNDS>, ISaveBlock5BW
 {
     private static readonly BlockInfoNDS[] BlocksBW =
-    {
+    [
         new(0x00000, 0x03E0, 0x003E2, 0x23F00), // 00 Box Names
         new(0x00400, 0x0FF0, 0x013F2, 0x23F02), // 01 Box 1
         new(0x01400, 0x0FF0, 0x023F2, 0x23F04), // 02 Box 2
@@ -35,7 +36,7 @@ public sealed class SaveBlockAccessor5BW : ISaveBlockAccessor<BlockInfoNDS>, ISa
         new(0x16400, 0x0FF0, 0x173F2, 0x23F2E), // 23 Box 23
         new(0x17400, 0x0FF0, 0x183F2, 0x23F30), // 24 Box 24
         new(0x18400, 0x09C0, 0x18DC2, 0x23F32), // 25 Inventory
-        new(0x18E00, 0x0534, 0x19336, 0x23F34), // 26 Party Pokemon
+        new(0x18E00, 0x0534, 0x19336, 0x23F34), // 26 Party Pokémon
         new(0x19400, 0x0068, 0x1946A, 0x23F36), // 27 Trainer Data
         new(0x19500, 0x009C, 0x1959E, 0x23F38), // 28 Trainer Position
         new(0x19600, 0x1338, 0x1A93A, 0x23F3A), // 29 Unity Tower and survey stuff
@@ -68,44 +69,55 @@ public sealed class SaveBlockAccessor5BW : ISaveBlockAccessor<BlockInfoNDS>, ISa
         new(0x21B00, 0x0034, 0x21B36, 0x23F70), // 56 Encount Swarm and other overworld info - 2C - swarm, 2D - repel steps, 2E repel type
         new(0x21C00, 0x003C, 0x21C3E, 0x23F72), // 57 Battle Subway Play Info
         new(0x21D00, 0x01AC, 0x21EAE, 0x23F74), // 58 Battle Subway Score Info
-        new(0x21F00, 0x0B90, 0x22A92, 0x23F76), // 59 Battle Subway WiFi Info
+        new(0x21F00, 0x0B90, 0x22A92, 0x23F76), // 59 Battle Subway Wi-Fi Info
         new(0x22B00, 0x009C, 0x22B9E, 0x23F78), // 60 Online Records
         new(0x22C00, 0x0850, 0x23452, 0x23F7A), // 61 Entralink Forest pokémon data
         new(0x23500, 0x0028, 0x2352A, 0x23F7C), // 62 ???
         new(0x23600, 0x0284, 0x23886, 0x23F7E), // 63 Answered Questions
         new(0x23900, 0x0010, 0x23912, 0x23F80), // 64 Unity Tower
-        new(0x23A00, 0x005C, 0x23A5E, 0x23F82), // 65 ???
+        new(0x23A00, 0x005C, 0x23A5E, 0x23F82), // 65 Battle Institute
         new(0x23B00, 0x016C, 0x23C6E, 0x23F84), // 66 ???
         new(0x23D00, 0x0040, 0x23D42, 0x23F86), // 67 ???
         new(0x23E00, 0x00FC, 0x23EFE, 0x23F88), // 68 ???
         new(0x23F00, 0x008C, 0x23F9A, 0x23F9A), // 69 Checksums */
-    };
-
-    public SaveBlockAccessor5BW(SAV5BW sav)
-    {
-        BoxLayout = new BoxLayout5(sav, 0x00000);
-        Items = new MyItem5BW(sav, 0x18400);
-        PlayerData = new PlayerData5(sav, 0x19400);
-        Mystery = new MysteryBlock5(sav, 0x1C800);
-        Musical = new Musical5(sav, 0x1F700);
-        Daycare = new Daycare5(sav, 0x20E00);
-        Misc = new Misc5BW(sav, 0x21200);
-        Entralink = new Entralink5BW(sav, 0x21300);
-        Zukan = new Zukan5(sav, 0x21600, 0x320);
-        Encount = new Encount5BW(sav, 0x21B00);
-        BattleSubway = new BattleSubway5(sav, 0x21D00);
-    }
+    ];
 
     public IReadOnlyList<BlockInfoNDS> BlockInfo => BlocksBW;
-    public MyItem Items { get; }
-    public Zukan5 Zukan { get; }
-    public Misc5 Misc { get; }
-    public MysteryBlock5 Mystery { get; }
-    public Daycare5 Daycare { get; }
-    public BoxLayout5 BoxLayout { get; }
-    public PlayerData5 PlayerData { get; }
-    public BattleSubway5 BattleSubway { get; }
-    public Entralink5 Entralink { get; }
-    public Musical5 Musical { get; }
-    public Encount5 Encount { get; }
+    public BoxLayout5 BoxLayout { get; } = new(sav, Block(sav, 0));
+    public MyItem5BW Items { get; } = new(sav, Block(sav, 25));
+    public PlayerData5BW PlayerData { get; } = new(sav, Block(sav, 27));
+    public PlayerPosition5 PlayerPosition { get; } = new(sav, Block(sav, 28));
+    public UnityTower5 UnityTower { get; } = new(sav, Block(sav, 29));
+    public SkinInfo5BW SkinInfo { get; } = new(sav, Block(sav, 32));
+    public MysteryBlock5 Mystery { get; } = new(sav, Block(sav, 34));
+    public GlobalLink5 GlobalLink { get;  } = new(sav, Block(sav, 35));
+    public Chatter5 Chatter { get; } = new(sav, Block(sav, 36));
+    public AdventureInfo5 AdventureInfo { get; } = new(sav, Block(sav, 37));
+    public Record5 Records { get; } = new(sav, Block(sav, 38));
+    public Musical5 Musical { get; } = new(sav, Block(sav, 42));
+    public WhiteBlack5BW Forest { get; } = new(sav, Block(sav, 43));
+    public EventWork5BW EventWork { get; } = new(sav, Block(sav, 45));
+    public GTS5 GTS { get; } = new(sav, Block(sav, 46));
+    public BattleBox5 BattleBox { get; } = new(sav, Block(sav, 49));
+    public Daycare5 Daycare { get; } = new(sav, Block(sav, 50));
+    public Misc5BW Misc { get; } = new(sav, Block(sav, 52));
+    public Entralink5BW Entralink { get; } = new(sav, Block(sav, 53));
+    public Zukan5 Zukan { get; } = new(sav, Block(sav, 55), 0x320);
+    public Encount5BW Encount { get; } = new(sav, Block(sav, 56));
+    public BattleSubwayPlay5 BattleSubwayPlay { get; } = new(sav, Block(sav, 57));
+    public BattleSubway5 BattleSubway { get; } = new(sav, Block(sav, 58));
+    public EntreeForest EntreeForest { get; } = new(sav, Block(sav, 61));
+    EventWork5 ISaveBlock5BW.EventWork => EventWork;
+    Encount5 ISaveBlock5BW.Encount => Encount;
+    MyItem ISaveBlock5BW.Items => Items;
+    Entralink5 ISaveBlock5BW.Entralink => Entralink;
+    Misc5 ISaveBlock5BW.Misc => Misc;
+    SkinInfo5 ISaveBlock5BW.SkinInfo => SkinInfo;
+    PlayerData5 ISaveBlock5BW.PlayerData => PlayerData;
+
+    public static Memory<byte> Block(SAV5BW sav, int index)
+    {
+        var block = BlocksBW[index];
+        return sav.Data.AsMemory(block.Offset, block.Length);
+    }
 }

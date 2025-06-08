@@ -5,6 +5,10 @@ namespace PKHeX.Core;
 /// <summary>
 /// Indicates the source of a <see cref="Move"/> for a <see cref="PKM"/>.
 /// </summary>
+/// <remarks>
+/// This enum is mostly a "lumping" enum to pivot searching logic.
+/// See <see cref="LearnMethod"/> for the more-specific tracking enumeration.
+/// </remarks>
 [Flags]
 public enum MoveSourceType
 {
@@ -17,11 +21,12 @@ public enum MoveSourceType
     EnhancedTutor   = 1 << 5,
     SharedEggMove   = 1 << 6,
     TechnicalRecord = 1 << 7,
+    Evolve          = 1 << 8,
 
     AllTutors = TypeTutor | SpecialTutor | EnhancedTutor,
     AllMachines = Machine | TechnicalRecord,
 
-    Reminder = LevelUp | RelearnMoves | TechnicalRecord,
+    Reminder = LevelUp | RelearnMoves | TechnicalRecord | Evolve,
     Encounter = LevelUp | RelearnMoves,
     ExternalSources = Reminder | AllMachines | AllTutors,
     All = ExternalSources | SharedEggMove | RelearnMoves,

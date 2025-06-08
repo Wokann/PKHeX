@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -7,10 +8,10 @@ namespace PKHeX.Core;
 
 public sealed class SCBlockCompare
 {
-    private readonly List<string> AddedKeys = new();
-    private readonly List<string> RemovedKeys = new();
-    private readonly List<string> TypesChanged = new();
-    private readonly List<string> ValueChanged = new();
+    private readonly List<string> AddedKeys = [];
+    private readonly List<string> RemovedKeys = [];
+    private readonly List<string> TypesChanged = [];
+    private readonly List<string> ValueChanged = [];
 
     private readonly Dictionary<uint, string> KeyNames;
     private string GetKeyName(uint key) => KeyNames.TryGetValue(key, out var value) ? value : $"{key:X8}";
@@ -30,7 +31,7 @@ public sealed class SCBlockCompare
         LoadChanged(s1, s2, hs1);
     }
 
-    private void LoadAddRemove(SCBlockAccessor s1, SCBlockAccessor s2, ICollection<uint> hs1, IEnumerable<uint> hs2)
+    private void LoadAddRemove(SCBlockAccessor s1, SCBlockAccessor s2, HashSet<uint> hs1, HashSet<uint> hs2)
     {
         var unique = new HashSet<uint>(hs1);
         unique.SymmetricExceptWith(hs2);
@@ -45,12 +46,12 @@ public sealed class SCBlockCompare
             else
             {
                 var b = s2.GetBlock(k);
-                AddedKeys.Add($"{name} - {b.Type}");
+                AddedKeys.Add($"{name} - {b.Type} - 0x{b.Data.Length:X5} {b.Data.Length}");
             }
         }
     }
 
-    private void LoadChanged(SCBlockAccessor s1, SCBlockAccessor s2, IEnumerable<uint> shared)
+    private void LoadChanged(SCBlockAccessor s1, SCBlockAccessor s2, IReadOnlySet<uint> shared)
     {
         foreach (var k in shared)
         {
@@ -100,12 +101,12 @@ public sealed class SCBlockCompare
         // Replace all const name labels with explicit block property names if they exist.
         // Since our Block classes do not retain the u32 key they originated from, we need to compare the buffers to see if they match.
         // Could have just checked ContainsKey then indexed in, but I wanted to play with the higher performance API method to get the bucket and mutate directly.
-        void ReplaceLabels(Dictionary<IDataIndirect, string> list, IEnumerable<SCBlock> blocks)
+        void ReplaceLabels(Dictionary<string, IDataIndirect> list, IEnumerable<SCBlock> blocks)
         {
             foreach (var b in blocks)
             {
-                var match = list.FirstOrDefault(z => ReferenceEquals(z.Key.Data, b.Data));
-                if (match.Value is not { } x)
+                var match = list.FirstOrDefault(z => z.Value.Equals(b.Raw));
+                if (match.Key is not { } x)
                     continue;
                 ref var exist = ref CollectionsMarshal.GetValueRefOrNullRef(names, b.Key);
                 if (!Unsafe.IsNullRef(ref exist))
@@ -130,10 +131,9 @@ public sealed class SCBlockCompare
             if (list.Count == 0)
                 return;
             result.Add(hdr);
-            if (!sort)
-                result.AddRange(list);
-            else
-                result.AddRange(list.OrderBy(z => z));
+            result.AddRange(list);
+            if (sort)
+                result.Sort(result.Count - list.Count, list.Count, StringComparer.Ordinal);
             result.Add(string.Empty);
         }
     }

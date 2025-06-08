@@ -13,7 +13,7 @@ public partial class SAV_Misc3 : Form
     private readonly SaveFile Origin;
     private readonly SAV3 SAV;
 
-    public SAV_Misc3(SaveFile sav)
+    public SAV_Misc3(SAV3 sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
@@ -21,10 +21,26 @@ public partial class SAV_Misc3 : Form
 
         LoadRecords();
 
+        if (SAV is IGen3Hoenn h)
+        {
+            pokeblock3CaseEditor1.Initialize(h);
+            ReadDecorations(h);
+
+            CB_Species.InitializeBinding();
+            CB_Species.DataSource = new BindingSource(GameInfo.FilteredSources.Species.ToList(), string.Empty);
+            LoadPaintings();
+        }
+        else
+        {
+            TC_Misc.Controls.Remove(Tab_Pokeblocks);
+            TC_Misc.Controls.Remove(Tab_Decorations);
+            TC_Misc.Controls.Remove(Tab_Paintings);
+        }
+
         if (SAV is IGen3Joyful j)
             ReadJoyful(j);
         else
-            tabControl1.Controls.Remove(TAB_Joyful);
+            TC_Misc.Controls.Remove(TAB_Joyful);
 
         if (SAV is SAV3E)
         {
@@ -33,8 +49,8 @@ public partial class SAV_Misc3 : Form
         }
         else
         {
-            tabControl1.Controls.Remove(TAB_Ferry);
-            tabControl1.Controls.Remove(TAB_BF);
+            TC_Misc.Controls.Remove(TAB_Ferry);
+            TC_Misc.Controls.Remove(TAB_BF);
         }
 
         if (SAV is SAV3FRLG frlg)
@@ -42,13 +58,13 @@ public partial class SAV_Misc3 : Form
             TB_RivalName.Text = frlg.RivalName;
 
             // Trainer Card Species
-            ComboBox[] cba = { CB_TCM1, CB_TCM2, CB_TCM3, CB_TCM4, CB_TCM5, CB_TCM6 };
+            ComboBox[] cba = [CB_TCM1, CB_TCM2, CB_TCM3, CB_TCM4, CB_TCM5, CB_TCM6];
             var legal = GameInfo.FilteredSources.Species.ToList();
             for (int i = 0; i < cba.Length; i++)
             {
                 cba[i].Items.Clear();
                 cba[i].InitializeBinding();
-                cba[i].DataSource = new BindingSource(legal, null);
+                cba[i].DataSource = new BindingSource(legal, string.Empty);
                 var g3Species = SAV.GetWork(0x43 + i);
                 var species = SpeciesConverter.GetNational3(g3Species);
                 cba[i].SelectedValue = (int)species;
@@ -62,16 +78,22 @@ public partial class SAV_Misc3 : Form
 
     private void B_Save_Click(object sender, EventArgs e)
     {
-        if (tabControl1.Controls.Contains(TAB_Joyful) && SAV is IGen3Joyful j)
+        if (SAV is IGen3Hoenn h)
+        {
+            pokeblock3CaseEditor1.Save(h);
+            SaveDecorations(h);
+            SavePaintings();
+        }
+        if (TC_Misc.Controls.Contains(TAB_Joyful) && SAV is IGen3Joyful j)
             SaveJoyful(j);
-        if (tabControl1.Controls.Contains(TAB_Ferry))
+        if (TC_Misc.Controls.Contains(TAB_Ferry))
             SaveFerry();
-        if (tabControl1.Controls.Contains(TAB_BF))
+        if (TC_Misc.Controls.Contains(TAB_BF))
             SaveBattleFrontier();
         if (SAV is SAV3FRLG frlg)
         {
             frlg.RivalName = TB_RivalName.Text;
-            ComboBox[] cba = { CB_TCM1, CB_TCM2, CB_TCM3, CB_TCM4, CB_TCM5, CB_TCM6 };
+            ComboBox[] cba = [CB_TCM1, CB_TCM2, CB_TCM3, CB_TCM4, CB_TCM5, CB_TCM6];
             for (int i = 0; i < cba.Length; i++)
             {
                 var species = (ushort)WinFormsUtil.GetIndex(cba[i]);
@@ -94,11 +116,13 @@ public partial class SAV_Misc3 : Form
     private void ReadJoyful(IGen3Joyful j)
     {
         TB_J1.Text = Math.Min((ushort)9999, j.JoyfulJumpInRow).ToString();
-        TB_J2.Text = Math.Min(9999, j.JoyfulJumpScore).ToString();
+        TB_J2.Text = Math.Min(99990, j.JoyfulJumpScore).ToString();
         TB_J3.Text = Math.Min((ushort)9999, j.JoyfulJump5InRow).ToString();
+        TB_J4.Text = Math.Min((ushort)9999, j.JoyfulJumpGamesMaxPlayers).ToString();
         TB_B1.Text = Math.Min((ushort)9999, j.JoyfulBerriesInRow).ToString();
-        TB_B2.Text = Math.Min(9999, j.JoyfulBerriesScore).ToString();
+        TB_B2.Text = Math.Min(99990, j.JoyfulBerriesScore).ToString();
         TB_B3.Text = Math.Min((ushort)9999, j.JoyfulBerries5InRow).ToString();
+        TB_BerryPowder.Text = Math.Min(99999u, j.BerryPowder).ToString();
     }
 
     private void SaveJoyful(IGen3Joyful j)
@@ -106,33 +130,28 @@ public partial class SAV_Misc3 : Form
         j.JoyfulJumpInRow = (ushort)Util.ToUInt32(TB_J1.Text);
         j.JoyfulJumpScore = (ushort)Util.ToUInt32(TB_J2.Text);
         j.JoyfulJump5InRow = (ushort)Util.ToUInt32(TB_J3.Text);
+        j.JoyfulJumpGamesMaxPlayers = (ushort)Util.ToUInt32(TB_J4.Text);
         j.JoyfulBerriesInRow = (ushort)Util.ToUInt32(TB_B1.Text);
         j.JoyfulBerriesScore = (ushort)Util.ToUInt32(TB_B2.Text);
         j.JoyfulBerries5InRow = (ushort)Util.ToUInt32(TB_B3.Text);
+        j.BerryPowder = Util.ToUInt32(TB_BerryPowder.Text);
     }
     #endregion
 
     private const ushort ItemIDOldSeaMap = 0x178;
-    private static ReadOnlySpan<ushort> TicketItemIDs => new ushort[] { 0x109, 0x113, 0x172, 0x173, ItemIDOldSeaMap }; // item IDs
+    private static ReadOnlySpan<ushort> TicketItemIDs => [ 0x109, 0x113, 0x172, 0x173, ItemIDOldSeaMap ]; // item IDs
 
     #region Ferry
     private void B_GetTickets_Click(object sender, EventArgs e)
     {
         var Pouches = SAV.Inventory;
-        var itemlist = GameInfo.Strings.GetItemStrings(SAV.Context, SAV.Version).ToArray();
-        for (int i = 0; i < itemlist.Length; i++)
-        {
-            if (string.IsNullOrEmpty(itemlist[i]))
-                itemlist[i] = $"(Item #{i:000})";
-        }
+        var itemlist = GameInfo.Strings.GetItemStrings(SAV.Context, SAV.Version);
 
         var tickets = TicketItemIDs;
-        if (!SAV.Japanese && DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, $"Non Japanese save file. Add {itemlist[ItemIDOldSeaMap]} (unreleased)?"))
+        var p = Pouches.First(z => z.Type == InventoryType.KeyItems);
+        bool hasOldSea = Array.Exists(p.Items, static z => z.Index == ItemIDOldSeaMap);
+        if (!hasOldSea && !SAV.Japanese && DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, $"Non Japanese save file. Add {itemlist[ItemIDOldSeaMap]} (unreleased)?"))
             tickets = tickets[..^1]; // remove old sea map
-
-        var p = Pouches.FirstOrDefault(z => z.Type == InventoryType.KeyItems);
-        if (p == null)
-            throw new ArgumentException(nameof(InventoryType));
 
         // check for missing tickets
         Span<ushort> have = stackalloc ushort[tickets.Length]; int h = 0;
@@ -157,7 +176,7 @@ public partial class SAV_Misc3 : Form
 
         // check for space
         int end = Array.FindIndex(p.Items, static z => z.Index == 0);
-        if (end + missing.Length >= p.Items.Length)
+        if (end == -1 || end + missing.Length >= p.Items.Length)
         {
             WinFormsUtil.Alert("Not enough space in pouch.", "Please use the InventoryEditor.");
             B_GetTickets.Enabled = false;
@@ -169,7 +188,7 @@ public partial class SAV_Misc3 : Form
             var sbAdd = new StringBuilder();
             foreach (var item in items)
             {
-                if (sbAdd.Length > 0)
+                if (sbAdd.Length != 0)
                     sbAdd.Append(", ");
                 sbAdd.Append(names[item]);
             }
@@ -177,7 +196,7 @@ public partial class SAV_Misc3 : Form
         }
         var added = Format(missing, itemlist);
         var addmsg = $"Add the following items?{Environment.NewLine}{added}";
-        if (have.Length > 0)
+        if (have.Length != 0)
         {
             string had = Format(have, itemlist);
             var havemsg = $"Already have:{Environment.NewLine}{had}";
@@ -256,7 +275,7 @@ public partial class SAV_Misc3 : Form
             rb.Checked = false;
 
         var bft = BFT[BFF[facility][1]];
-        if (bft == null)
+        if (bft is null)
         {
             CB_Stats2.Visible = false;
         }
@@ -289,7 +308,7 @@ public partial class SAV_Misc3 : Form
 
         int BattleType = CB_Stats2.SelectedIndex;
         var bft = BFT[BFF[Facility][1]];
-        if (bft == null)
+        if (bft is null)
             BattleType = 0;
         else if (BattleType < 0)
             return;
@@ -367,35 +386,35 @@ public partial class SAV_Misc3 : Form
     private void ReadBattleFrontier()
     {
         loading = true;
-        BFF = new[] {
+        BFF = [
             // { BFV, BFT, addr(BFV.len), checkBitShift(BFT.len)
-            new[] { 0, 2, 0xCE0, 0xCF0, 0x00, 0x0E, 0x10, 0x12 },
-            new[] { 1, 1, 0xD0C, 0xD14, 0xD1C, 0x02, 0x14 },
-            new[] { 0, 1, 0xDC8, 0xDD0, 0x04, 0x16 },
-            new[] { 0, 0, 0xDDA, 0xDDE, 0x06 },
-            new[] { 2, 1, 0xDE2, 0xDF2, 0xDEA, 0xDFA, 0x08, 0x18 },
-            new[] { 1, 0, 0xE04, 0xE08, 0xE0C, 0x0A },
-            new[] { 0, 0, 0xE1A, 0xE1E, 0x0C },
-        };
-        BFV = new[]
-        {
-            new[] { 0, 2 }, // Current, Max
-            new[] { 0, 2, 3 }, // Current, Max, Total
-            new[] { 0, 1, 2, 3 }, // Current, Trade, Max, Trade
-        };
-        BFT = new[] {
+            [0, 2, 0xCE0, 0xCF0, 0x00, 0x0E, 0x10, 0x12],
+            [1, 1, 0xD0C, 0xD14, 0xD1C, 0x02, 0x14],
+            [0, 1, 0xDC8, 0xDD0, 0x04, 0x16],
+            [0, 0, 0xDDA, 0xDDE, 0x06],
+            [2, 1, 0xDE2, 0xDF2, 0xDEA, 0xDFA, 0x08, 0x18],
+            [1, 0, 0xE04, 0xE08, 0xE0C, 0x0A],
+            [0, 0, 0xE1A, 0xE1E, 0x0C],
+        ];
+        BFV =
+        [
+            [0, 2], // Current, Max
+            [0, 2, 3], // Current, Max, Total
+            [0, 1, 2, 3], // Current, Trade, Max, Trade
+        ];
+        BFT = [
             null,
-            new[] { "Singles", "Doubles" },
-            new[] { "Singles", "Doubles", "Multi", "Linked" },
-        };
-        BFN = new[]
-        {
+            ["Singles", "Doubles"],
+            ["Singles", "Doubles", "Multi", "Linked"],
+        ];
+        BFN =
+        [
             "Tower","Dome","Palace","Arena","Factory","Pike","Pyramid",
-        };
-        StatNUDA = new[] { NUD_Stat0, NUD_Stat1, NUD_Stat2, NUD_Stat3 };
-        StatLabelA = new[] { L_Stat0, L_Stat1, L_Stat2, L_Stat3 };
-        StatRBA = new[] { RB_Stats3_01, RB_Stats3_02 };
-        SymbolButtonA = new[] { BTN_SymbolA, BTN_SymbolT, BTN_SymbolS, BTN_SymbolG, BTN_SymbolK, BTN_SymbolL, BTN_SymbolB };
+        ];
+        StatNUDA = [NUD_Stat0, NUD_Stat1, NUD_Stat2, NUD_Stat3];
+        StatLabelA = [L_Stat0, L_Stat1, L_Stat2, L_Stat3];
+        StatRBA = [RB_Stats3_01, RB_Stats3_02];
+        SymbolButtonA = [BTN_SymbolA, BTN_SymbolT, BTN_SymbolS, BTN_SymbolG, BTN_SymbolK, BTN_SymbolL, BTN_SymbolB];
         CHK_ActivatePass.Checked = SAV.GetEventFlag(0x860 + 0x72);
         SetFrontierSymbols();
 
@@ -436,7 +455,7 @@ public partial class SAV_Misc3 : Form
     private void BTN_Symbol_Click(object sender, EventArgs e)
     {
         var match = Array.Find(SymbolButtonA, z => z == sender);
-        if (match == null)
+        if (match is null)
             return;
 
         var color = match.BackColor;
@@ -451,24 +470,24 @@ public partial class SAV_Misc3 : Form
         var items = Record3.GetItems(SAV);
         CB_Record.InitializeBinding();
         CB_Record.DataSource = items;
-        NUD_RecordValue.Minimum = int.MinValue;
-        NUD_RecordValue.Maximum = int.MaxValue;
+        NUD_RecordValue.Minimum = 0;
+        NUD_RecordValue.Maximum = uint.MaxValue;
 
-        CB_Record.SelectedIndexChanged += (s, e) =>
+        CB_Record.SelectedIndexChanged += (_, _) =>
         {
-            if (CB_Record.SelectedValue == null)
+            if (CB_Record.SelectedValue is null)
                 return;
 
             var index = WinFormsUtil.GetIndex(CB_Record);
             LoadRecordID(index);
             NUD_FameH.Visible = NUD_FameS.Visible = NUD_FameM.Visible = index == 1;
         };
-        CB_Record.MouseWheel += (s, e) => ((HandledMouseEventArgs)e).Handled = true; // disallowed
+        CB_Record.MouseWheel += (_, e) => ((HandledMouseEventArgs)e).Handled = true; // disallowed
         CB_Record.SelectedIndex = 0;
         LoadRecordID(0);
-        NUD_RecordValue.ValueChanged += (s, e) =>
+        NUD_RecordValue.ValueChanged += (_, _) =>
         {
-            if (CB_Record.SelectedValue == null)
+            if (CB_Record.SelectedValue is null)
                 return;
 
             var index = WinFormsUtil.GetIndex(CB_Record);
@@ -482,7 +501,7 @@ public partial class SAV_Misc3 : Form
         {
             NUD_BP.Value = Math.Min(NUD_BP.Maximum, em.BP);
             NUD_BPEarned.Value = em.BPEarned;
-            NUD_BPEarned.ValueChanged += (s, e) => em.BPEarned = (uint)NUD_BPEarned.Value;
+            NUD_BPEarned.ValueChanged += (_, _) => em.BPEarned = (uint)NUD_BPEarned.Value;
         }
         else
         {
@@ -490,9 +509,9 @@ public partial class SAV_Misc3 : Form
             NUD_BPEarned.Visible = L_BPEarned.Visible = false;
         }
 
-        NUD_FameH.ValueChanged += (s, e) => ChangeFame(records);
-        NUD_FameM.ValueChanged += (s, e) => ChangeFame(records);
-        NUD_FameS.ValueChanged += (s, e) => ChangeFame(records);
+        NUD_FameH.ValueChanged += (_, _) => ChangeFame(records);
+        NUD_FameM.ValueChanged += (_, _) => ChangeFame(records);
+        NUD_FameS.ValueChanged += (_, _) => ChangeFame(records);
 
         void ChangeFame(Record3 r3) => r3.SetRecord(1, (uint)(NUD_RecordValue.Value = GetFameTime()));
         void LoadRecordID(int index) => NUD_RecordValue.Value = records.GetRecord(index);
@@ -511,7 +530,193 @@ public partial class SAV_Misc3 : Form
     public void SetFameTime(uint time)
     {
         NUD_FameH.Value = Math.Min(NUD_FameH.Maximum, time >> 16);
-        NUD_FameM.Value = Math.Min(NUD_FameH.Maximum, (byte)(time >> 8));
-        NUD_FameS.Value = Math.Min(NUD_FameH.Maximum, (byte)time);
+        NUD_FameM.Value = Math.Min(NUD_FameM.Maximum, (byte)(time >> 8));
+        NUD_FameS.Value = Math.Min(NUD_FameS.Maximum, (byte)time);
     }
+
+    #region Decorations
+    private void ReadDecorations(IGen3Hoenn h)
+    {
+        DataGridViewComboBoxColumn[] columns =
+        [
+            Item_Desk,
+            Item_Chair,
+            Item_Plant,
+            Item_Ornament,
+            Item_Mat,
+            Item_Poster,
+            Item_Doll,
+            Item_Cushion,
+        ];
+
+        var decorations = Util.GetStringList("decoration3", Main.CurrentLanguage);
+        var list = Util.GetCBList(decorations);
+
+        foreach (var col in columns)
+        {
+            col.Items.Clear();
+            col.InitializeBinding();
+        }
+        foreach (var cb in list)
+        {
+            var cat = ((Decoration3)cb.Value).GetCategory();
+            if (cb.Value == (int)Decoration3.NONE)
+            {
+                foreach (var col in columns) // all categories can have empty slots
+                    col.Items.Add(cb);
+                continue;
+            }
+            columns[(int)cat].Items.Add(cb);
+        }
+
+        ReadDecorationCategory(h.Decorations.Desk, DGV_Desk);
+        ReadDecorationCategory(h.Decorations.Chair, DGV_Chair);
+        ReadDecorationCategory(h.Decorations.Plant, DGV_Plant);
+        ReadDecorationCategory(h.Decorations.Ornament, DGV_Ornament);
+        ReadDecorationCategory(h.Decorations.Mat, DGV_Mat);
+        ReadDecorationCategory(h.Decorations.Poster, DGV_Poster);
+        ReadDecorationCategory(h.Decorations.Doll, DGV_Doll);
+        ReadDecorationCategory(h.Decorations.Cushion, DGV_Cushion);
+    }
+
+    private static void ReadDecorationCategory(ReadOnlySpan<Decoration3> data, DataGridView dgv)
+    {
+        dgv.Rows.Clear();
+        dgv.Rows.Add(data.Length);
+        for (int i = 0; i < data.Length; i++)
+            dgv.Rows[i].Cells[0].Value = (int)data[i];
+    }
+
+    private void SaveDecorations(IGen3Hoenn h)
+    {
+        SaveDecorationCategory(h.Decorations.Desk, DGV_Desk);
+        SaveDecorationCategory(h.Decorations.Chair, DGV_Chair);
+        SaveDecorationCategory(h.Decorations.Plant, DGV_Plant);
+        SaveDecorationCategory(h.Decorations.Ornament, DGV_Ornament);
+        SaveDecorationCategory(h.Decorations.Mat, DGV_Mat);
+        SaveDecorationCategory(h.Decorations.Poster, DGV_Poster);
+        SaveDecorationCategory(h.Decorations.Doll, DGV_Doll);
+        SaveDecorationCategory(h.Decorations.Cushion, DGV_Cushion);
+    }
+
+    private static void SaveDecorationCategory(Span<Decoration3> data, DataGridView dgv)
+    {
+        int ctr = 0;
+        for (int i = 0; i < data.Length; i++)
+        {
+            var deco = (Decoration3)(int)dgv.Rows[i].Cells[0].Value!;
+            if (deco == Decoration3.NONE) // Compression of Empty Slots
+                continue;
+
+            data[ctr] = deco;
+            ctr++;
+        }
+        for (int i = ctr; i < data.Length; i++)
+            data[i] = Decoration3.NONE; // Empty Slots at the end
+    }
+    #endregion
+
+    #region Paintings
+
+    private int PaintingIndex = -1;
+
+    private void LoadPaintings() => LoadPainting((int)NUD_Painting.Value);
+    private void SavePaintings() => SavePainting((int)NUD_Painting.Value);
+
+    private void ChangePainting(object sender, EventArgs e)
+    {
+        var index = (int)NUD_Painting.Value;
+        if (PaintingIndex == index)
+            return;
+        SavePainting(PaintingIndex);
+        LoadPainting(index);
+    }
+
+    private void LoadPainting(int index)
+    {
+        if ((uint)index >= 5)
+            return;
+        var gallery = (IGen3Hoenn)SAV;
+        var painting = gallery.GetPainting(index);
+
+        GB_Painting.Visible = CHK_EnablePaint.Checked = SAV.GetEventFlag(Paintings3.GetFlagIndexContestStat(index));
+
+        CB_Species.SelectedValue = (int)painting.Species;
+        NUD_Caption.Value = painting.GetCaptionRelative(index);
+        TB_TID.Text = painting.TID.ToString();
+        TB_SID.Text = painting.SID.ToString();
+        TB_PID.Text = painting.PID.ToString("X8");
+        TB_Nickname.Text = painting.Nickname;
+        TB_OT.Text = painting.OT;
+
+        PaintingIndex = index;
+
+        NUD_Painting.BackColor = index switch
+        {
+            0 => Color.FromArgb(248, 152, 096),
+            1 => Color.FromArgb(128, 152, 248),
+            2 => Color.FromArgb(248, 168, 208),
+            3 => Color.FromArgb(112, 224, 112),
+            _ => Color.FromArgb(248, 240, 056),
+        };
+    }
+
+    private void SavePainting(int index)
+    {
+        if ((uint)index >= 5)
+            return;
+        var gallery = (IGen3Hoenn)SAV;
+        var painting = gallery.GetPainting(index);
+
+        var enabled = CHK_EnablePaint.Checked;
+        SAV.SetEventFlag(Paintings3.GetFlagIndexContestStat(index), enabled);
+        if (!enabled)
+        {
+            painting.Clear();
+            gallery.SetPainting(index, painting);
+            return;
+        }
+
+        painting.Species = (ushort)WinFormsUtil.GetIndex(CB_Species);
+        painting.SetCaptionRelative(index, (byte)NUD_Caption.Value);
+        painting.TID = (ushort)Util.ToUInt32(TB_TID.Text);
+        painting.SID = (ushort)Util.ToUInt32(TB_SID.Text);
+        painting.PID = Util.GetHexValue(TB_PID.Text);
+        painting.Nickname = TB_Nickname.Text;
+        painting.OT = TB_OT.Text;
+
+        gallery.SetPainting(index, painting);
+    }
+
+    private void CHK_EnablePaint_CheckedChanged(object sender, EventArgs e) => GB_Painting.Visible = CHK_EnablePaint.Checked;
+
+    private void TB_PaintingIDChanged(object sender, EventArgs e)
+    {
+        ValidatePaintingIDs();
+
+        var pid = Util.GetHexValue(TB_PID.Text);
+        var tid = Util.ToUInt32(TB_TID.Text);
+        var sid = Util.ToUInt32(TB_SID.Text);
+        CHK_Shiny.Checked = ShinyUtil.GetIsShiny((sid << 16) | tid, pid, 8);
+    }
+
+    private void ValidatePaintingIDs()
+    {
+        var pid = Util.GetHexValue(TB_PID.Text);
+        if (pid.ToString("X") != TB_PID.Text && pid.ToString("X8") != TB_PID.Text)
+            TB_PID.Text = pid.ToString();
+
+        var tid = Util.ToUInt32(TB_TID.Text);
+        if (tid > ushort.MaxValue)
+            tid = ushort.MaxValue;
+        if (tid.ToString() != TB_TID.Text)
+            TB_TID.Text = tid.ToString();
+
+        var sid = Util.ToUInt32(TB_SID.Text);
+        if (sid > ushort.MaxValue)
+            sid = ushort.MaxValue;
+        if (sid.ToString() != TB_SID.Text)
+            TB_SID.Text = sid.ToString();
+    }
+    #endregion
 }

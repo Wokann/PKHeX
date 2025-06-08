@@ -6,7 +6,7 @@ namespace PKHeX.Core;
 /// <summary>
 /// Record Mixing Data for Generation 3 <see cref="SAV3"/> games.
 /// </summary>
-public class RecordMixing3Gift
+public sealed class RecordMixing3Gift
 {
     /// <summary>
     /// 0x8: Total Size of this object
@@ -17,9 +17,7 @@ public class RecordMixing3Gift
 
     public RecordMixing3Gift(byte[] data)
     {
-        if (data.Length != SIZE)
-            throw new ArgumentException("Invalid size.", nameof(data));
-
+        ArgumentOutOfRangeException.ThrowIfNotEqual(data.Length, SIZE);
         Data = data;
     }
 

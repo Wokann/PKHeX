@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using static PKHeX.Core.MessageStrings;
+using static PKHeX.Core.GeonetPoint;
 
 namespace PKHeX.Core;
 
@@ -7,13 +9,21 @@ public static partial class Util
 {
     public static List<ComboItem> GetCountryRegionList(string textFile, string lang)
     {
-        string[] inputCSV = GetStringList(textFile);
+        var inputCSV = GetStringList(textFile);
         int index = GeoLocation.GetLanguageIndex(lang);
         var list = GetCBListFromCSV(inputCSV, index);
         if (list.Count > 1)
             list.Sort(1, list.Count - 1, Comparer); // keep null value as first
         return list;
     }
+
+    public static List<ComboItem> GetGeonetPointList() =>
+    [
+        new (MsgGeonetPointNone,   (int)None),
+        new (MsgGeonetPointBlue,   (int)Blue),
+        new (MsgGeonetPointYellow, (int)Yellow),
+        new (MsgGeonetPointRed,    (int)Red),
+    ];
 
     private static List<ComboItem> GetCBListFromCSV(ReadOnlySpan<string> inputCSV, int index)
     {
@@ -126,15 +136,13 @@ public static partial class Util
     private static readonly FunctorComparer<ComboItem> Comparer =
         new((a, b) => string.CompareOrdinal(a.Text, b.Text));
 
-    private sealed class FunctorComparer<T> : IComparer<T>
+    private sealed class FunctorComparer<T>(Comparison<T> Comparison) : IComparer<T>
     {
-        private readonly Comparison<T> Comparison;
-        public FunctorComparer(Comparison<T> comparison) => Comparison = comparison;
         public int Compare(T? x, T? y)
         {
-            if (x == null)
-                return y == null ? 0 : -1;
-            return y == null ? 1 : Comparison(x, y);
+            if (x is null)
+                return y is null ? 0 : -1;
+            return y is null ? 1 : Comparison(x, y);
         }
     }
 }

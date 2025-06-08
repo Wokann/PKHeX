@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace PKHeX.Core;
 
@@ -9,7 +9,12 @@ public interface IEventFlagArray
     void SetEventFlag(int flagNumber, bool value);
 }
 
-public interface IEventFlag37 : IEventFlagArray, IEventWorkArray<ushort> { }
+public interface IEventFlag37 : IEventFlagArray, IEventWorkArray<ushort>;
+
+public interface IEventFlagProvider37
+{
+    IEventFlag37 EventWork { get; }
+}
 
 public static class EventFlagArrayExtensions
 {

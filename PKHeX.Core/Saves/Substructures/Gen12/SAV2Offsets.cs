@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace PKHeX.Core;
 
@@ -15,7 +15,7 @@ internal sealed class SAV2Offsets
             LoadOffsetsKorean();
         else
             LoadOffsetsInternational(sav.Version);
-        Daycare = PokedexSeen + 0x1F + 28 + 1; // right after first unown seen
+        Daycare = PokedexSeen + 0x1F + 28 + 1; // right after first Unown seen
         EventWork = EventFlag - 0x100;
     }
 
@@ -40,11 +40,14 @@ internal sealed class SAV2Offsets
     public int Gender { get; private set; } = -1;
     public int AccumulatedChecksumEnd { get; private set; } = -1;
     public int OverallChecksumPosition { get; private set; } = -1;
+    public int OverallChecksumPosition2 { get; private set; }
     public int EventFlag { get; private set; } = -1;
     public int EventWork { get; }
     public int Daycare { get; }
 
     public int BlueCardPoints { get; private set; } = -1;
+    public int MysteryGiftItem { get; private set; } = -1;
+    public int MysteryGiftIsUnlocked { get; private set; } = -1;
 
     public int PouchTMHM { get; private set; } = -1;
     public int PouchItem { get; private set; } = -1;
@@ -59,8 +62,12 @@ internal sealed class SAV2Offsets
         Rival = 0x2021;
         DaylightSavings = 0x2042;
         OtherCurrentBox = 0x284C;
+        MysteryGiftIsUnlocked = 0xBE3; // And 0xBE5;
+
         switch (version)
         {
+            case GameVersion.GD:
+            case GameVersion.SI:
             case GameVersion.GS:
                 TimePlayed = 0x2053;
                 Palette = 0x206B;
@@ -93,6 +100,7 @@ internal sealed class SAV2Offsets
                 CurrentBoxIndex = 0x2700;
                 BoxNames = 0x2703;
                 BlueCardPoints = 0x27D9;
+                MysteryGiftItem = 0xBE4;
                 Party = 0x2865;
                 PokedexCaught = 0x2A27;
                 PokedexSeen = 0x2A47;
@@ -100,7 +108,7 @@ internal sealed class SAV2Offsets
                 Gender = 0x3E3D;
                 AccumulatedChecksumEnd = 0x2B82;
                 OverallChecksumPosition = 0x2D0D;
-                OverallChecksumPosition2 = 0x7F0D;
+                OverallChecksumPosition2 = 0x1F0D;
 
                 PouchTMHM = 0x23E7;
                 PouchItem = 0x2420;
@@ -112,7 +120,7 @@ internal sealed class SAV2Offsets
                 break;
 
             default:
-                throw new ArgumentException(nameof(version));
+                throw new ArgumentOutOfRangeException(nameof(version), version, null);
         }
     }
 
@@ -124,9 +132,12 @@ internal sealed class SAV2Offsets
         Palette = 0x204C;
         CurrentBox = 0x2D10;
         OtherCurrentBox = 0x2842;
+        MysteryGiftIsUnlocked = 0xB51; // And 0xB53;
 
         switch (version)
         {
+            case GameVersion.GD:
+            case GameVersion.SI:
             case GameVersion.GS:
                 RTCFlags = 0x1000;
 
@@ -158,6 +169,7 @@ internal sealed class SAV2Offsets
                 CurrentBoxIndex = 0x26E2;
                 BoxNames = 0x26E5;
                 BlueCardPoints = 0x278E;
+                MysteryGiftItem = 0xB52;
                 Party = 0x281A;
                 PokedexCaught = 0x29AA;
                 PokedexSeen = 0x29CA;
@@ -176,11 +188,9 @@ internal sealed class SAV2Offsets
                 break;
 
             default:
-                throw new ArgumentException(nameof(version));
+                throw new ArgumentOutOfRangeException(nameof(version), version, null);
         }
     }
-
-    public int OverallChecksumPosition2 { get; set; }
 
     private void LoadOffsetsKorean()
     {

@@ -5,15 +5,15 @@ using static System.Buffers.Binary.BinaryPrimitives;
 namespace PKHeX.Core;
 
 /// <summary> Generation 3 <see cref="PKM"/> format, exclusively for Pokémon XD. </summary>
-public sealed class XK3 : G3PKM, IShadowCapture
+public sealed class XK3 : G3PKM, IShadowCapture, ISeparateIVs, IGCRegion
 {
-    public override ReadOnlySpan<ushort> ExtraBytes => new ushort[]
-    {
+    public override ReadOnlySpan<ushort> ExtraBytes =>
+    [
         0x0A, 0x0B, 0x0C, 0x0D, 0x1E, 0x1F,
         0x2A, 0x2B,
         0x7A, 0x7B,
         0x7E, 0x7F,
-    };
+    ];
 
     public override int SIZE_PARTY => PokeCrypto.SIZE_3XSTORED;
     public override int SIZE_STORED => PokeCrypto.SIZE_3XSTORED;
@@ -21,31 +21,33 @@ public sealed class XK3 : G3PKM, IShadowCapture
     public override PersonalInfo3 PersonalInfo => PersonalTable.RS[Species];
     public XK3(byte[] data) : base(data) { }
     public XK3() : base(PokeCrypto.SIZE_3XSTORED) { }
-    public override XK3 Clone() => new((byte[])Data.Clone()) { Purification = Purification };
+    public override XK3 Clone() => new((byte[])Data.Clone()) { Purification = Purification, IsShadow = IsShadow };
     public override void RefreshChecksum() => Valid = true;
 
     // Trash Bytes
-    public override Span<byte> OT_Trash => Data.AsSpan(0x38, 22);
-    public override Span<byte> Nickname_Trash => Data.AsSpan(0x4E, 22);
-    public Span<byte> NicknameCopy_Trash => Data.AsSpan(0x64, 22);
+    public override Span<byte> OriginalTrainerTrash => Data.AsSpan(0x38, 22);
+    public Span<byte> NicknameDisplayTrash => Data.AsSpan(0x4E, 22);
+    public override Span<byte> NicknameTrash => Data.AsSpan(0x64, 22);
+    public override int TrashCharCountTrainer => 11;
+    public override int TrashCharCountNickname => 11;
 
     public override ushort SpeciesInternal { get => ReadUInt16BigEndian(Data.AsSpan(0x00)); set => WriteUInt16BigEndian(Data.AsSpan(0x00), value); } // raw access
     public override ushort Species { get => SpeciesConverter.GetNational3(SpeciesInternal); set => SpeciesInternal = SpeciesConverter.GetInternal3(value); }
     public override int SpriteItem => ItemConverter.GetItemFuture3((ushort)HeldItem);
     public override int HeldItem { get => ReadUInt16BigEndian(Data.AsSpan(0x02)); set => WriteUInt16BigEndian(Data.AsSpan(0x02), (ushort)value); }
     public override int Stat_HPCurrent { get => ReadUInt16BigEndian(Data.AsSpan(0x04)); set => WriteUInt16BigEndian(Data.AsSpan(0x04), (ushort)value); }
-    public override int OT_Friendship { get => ReadUInt16BigEndian(Data.AsSpan(0x06)); set => WriteUInt16BigEndian(Data.AsSpan(0x06), (ushort)value); }
-    public override int Met_Location { get => ReadUInt16BigEndian(Data.AsSpan(0x08)); set => WriteUInt16BigEndian(Data.AsSpan(0x08), (ushort)value); }
+    public override byte OriginalTrainerFriendship { get => (byte)ReadUInt16BigEndian(Data.AsSpan(0x06)); set => WriteUInt16BigEndian(Data.AsSpan(0x06), value); }
+    public override ushort MetLocation { get => ReadUInt16BigEndian(Data.AsSpan(0x08)); set => WriteUInt16BigEndian(Data.AsSpan(0x08), value); }
     // 0x0A-0x0B Unknown
     // 0x0C-0x0D Unknown
-    public override int Met_Level { get => Data[0x0E]; set => Data[0x0E] = (byte)value; }
-    public override int Ball { get => Data[0x0F]; set => Data[0x0F] = (byte)value; }
-    public override int OT_Gender { get => Data[0x10]; set => Data[0x10] = (byte)value; }
-    public override int Stat_Level { get => Data[0x11]; set => Data[0x11] = (byte)value; }
-    public override byte CNT_Sheen { get => Data[0x12]; set => Data[0x12] = value; }
-    public override int PKRS_Strain { get => Data[0x13] & 0xF; set => Data[0x13] = (byte)(value & 0xF); }
-    public override int MarkValue { get => SwapBits(Data[0x14], 1, 2); set => Data[0x14] = (byte)SwapBits(value, 1, 2); }
-    public override int PKRS_Days { get => Math.Max((sbyte)Data[0x15], (sbyte)0); set => Data[0x15] = (byte)(value == 0 ? 0xFF : value & 0xF); }
+    public override byte MetLevel { get => Data[0x0E]; set => Data[0x0E] = value; }
+    public override byte Ball { get => Data[0x0F]; set => Data[0x0F] = value; }
+    public override byte OriginalTrainerGender { get => Data[0x10]; set => Data[0x10] = value; }
+    public override byte Stat_Level { get => Data[0x11]; set => Data[0x11] = value; }
+    public override byte ContestSheen { get => Data[0x12]; set => Data[0x12] = value; }
+    public override int PokerusStrain { get => Data[0x13] & 0xF; set => Data[0x13] = (byte)(value & 0xF); }
+    public override byte MarkingValue { get => (byte)SwapBits(Data[0x14], 1, 2); set => Data[0x14] = (byte)SwapBits(value, 1, 2); }
+    public override int PokerusDays { get => Math.Max((sbyte)Data[0x15], (sbyte)0); set => Data[0x15] = (byte)(value == 0 ? 0xFF : value & 0xF); }
     // 0x16-0x1C Battle Related
     private int XDPKMFLAGS { get => Data[0x1D]; set => Data[0x1D] = (byte)value; }
     public bool UnusedFlag0         { get => (XDPKMFLAGS & (1 << 0)) == 1 << 0; set => XDPKMFLAGS = (XDPKMFLAGS & ~(1 << 0)) | (value ? 1 << 0 : 0); }
@@ -83,13 +85,22 @@ public sealed class XK3 : G3PKM, IShadowCapture
         }
     }
 
-    public override int Version { get => GetGBAVersionID(Data[0x34]); set => Data[0x34] = GetGCVersionID(value); }
-    public int CurrentRegion { get => Data[0x35]; set => Data[0x35] = (byte)value; }
-    public int OriginalRegion { get => Data[0x36]; set => Data[0x36] = (byte)value; }
+    public override GameVersion Version { get => GetGBAVersionID((GCVersion)Data[0x34]); set => Data[0x34] = (byte)GetGCVersionID(value); }
+    public GCRegion CurrentRegion { get => (GCRegion)Data[0x35]; set => Data[0x35] = (byte)value; }
+    public GCRegion OriginalRegion { get => (GCRegion)Data[0x36]; set => Data[0x36] = (byte)value; }
     public override int Language { get => Core.Language.GetMainLangIDfromGC(Data[0x37]); set => Data[0x37] = Core.Language.GetGCLangIDfromMain((byte)value); }
-    public override string OT_Name { get => StringConverter3GC.GetString(OT_Trash); set => StringConverter3GC.SetString(OT_Trash, value, 10, StringConverterOption.None); }
-    public override string Nickname { get => StringConverter3GC.GetString(Nickname_Trash); set { StringConverter3GC.SetString(Nickname_Trash, value, 10, StringConverterOption.None); NicknameCopy = value; } }
-    public string NicknameCopy { get => StringConverter3GC.GetString(NicknameCopy_Trash); set => StringConverter3GC.SetString(NicknameCopy_Trash, value, 10, StringConverterOption.None); }
+    public override string OriginalTrainerName { get => GetString(OriginalTrainerTrash); set => SetString(OriginalTrainerTrash, value, 10, StringConverterOption.None); }
+    public string NicknameDisplay { get => GetString(NicknameDisplayTrash); set => SetString(NicknameDisplayTrash, value, 10, StringConverterOption.None); }
+    public override string Nickname { get => GetString(NicknameTrash); set { SetString(NicknameTrash, value, 10, StringConverterOption.None); ResetNicknameDisplay(); } }
+
+    public void ResetNicknameDisplay()
+    {
+        var current = NicknameDisplayTrash;
+        NicknameTrash.CopyTo(current);
+        if (CurrentRegion == GCRegion.NTSC_J)
+            current[10..].Clear(); // clamp to 5 chars at most
+    }
+
     // 0x7A-0x7B Unknown
     private ushort RIB0 { get => ReadUInt16BigEndian(Data.AsSpan(0x7C)); set => WriteUInt16BigEndian(Data.AsSpan(0x7C), value); }
     public override bool RibbonChampionG3        { get => (RIB0 & (1 << 15)) == 1 << 15; set => RIB0 = (ushort)((RIB0 & ~(1 << 15)) | (value ? 1 << 15 : 0)); }
@@ -171,7 +182,14 @@ public sealed class XK3 : G3PKM, IShadowCapture
     }
 
     // IVs
-    public override int IV_HP { get => Data[0xA8]; set => Data[0xA8] = (byte)(value & 0x1F); }
+    byte ISeparateIVs.IV_HP  { get => Data[0xA8]; set => Data[0xA8] = value; }
+    byte ISeparateIVs.IV_ATK { get => Data[0xA9]; set => Data[0xA9] = value; }
+    byte ISeparateIVs.IV_DEF { get => Data[0xAA]; set => Data[0xAA] = value; }
+    byte ISeparateIVs.IV_SPA { get => Data[0xAB]; set => Data[0xAB] = value; }
+    byte ISeparateIVs.IV_SPD { get => Data[0xAC]; set => Data[0xAC] = value; }
+    byte ISeparateIVs.IV_SPE { get => Data[0xAD]; set => Data[0xAD] = value; }
+
+    public override int IV_HP  { get => Data[0xA8]; set => Data[0xA8] = (byte)(value & 0x1F); }
     public override int IV_ATK { get => Data[0xA9]; set => Data[0xA9] = (byte)(value & 0x1F); }
     public override int IV_DEF { get => Data[0xAA]; set => Data[0xAA] = (byte)(value & 0x1F); }
     public override int IV_SPA { get => Data[0xAB]; set => Data[0xAB] = (byte)(value & 0x1F); }
@@ -179,11 +197,11 @@ public sealed class XK3 : G3PKM, IShadowCapture
     public override int IV_SPE { get => Data[0xAD]; set => Data[0xAD] = (byte)(value & 0x1F); }
 
     // Contest
-    public override byte CNT_Cool   { get => Data[0xAE]; set => Data[0xAE] = value; }
-    public override byte CNT_Beauty { get => Data[0xAF]; set => Data[0xAF] = value; }
-    public override byte CNT_Cute   { get => Data[0xB0]; set => Data[0xB0] = value; }
-    public override byte CNT_Smart  { get => Data[0xB1]; set => Data[0xB1] = value; }
-    public override byte CNT_Tough  { get => Data[0xB2]; set => Data[0xB2] = value; }
+    public override byte ContestCool   { get => Data[0xAE]; set => Data[0xAE] = value; }
+    public override byte ContestBeauty { get => Data[0xAF]; set => Data[0xAF] = value; }
+    public override byte ContestCute   { get => Data[0xB0]; set => Data[0xB0] = value; }
+    public override byte ContestSmart  { get => Data[0xB1]; set => Data[0xB1] = value; }
+    public override byte ContestTough  { get => Data[0xB2]; set => Data[0xB2] = value; }
     public override byte RibbonCountG3Cool   { get => Data[0xB3]; set => Data[0xB3] = value; }
     public override byte RibbonCountG3Beauty { get => Data[0xB4]; set => Data[0xB4] = value; }
     public override byte RibbonCountG3Cute   { get => Data[0xB5]; set => Data[0xB5] = value; }
@@ -208,7 +226,9 @@ public sealed class XK3 : G3PKM, IShadowCapture
     public PK3 ConvertToPK3()
     {
         var pk = ConvertTo<PK3>();
-        if (Version == 15)
+        StringConverter3GC.RemapGlyphs3GBA(NicknameTrash, CurrentRegion, Language, pk.NicknameTrash);
+        StringConverter3GC.RemapGlyphs3GBA(OriginalTrainerTrash, CurrentRegion, Language, pk.OriginalTrainerTrash);
+        if (Version == GameVersion.CXD)
         {
             // Transferring XK3 to PK3 when it originates from XD sets the fateful encounter (obedience) flag.
             if (ShadowID != 0)
@@ -216,7 +236,7 @@ public sealed class XK3 : G3PKM, IShadowCapture
                 pk.RibbonNational = true; // must be purified before trading away; force purify
                 pk.FatefulEncounter = true;
             }
-            else if (IsGiftXD(Met_Location))
+            else if (IsGiftXD(MetLocation))
             {
                 pk.FatefulEncounter = true;
             }
@@ -226,10 +246,65 @@ public sealed class XK3 : G3PKM, IShadowCapture
         return pk;
     }
 
-    private static bool IsGiftXD(int met) => met switch
+    private static bool IsGiftXD(ushort met) => met switch
     {
         0 or 16 => true, // Starter Eevee / Hordel Gift
         90 or 91 or 92 => true, // Pokespot: Rock / Oasis / Cave
         _ => false,
     };
+
+    // render original string if possible
+    public override string GetString(ReadOnlySpan<byte> data)
+    {
+        var current = CurrentRegion;
+        if (current == GCRegion.NoRegion)
+            return StringConverter3GC.GetString(data); // don't bother
+        var language = Language;
+        var expect = language == 1 ? GCRegion.NTSC_J : GCRegion.NTSC_U;
+        if (current == expect)
+            return StringConverter3GC.GetString(data); // no remap needed
+
+        Span<byte> remap = stackalloc byte[data.Length];
+        data.CopyTo(remap);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(remap, current, expect, language);
+        return StringConverter3GC.GetString(remap);
+    }
+
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+    {
+        var current = CurrentRegion;
+        if (current == GCRegion.NoRegion)
+            return StringConverter3GC.LoadString(data, destBuffer); // don't bother
+        var language = Language;
+        var expect = language == 1 ? GCRegion.NTSC_J : GCRegion.NTSC_U;
+        if (current == expect)
+            return StringConverter3GC.LoadString(data, destBuffer); // no remap needed
+
+        Span<byte> remap = stackalloc byte[data.Length];
+        data.CopyTo(remap);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(remap, current, expect, language);
+        return StringConverter3GC.LoadString(remap, destBuffer);
+    }
+
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+    {
+        var language = Language;
+        var current = CurrentRegion;
+        if (current == GCRegion.NoRegion)
+            return StringConverter3GC.SetString(destBuffer, value, maxLength, option); // don't bother
+        var expect = language == 1 ? GCRegion.NTSC_J : GCRegion.NTSC_U;
+        if (current == expect)
+            return StringConverter3GC.SetString(destBuffer, value, maxLength, option); // no remap needed
+
+        Span<byte> remap = stackalloc byte[destBuffer.Length];
+        destBuffer.CopyTo(remap);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(remap, expect, current, language);
+        return StringConverter3GC.SetString(remap, value, maxLength, option);
+    }
+
+    public override int GetStringTerminatorIndex(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetTerminatorIndex(data, StringConverter3GC.TerminatorBigEndian);
+    public override int GetStringLength(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetStringLength(data, StringConverter3GC.TerminatorBigEndian);
+    public override int GetBytesPerChar() => 2;
 }

@@ -4,7 +4,7 @@ PKHeX
 
 Editor di Salvataggi Pokémon per la serie principale, programmato in [C#](https://it.wikipedia.org/wiki/C_sharp).
 
-Supporta i seguenti tipi  di file:
+Supporta i seguenti tipi di file:
 * File di salvataggio ("main", \*.sav, \*.dsv, \*.dat, \*.gci, \*.bin)
 * File di Memory Card GameCube (\*.raw, \*.bin) contenenti File di Salvataggio Pokémon.
 * File di Entità Pokémon individuali (.pk\*, \*.ck3, \*.xk3, \*.pb7, \*.sk2, \*.bk4, \*.rk4)
@@ -24,13 +24,13 @@ PKHeX si aspetta file di salvataggio non criptati con le chiavi specifiche della
 
 ## Screenshots
 
-![Main Window](https://i.imgur.com/18b86pC.png)
+![Main Window](https://i.imgur.com/ICmQ41m.png)
 
 ## Building
 
-PKHeX è un applicazione Windows Form che necessita del [.NET Desktop Runtime 7.0](https://dotnet.microsoft.com/download/dotnet/7.0).
+PKHeX è un applicazione Windows Form che necessita del [.NET Desktop Runtime 9.0](https://dotnet.microsoft.com/download/dotnet/9.0).
 
-L'eseguibile può essere compilato con qualsiasi compiler che supporti C# 11.
+L'eseguibile può essere compilato con qualsiasi compiler che supporti C# 13.
 
 ### Configurazioni di Build
 

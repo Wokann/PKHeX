@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
@@ -15,13 +16,35 @@ public class StringQualityTests
     [InlineData("fr")]
     [InlineData("es")]
     [InlineData("ko")]
-    [InlineData("zh")]
-    [InlineData("zh2")]
+    [InlineData("zh-Hans")]
+    [InlineData("zh-Hant")]
     public void HasNoDuplicates(string language)
     {
         CheckMetLocations(language);
         CheckItemNames(language);
         CheckMoveNames(language);
+        CheckSpeciesNames(language);
+    }
+
+    /// <summary>
+    /// Checks for duplicate hashes in the species list.
+    /// </summary>
+    /// <remarks>
+    /// Uses hashes instead of strings as other logic uses dictionaries of hashes.
+    /// </remarks>
+    private static void CheckSpeciesNames(string language)
+    {
+        var strings = GameInfo.GetStrings(language);
+        var arr = strings.specieslist;
+        var hashset = new HashSet<int>(arr.Length);
+        var duplicates = new List<string>(0);
+        foreach (var line in arr)
+        {
+            var hash = line.GetHashCode();
+            if (!hashset.Add(hash))
+                duplicates.Add(line);
+        }
+        duplicates.Count.Should().Be(0, "expected no duplicate strings.");
     }
 
     private static void CheckMoveNames(string language)
@@ -73,9 +96,10 @@ public class StringQualityTests
             var group = setField.GetValue(strings) as ILocationSet;
             Assert.NotNull(group);
 
-            foreach (var (bank, arr) in group.GetAll())
+            var dict = new Dictionary<string, (int Bank, int Index)>();
+            foreach (var (bank, mem) in group.GetAll())
             {
-                var hs = new HashSet<string>(arr.Length);
+                var arr = mem.Span;
                 bool sm0 = bank == 0 && name == nameof(GameStrings.Gen7);
                 for (int index = 0; index < arr.Length; index++)
                 {
@@ -85,14 +109,22 @@ public class StringQualityTests
                     if (sm0 && index % 2 != 0)
                         continue;
 
-                    if (hs.Contains(line))
-                        duplicates.Add($"{name}\t{index}\t{line}");
-                    hs.Add(line);
+                    if (line is "----------" or "－－－－－－－－－－" or "——————" or "")
+                        continue; // don't care
+                    if (dict.TryGetValue(line, out var other))
+                        duplicates.Add($"{name}\t{other.Bank}-{other.Index}\t{bank}-{index}\t{line}");
+                    else
+                        dict.Add(line, (bank, index));
                 }
             }
 
-            if (duplicates.Count != 0)
-                Assert.Fail($"Found duplicates for {name}. Debug this test to inspect the list of duplicate location IDs.");
+            if (duplicates.Count == 0)
+                continue;
+
+            // None of the location names displayed to the user should be exactly the same.
+            // This prevents a location list selection from being ambiguous/not what the user intended.
+            var result = string.Join(Environment.NewLine, duplicates);
+            Assert.Fail($"Disallowed - duplicate locations for {name}:{Environment.NewLine}{result}");
         }
 
         iterated.Should().BeTrue();

@@ -6,6 +6,7 @@
 0x06B	s	Recibido MO06 Rompe Roca
 0x423	s	Recibido MO07 Cascada
 0x07B	s	Recibido MO08 Buceo
+0302	s	Received HM08 Before Groudon/Kyogre Awakening
 0x05A	s	Recibida Bici Carrera/Acrobática
 
 0x807	*	Recibida Medalla Piedra
@@ -39,6 +40,7 @@
 0x3A9	r	Oculto en el mundo (Registeel)
 0x3C3	r	Oculto en el mundo (Fósil Raíz)
 0x3C4	r	Oculto en el mundo (Fósil Garra)
+1133	r	Overworld Hidden (Missed HM08 ball in Steven's House)
 0x3C9	r	Descubierto Kecleon (Ciudad Arborada)
 0x3CA	r	Descubierto Kecleon (Ruta 120, Puente)
 0x3D5	r	Descubierto Kecleon (Ruta 120, Puente)
@@ -124,10 +126,34 @@
 2142	m	Visited Sky Pillar
 2147	m	Visited Berry Master's House
 0768	s	Defeated The Winstrate Family
-1320	t	Had Aroma Lady Rose 1st Rematch
-1321	t	Had Aroma Lady Rose 2nd Rematch
-1322	t	Had Aroma Lady Rose 3rd Rematch
-1323	t	Had Aroma Lady Rose 4th Rematch
+1800	t	Pokémon Trainer Brendan on Route 103 defeated (Starter Mudkip)
+1801	t	Pokémon Trainer Brendan on Route 110 defeated (Starter Mudkip)
+1802	t	Pokémon Trainer Brendan on Route 119 defeated (Starter Mudkip)
+1803	t	Pokémon Trainer Brendan on Route 103 defeated (Starter Treecko)
+1804	t	Pokémon Trainer Brendan on Route 110 defeated (Starter Treecko)
+1805	t	Pokémon Trainer Brendan on Route 119 defeated (Starter Treecko)
+1806	t	Pokémon Trainer Brendan on Route 103 defeated (Starter Torchic)
+1807	t	Pokémon Trainer Brendan on Route 110 defeated (Starter Torchic)
+1808	t	Pokémon Trainer Brendan on Route 119 defeated (Starter Torchic)
+1809	t	Pokémon Trainer May on Route 103 defeated (Starter Mudkip)
+1810	t	Pokémon Trainer May on Route 110 defeated (Starter Mudkip)
+1811	t	Pokémon Trainer May on Route 119 defeated (Starter Mudkip)
+1812	t	Pokémon Trainer May on Route 103 defeated (Starter Treecko)
+1813	t	Pokémon Trainer May on Route 110 defeated (Starter Treecko)
+1814	t	Pokémon Trainer May on Route 119 defeated (Starter Treecko)
+1815	t	Pokémon Trainer May on Route 103 defeated (Starter Torchic)
+1816	t	Pokémon Trainer May on Route 110 defeated (Starter Torchic)
+1817	t	Pokémon Trainer May on Route 119 defeated (Starter Torchic)
+1941	t	Brendan in Lilycove City defeated (Starter Mudkip)
+1942	t	Brendan in Lilycove City defeated (Starter Treecko)
+1943	t	Brendan in Lilycove City defeated (Starter Torchic)
+1944	t	May in Lilycove City defeated (Starter Mudkip)
+1945	t	May in Lilycove City defeated (Starter Treecko)
+1946	t	May in Lilycove City defeated (Starter Torchic)
+1320	t	Had Srta. Aroma Rose 1st Rematch
+1321	t	Had Srta. Aroma Rose 2nd Rematch
+1322	t	Had Srta. Aroma Rose 3rd Rematch
+1323	t	Had Srta. Aroma Rose 4th Rematch
 1327	t	Had Ruin Maniac Dusty 1st Rematch
 1328	t	Had Ruin Maniac Dusty 2nd Rematch
 1329	t	Had Ruin Maniac Dusty 3rd Rematch
@@ -184,22 +210,22 @@
 1488	t	Had Kindler Bernie 2nd Rematch
 1489	t	Had Kindler Bernie 3rd Rematch
 1490	t	Had Kindler Bernie 4th Rematch
-1499	t	Had Camper Ethan 1st Rematch
-1500	t	Had Camper Ethan 2nd Rematch
-1501	t	Had Camper Ethan 3rd Rematch
-1502	t	Had Camper Ethan 4th Rematch
+1499	t	Had Campista Ethan 1st Rematch
+1500	t	Had Campista Ethan 2nd Rematch
+1501	t	Had Campista Ethan 3rd Rematch
+1502	t	Had Campista Ethan 4th Rematch
 1508	t	Had Bug Maniac Brandon 1st Rematch
 1509	t	Had Bug Maniac Brandon 2nd Rematch
 1510	t	Had Bug Maniac Brandon 3rd Rematch
 1511	t	Had Bug Maniac Brandon 4th Rematch
-1519	t	Had Psychic Cameron 1st Rematch
-1520	t	Had Psychic Cameron 2nd Rematch
-1521	t	Had Psychic Cameron 3rd Rematch
-1522	t	Had Psychic Cameron 4th Rematch
-1530	t	Had Psychic Jacki 1st Rematch
-1531	t	Had Psychic Jacki 2nd Rematch
-1532	t	Had Psychic Jacki 3rd Rematch
-1533	t	Had Psychic Jacki 4th Rematch
+1519	t	Had Médium Cameron 1st Rematch
+1520	t	Had Médium Cameron 2nd Rematch
+1521	t	Had Médium Cameron 3rd Rematch
+1522	t	Had Médium Cameron 4th Rematch
+1530	t	Had Médium Jacki 1st Rematch
+1531	t	Had Médium Jacki 2nd Rematch
+1532	t	Had Médium Jacki 3rd Rematch
+1533	t	Had Médium Jacki 4th Rematch
 1537	t	Had Gentleman Walter 1st Rematch
 1538	t	Had Gentleman Walter 2nd Rematch
 1539	t	Had Gentleman Walter 3rd Rematch
@@ -264,22 +290,22 @@
 1669	t	Had Triathlete Katelyn 2nd Rematch
 1670	t	Had Triathlete Katelyn 3rd Rematch
 1671	t	Had Triathlete Katelyn 4th Rematch
-1673	t	Had Dragon Tamer Nicolas 1st Rematch
-1674	t	Had Dragon Tamer Nicolas 2nd Rematch
-1675	t	Had Dragon Tamer Nicolas 3rd Rematch
-1676	t	Had Dragon Tamer Nicolas 4th Rematch
-1689	t	Had Bird Keeper Robert 1st Rematch
-1690	t	Had Bird Keeper Robert 2nd Rematch
-1691	t	Had Bird Keeper Robert 3rd Rematch
-1692	t	Had Bird Keeper Robert 4th Rematch
+1673	t	Had Domadragón Nicolas 1st Rematch
+1674	t	Had Domadragón Nicolas 2nd Rematch
+1675	t	Had Domadragón Nicolas 3rd Rematch
+1676	t	Had Domadragón Nicolas 4th Rematch
+1689	t	Had Ornitólogo Robert 1st Rematch
+1690	t	Had Ornitólogo Robert 2nd Rematch
+1691	t	Had Ornitólogo Robert 3rd Rematch
+1692	t	Had Ornitólogo Robert 4th Rematch
 1701	t	Had Ninja Boy Lao 1st Rematch
 1702	t	Had Ninja Boy Lao 2nd Rematch
 1703	t	Had Ninja Boy Lao 3rd Rematch
 1704	t	Had Ninja Boy Lao 4th Rematch
-1710	t	Had Battle Girl Cyndy 1st Rematch
-1711	t	Had Battle Girl Cyndy 2nd Rematch
-1712	t	Had Battle Girl Cyndy 3rd Rematch
-1713	t	Had Battle Girl Cyndy 4th Rematch
+1710	t	Had Luchadora Cyndy 1st Rematch
+1711	t	Had Luchadora Cyndy 2nd Rematch
+1712	t	Had Luchadora Cyndy 3rd Rematch
+1713	t	Had Luchadora Cyndy 4th Rematch
 1717	t	Had Parasol Lady Madeline 1st Rematch
 1718	t	Had Parasol Lady Madeline 2nd Rematch
 1719	t	Had Parasol Lady Madeline 3rd Rematch

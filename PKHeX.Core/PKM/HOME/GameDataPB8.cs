@@ -41,15 +41,15 @@ public sealed class GameDataPB8 : HomeOptional1, IGameDataSide<PB8>, IGameDataSp
     private Span<byte> RecordFlag => Data.Slice(0x18, 14);
     public bool GetMoveRecordFlag(int index) => FlagUtil.GetFlag(RecordFlag, index >> 3, index & 7);
     public void SetMoveRecordFlag(int index, bool value) => FlagUtil.SetFlag(RecordFlag, index >> 3, index & 7, value);
-    public bool GetMoveRecordFlagAny() => RecordFlag.IndexOfAnyExcept<byte>(0) >= 0;
+    public bool GetMoveRecordFlagAny() => RecordFlag.ContainsAnyExcept<byte>(0);
     public void ClearMoveRecordFlags() => RecordFlag.Clear();
 
-    public int Ball { get => Data[0x26]; set => Data[0x26] = (byte)value; }
-    public int Egg_Location { get => ReadUInt16LittleEndian(Data[0x27..]); set => WriteUInt16LittleEndian(Data[0x27..], (ushort)value); }
-    public int Met_Location { get => ReadUInt16LittleEndian(Data[0x29..]); set => WriteUInt16LittleEndian(Data[0x29..], (ushort)value); }
+    public byte Ball { get => Data[0x26]; set => Data[0x26] = value; }
+    public ushort EggLocation { get => ReadUInt16LittleEndian(Data[0x27..]); set => WriteUInt16LittleEndian(Data[0x27..], value); }
+    public ushort MetLocation { get => ReadUInt16LittleEndian(Data[0x29..]); set => WriteUInt16LittleEndian(Data[0x29..], value); }
 
     // Rev2 Additions
-    public byte PKRS { get => Data[0x2B]; set => Data[0x2B] = value; }
+    public byte PokerusState { get => Data[0x2B]; set => Data[0x2B] = value; }
     public ushort Ability { get => ReadUInt16LittleEndian(Data[0x2C..]); set => WriteUInt16LittleEndian(Data[0x2C..], value); }
     public byte AbilityNumber { get => Data[0x2E]; set => Data[0x2E] = value; }
 
@@ -63,7 +63,7 @@ public sealed class GameDataPB8 : HomeOptional1, IGameDataSide<PB8>, IGameDataSp
     {
         this.CopyTo(pk);
         // Move Records are not settable in PB8; do not copy even if nonzero (illegal).
-        pk.PKRS = PKRS;
+        pk.PokerusState = PokerusState;
         pk.AbilityNumber = AbilityNumber;
         pk.Ability = Ability;
     }
@@ -72,7 +72,7 @@ public sealed class GameDataPB8 : HomeOptional1, IGameDataSide<PB8>, IGameDataSp
     {
         this.CopyFrom(pk);
         // Move Records are not settable in PB8; do not copy even if nonzero (illegal).
-        PKRS = pk.PKRS;
+        PokerusState = pk.PokerusState;
         AbilityNumber = (byte)pk.AbilityNumber;
         Ability = (ushort)pk.Ability;
     }
@@ -94,7 +94,7 @@ public sealed class GameDataPB8 : HomeOptional1, IGameDataSide<PB8>, IGameDataSp
     public static GameDataPB8? TryCreate(PKH pkh)
     {
         var side = GetNearestNeighbor(pkh);
-        if (side == null)
+        if (side is null)
             return null;
 
         var result = new GameDataPB8();
@@ -110,23 +110,25 @@ public sealed class GameDataPB8 : HomeOptional1, IGameDataSide<PB8>, IGameDataSp
     public void InitializeFrom(IGameDataSide side, PKH pkh)
     {
         Ball = side.Ball;
-        Met_Location = side.Met_Location == 0 ? Locations.Default8bNone : side.Met_Location;
-        Egg_Location = side.Egg_Location == 0 ? Locations.Default8bNone : side.Egg_Location;
+        MetLocation = side.MetLocation == 0 ? Locations.Default8bNone : side.MetLocation;
+        EggLocation = side.EggLocation == 0 ? Locations.Default8bNone : side.EggLocation;
 
         if (side is IPokerusStatus p)
-            PKRS = p.PKRS;
+            PokerusState = p.PokerusState;
         if (side is IGameDataSplitAbility a)
             AbilityNumber = a.AbilityNumber;
         else
             AbilityNumber = 1;
 
         PopulateFromCore(pkh);
-        this.ResetMoves(pkh.Species, pkh.Form, pkh.CurrentLevel, LearnSource8BDSP.Instance, EntityContext.Gen8b);
     }
 
     private void PopulateFromCore(PKH pkh)
     {
         var pi = PersonalTable.BDSP.GetFormEntry(pkh.Species, pkh.Form);
         Ability = (ushort)pi.GetAbilityAtIndex(AbilityNumber >> 1);
+
+        var level = Experience.GetLevel(pkh.EXP, pi.EXPGrowth);
+        this.ResetMoves(pkh.Species, pkh.Form, level, LearnSource8BDSP.Instance, EntityContext.Gen8b);
     }
 }

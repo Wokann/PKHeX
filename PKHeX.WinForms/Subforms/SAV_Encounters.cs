@@ -24,6 +24,9 @@ public partial class SAV_Encounters : Form
     private readonly CancellationTokenSource TokenSource = new();
     private readonly EntityInstructionBuilder UC_Builder;
 
+    private const int GridWidth = 6;
+    private const int GridHeight = 11;
+
     public SAV_Encounters(PKMEditor f1, TrainerDatabase db)
     {
         InitializeComponent();
@@ -44,7 +47,7 @@ public partial class SAV_Encounters : Form
         var grid = EncounterPokeGrid;
         var smallWidth = grid.Width;
         var smallHeight = grid.Height;
-        grid.InitializeGrid(6, 11, SpriteUtil.Spriter);
+        grid.InitializeGrid(GridWidth, GridHeight, SpriteUtil.Spriter);
         grid.SetBackground(Resources.box_wp_clean);
         var newWidth = grid.Width;
         var newHeight = grid.Height;
@@ -55,24 +58,20 @@ public partial class SAV_Encounters : Form
         if (hdelta != 0)
             Height += hdelta;
 
-        PKXBOXES = grid.Entries.ToArray();
+        PKXBOXES = [..grid.Entries];
 
         // Enable Scrolling when hovered over
         foreach (var slot in PKXBOXES)
         {
             // Enable Click
-            slot.MouseClick += (sender, e) =>
+            slot.MouseClick += (_, e) =>
             {
-                if (sender == null)
-                    return;
                 if (ModifierKeys == Keys.Control)
-                    ClickView(sender, e);
+                    ClickView(slot, e);
             };
-            slot.Enter += (sender, e) =>
+            slot.Enter += (_, _) =>
             {
-                if (sender is not PictureBox pb)
-                    return;
-                var index = Array.IndexOf(PKXBOXES, sender);
+                var index = Array.IndexOf(PKXBOXES, slot);
                 if (index < 0)
                     return;
                 index += (SCR_Box.Value * RES_MIN);
@@ -80,20 +79,24 @@ public partial class SAV_Encounters : Form
                     return;
 
                 var enc = Results[index];
-                pb.AccessibleDescription = string.Join(Environment.NewLine, enc.GetTextLines());
+                slot.AccessibleDescription = string.Join(Environment.NewLine, enc.GetTextLines());
             };
             slot.ContextMenuStrip = mnu;
             if (Main.Settings.Hover.HoverSlotShowText)
-                slot.MouseEnter += (o, args) => ShowHoverTextForSlot(slot, args);
+                slot.MouseEnter += (_, _) => ShowHoverTextForSlot(slot);
         }
 
         Counter = L_Count.Text;
-        L_Viewed.Text = string.Empty; // invis for now
-        L_Viewed.MouseEnter += (sender, e) => hover.SetToolTip(L_Viewed, L_Viewed.Text);
+        L_Viewed.Text = string.Empty; // invisible for now
+        L_Viewed.MouseEnter += (_, _) => hover.SetToolTip(L_Viewed, L_Viewed.Text);
         PopulateComboBoxes();
 
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
         GetTypeFilters();
+
+        var settings = new TabPage { Text = "Settings" };
+        settings.Controls.Add(new PropertyGrid { Dock = DockStyle.Fill, SelectedObject = Main.Settings.EncounterDb });
+        TC_SearchOptions.Controls.Add(settings);
 
         // Load Data
         L_Count.Text = "Ready...";
@@ -103,7 +106,7 @@ public partial class SAV_Encounters : Form
 
     private void GetTypeFilters()
     {
-        var types = (EncounterTypeGroup[])Enum.GetValues(typeof(EncounterTypeGroup));
+        var types = Enum.GetValues<EncounterTypeGroup>();
         var checks = types.Select(z => new CheckBox
         {
             Name = z.ToString(),
@@ -123,15 +126,15 @@ public partial class SAV_Encounters : Form
     private EncounterTypeGroup[] GetTypes()
     {
         return TypeFilters.Controls.OfType<CheckBox>().Where(z => z.Checked).Select(z => z.Name)
-            .Select(z => (EncounterTypeGroup)Enum.Parse(typeof(EncounterTypeGroup), z)).ToArray();
+            .Select(Enum.Parse<EncounterTypeGroup>).ToArray();
     }
 
     private readonly PictureBox[] PKXBOXES;
-    private List<IEncounterInfo> Results = new();
+    private List<IEncounterInfo> Results = [];
     private int slotSelected = -1; // = null;
     private Image? slotColor;
-    private const int RES_MAX = 66;
-    private const int RES_MIN = 6;
+    private const int RES_MIN = GridWidth * 1;
+    private const int RES_MAX = GridWidth * GridHeight;
     private readonly string Counter;
 
     private bool GetShiftedIndex(ref int index)
@@ -162,7 +165,15 @@ public partial class SAV_Encounters : Form
         var enc = Results[index];
         var criteria = GetCriteria(enc, Main.Settings.EncounterDb);
         var trainer = Trainers.GetTrainer(enc.Version, enc.Generation <= 2 ? (LanguageID)SAV.Language : null) ?? SAV;
-        var pk = enc.ConvertToPKM(trainer, criteria);
+        var temp = enc.ConvertToPKM(trainer, criteria);
+        var pk = EntityConverter.ConvertToType(temp, SAV.PKMType, out var c);
+        if (pk is null)
+        {
+            WinFormsUtil.Error(c.GetDisplayString(temp, SAV.PKMType));
+            return;
+        }
+
+        SAV.AdaptToSaveFile(pk);
         pk.RefreshChecksum();
         PKME_Tabs.PopulateFields(pk, false);
         slotSelected = index;
@@ -186,9 +197,10 @@ public partial class SAV_Encounters : Form
         }
 
         var set = new ShowdownSet(editor);
-        var criteria = EncounterCriteria.GetCriteria(set, editor.PersonalInfo);
+        var mutations = EncounterMutationUtil.GetSuggested(editor.Context, set.Level);
+        var criteria = EncounterCriteria.GetCriteria(set, editor.PersonalInfo, mutations);
         if (!isInChain)
-            criteria = criteria with { Gender = -1 }; // Genderless tabs and a gendered enc -> let's play safe.
+            criteria = criteria with { Gender = Gender.Random }; // Genderless tabs and a gendered enc -> let's play safe.
         return criteria;
     }
 
@@ -203,14 +215,14 @@ public partial class SAV_Encounters : Form
         var DS_Species = new List<ComboItem>(GameInfo.SpeciesDataSource);
         DS_Species.RemoveAt(0); DS_Species.Insert(0, Any); CB_Species.DataSource = DS_Species;
 
-        // Set the Move ComboBoxes too..
+        // Set the Move ComboBoxes too.
         var DS_Move = new List<ComboItem>(GameInfo.MoveDataSource);
         DS_Move.RemoveAt(0); DS_Move.Insert(0, Any);
         {
             foreach (ComboBox cb in new[] { CB_Move1, CB_Move2, CB_Move3, CB_Move4 })
             {
                 cb.InitializeBinding();
-                cb.DataSource = new BindingSource(DS_Move, null);
+                cb.DataSource = new BindingSource(DS_Move, string.Empty);
             }
         }
 
@@ -245,16 +257,16 @@ public partial class SAV_Encounters : Form
 
         // If nothing is specified, instead of just returning all possible encounters, just return nothing.
         if (settings is { Species: 0, Moves.Count: 0 } && Main.Settings.EncounterDb.ReturnNoneIfEmptySearch)
-            return Array.Empty<IEncounterInfo>();
+            return [];
         var pk = SAV.BlankPKM;
 
         var moves = settings.Moves.ToArray();
         var versions = settings.GetVersions(SAV);
-        var species = settings.Species == 0 ? GetFullRange(SAV.MaxSpeciesID) : new[] { settings.Species };
+        var species = settings.Species == 0 ? GetFullRange(SAV.MaxSpeciesID) : [settings.Species];
         var results = GetAllSpeciesFormEncounters(species, SAV.Personal, versions, moves, pk, token);
-        if (settings.SearchEgg != null)
-            results = results.Where(z => z.EggEncounter == settings.SearchEgg);
-        if (settings.SearchShiny != null)
+        if (settings.SearchEgg is not null)
+            results = results.Where(z => z.IsEgg == settings.SearchEgg);
+        if (settings.SearchShiny is not null)
             results = results.Where(z => z.IsShiny == settings.SearchShiny);
 
         // return filtered results
@@ -263,25 +275,16 @@ public partial class SAV_Encounters : Form
 
         if (Main.Settings.EncounterDb.FilterUnavailableSpecies)
         {
-            static bool IsPresentInGameSV(ISpeciesForm pk) => PersonalTable.SV.IsPresentInGame(pk.Species, pk.Form);
-            static bool IsPresentInGameSWSH(ISpeciesForm pk) => PersonalTable.SWSH.IsPresentInGame(pk.Species, pk.Form);
-            static bool IsPresentInGameBDSP(ISpeciesForm pk) => PersonalTable.BDSP.IsPresentInGame(pk.Species, pk.Form);
-            static bool IsPresentInGameLA(ISpeciesForm pk) => PersonalTable.LA.IsPresentInGame(pk.Species, pk.Form);
-            results = SAV switch
-            {
-                SAV9SV => results.Where(IsPresentInGameSV),
-                SAV8SWSH => results.Where(IsPresentInGameSWSH),
-                SAV8BS => results.Where(IsPresentInGameBDSP),
-                SAV8LA => results.Where(IsPresentInGameLA),
-                _ => results.Where(z => z.Generation <= 7),
-            };
+            var filter = EntityPresenceFilters.GetFilterGeneric<IEncounterInfo>(SAV.Context);
+            if (filter != null)
+                results = results.Where(filter);
         }
 
         if (token.IsCancellationRequested)
             return results;
 
         ReadOnlySpan<char> batchText = RTB_Instructions.Text;
-        if (batchText.Length > 0 && !StringInstructionSet.HasEmptyLine(batchText))
+        if (batchText.Length != 0 && !StringInstructionSet.HasEmptyLine(batchText))
         {
             var filters = StringInstruction.GetFilters(batchText);
             BatchEditing.ScreenStrings(filters);
@@ -297,7 +300,7 @@ public partial class SAV_Encounters : Form
             yield return i;
     }
 
-    private IEnumerable<IEncounterInfo> GetAllSpeciesFormEncounters(IEnumerable<ushort> species, IPersonalTable pt, IReadOnlyList<GameVersion> versions, ushort[] moves, PKM pk, CancellationToken token)
+    private IEnumerable<IEncounterInfo> GetAllSpeciesFormEncounters(IEnumerable<ushort> species, IPersonalTable pt, IReadOnlyList<GameVersion> versions, ReadOnlyMemory<ushort> moves, PKM pk, CancellationToken token)
     {
         foreach (var s in species)
         {
@@ -327,9 +330,9 @@ public partial class SAV_Encounters : Form
     {
         public bool Equals(T? x, T? y)
         {
-            if (x == null)
+            if (x is null)
                 return false;
-            if (y == null)
+            if (y is null)
                 return false;
             return RuntimeHelpers.GetHashCode(x).Equals(RuntimeHelpers.GetHashCode(y));
         }
@@ -337,7 +340,7 @@ public partial class SAV_Encounters : Form
         public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
-    private IEnumerable<IEncounterInfo> GetEncounters(ushort species, byte form, ushort[] moves, PKM pk, IReadOnlyList<GameVersion> vers)
+    private IEnumerable<IEncounterInfo> GetEncounters(ushort species, byte form, ReadOnlyMemory<ushort> moves, PKM pk, IReadOnlyList<GameVersion> vers)
     {
         pk.Species = species;
         pk.Form = form;
@@ -356,7 +359,7 @@ public partial class SAV_Encounters : Form
             Species = GetU16(CB_Species),
 
             BatchInstructions = RTB_Instructions.Text,
-            Version = WinFormsUtil.GetIndex(CB_GameOrigin),
+            Version = (GameVersion)WinFormsUtil.GetIndex(CB_GameOrigin),
         };
 
         static ushort GetU16(ListControl cb)
@@ -381,6 +384,7 @@ public partial class SAV_Encounters : Form
         return settings;
     }
 
+    // ReSharper disable once AsyncVoidMethod
     private async void B_Search_Click(object sender, EventArgs e)
     {
         B_Search.Enabled = false;
@@ -389,11 +393,17 @@ public partial class SAV_Encounters : Form
         var token = TokenSource.Token;
         var search = SearchDatabase(token);
         if (token.IsCancellationRequested)
+        {
+            EncounterMovesetGenerator.ResetFilters();
             return;
+        }
 
         var results = await Task.Run(() => search.ToList(), token).ConfigureAwait(true);
         if (token.IsCancellationRequested)
+        {
+            EncounterMovesetGenerator.ResetFilters();
             return;
+        }
 
         if (results.Count == 0)
             WinFormsUtil.Alert(MsgDBSearchNone);
@@ -474,9 +484,8 @@ public partial class SAV_Encounters : Form
             FillPKXBoxes(SCR_Box.Value = newval);
     }
 
-    private void ShowHoverTextForSlot(object sender, EventArgs e)
+    private void ShowHoverTextForSlot(PictureBox pb)
     {
-        var pb = (PictureBox)sender;
         int index = Array.IndexOf(PKXBOXES, pb);
         if (!GetShiftedIndex(ref index))
             return;
@@ -495,8 +504,8 @@ public partial class SAV_Encounters : Form
         // If we already have text, add a new line (except if the last line is blank).
         var tb = RTB_Instructions;
         var batchText = tb.Text;
-        if (batchText.Length > 0 && !batchText.EndsWith('\n'))
+        if (batchText.Length != 0 && !batchText.EndsWith('\n'))
             tb.AppendText(Environment.NewLine);
-        RTB_Instructions.AppendText(s);
+        tb.AppendText(s);
     }
 }

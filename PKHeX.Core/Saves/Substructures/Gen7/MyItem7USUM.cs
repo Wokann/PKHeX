@@ -1,8 +1,9 @@
+using System;
 using System.Collections.Generic;
 
 namespace PKHeX.Core;
 
-public sealed class MyItem7USUM : MyItem
+public sealed class MyItem7USUM(SAV7USUM SAV, Memory<byte> raw) : MyItem(SAV, raw)
 {
     private const int HeldItem = 0; // 427 (Case 0)
     private const int KeyItem = HeldItem + (4 * 427); // 198 (Case 4)
@@ -12,15 +13,13 @@ public sealed class MyItem7USUM : MyItem
     private const int ZCrystals = Berry + (4 * 67); // 35 (Case 5)
     private const int BattleItems = ZCrystals + (4 * 35); // 11 (Case 6)
 
-    public MyItem7USUM(SaveFile SAV, int offset) : base(SAV) => Offset = offset;
-
     public override IReadOnlyList<InventoryPouch> Inventory
     {
         get
         {
             var info = ItemStorage7USUM.Instance;
             InventoryPouch7[] pouch =
-            {
+            [
                 new(InventoryType.Medicine, info, 999, Medicine),
                 new(InventoryType.Items, info, 999, HeldItem),
                 new(InventoryType.TMHMs, info, 1, TMHM),
@@ -28,7 +27,7 @@ public sealed class MyItem7USUM : MyItem
                 new(InventoryType.KeyItems, info, 1, KeyItem),
                 new(InventoryType.ZCrystals, info, 1, ZCrystals),
                 new(InventoryType.BattleItems, info, 999, BattleItems),
-            };
+            ];
             return pouch.LoadAll(Data);
         }
         set => value.SaveAll(Data);

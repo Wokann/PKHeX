@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using PKHeX.Core;
 
 namespace PKHeX.WinForms.Controls;
@@ -34,11 +34,9 @@ public partial class PKMEditor
         // Toss in Party Stats
         SavePartyStats(pk7);
 
-        // Unneeded Party Stats (Status, Flags, Unused)
-        pk7.Status_Condition = pk7.DirtType = pk7.DirtLocation =
-            pk7.Data[0xEF] =
-                pk7.Data[0xFE] = pk7.Data[0xFF] = pk7.Data[0x100] =
-                    pk7.Data[0x101] = pk7.Data[0x102] = pk7.Data[0x103] = 0;
+        // Ensure party stats are essentially clean.
+        pk7.Data.AsSpan(0xFE).Clear();
+        // Status Condition is allowed to be mutated to pre-set conditions like Burn for Guts.
 
         pk7.FixMoves();
         pk7.FixRelearn();
@@ -60,6 +58,14 @@ public partial class PKMEditor
         LoadMisc6(pk7);
         LoadAVs(pk7);
         SizeCP.LoadPKM(pk7);
+
+        try
+        {
+            CAL_ReceivedDateTime.Value = new DateTime(
+                pk7.ReceivedYear + 2000, pk7.ReceivedMonth, pk7.ReceivedDay,
+                pk7.ReceivedHour, pk7.ReceivedMinute, pk7.ReceivedSecond);
+        }
+        catch { /* */ }
 
         LoadPartyStats(pk7);
         UpdateStats();
@@ -84,6 +90,14 @@ public partial class PKMEditor
 
         // heal values to original
         pk7.FieldEventFatigue1 = pk7.FieldEventFatigue2 = 100;
+
+        var date = CAL_ReceivedDateTime.Value;
+        pk7.ReceivedYear = (byte)(date.Year - 2000);
+        pk7.ReceivedMonth = (byte)date.Month;
+        pk7.ReceivedDay = (byte)date.Day;
+        pk7.ReceivedHour = (byte)date.Hour;
+        pk7.ReceivedMinute = (byte)date.Minute;
+        pk7.ReceivedSecond = (byte)date.Second;
 
         pk7.FixMoves();
         pk7.FixRelearn();

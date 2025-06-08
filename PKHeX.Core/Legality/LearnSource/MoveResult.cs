@@ -60,7 +60,7 @@ public readonly record struct MoveResult(MoveLearnInfo Info, byte EvoStage = 0, 
 
     public string Format(string format, int index, PKM pk, EvolutionHistory history) => string.Format(format, Rating, index, Summary(pk, history));
 
-    public static readonly MoveResult Initial = new(LearnMethod.Initial);
+    public static MoveResult Initial(LearnEnvironment game) => new(LearnMethod.Initial, game);
     public static readonly MoveResult Relearn = new(LearnMethod.Relearn);
     public static readonly MoveResult Empty = new(LearnMethod.Empty);
     public static readonly MoveResult Duplicate = new(LearnMethod.Duplicate);
@@ -69,6 +69,9 @@ public readonly record struct MoveResult(MoveLearnInfo Info, byte EvoStage = 0, 
     public static MoveResult Unobtainable(ushort expect) => new(LearnMethod.UnobtainableExpect) { Expect = expect };
     public static MoveResult Unobtainable() => new(LearnMethod.Unobtainable);
 
+    /// <summary>
+    /// Checks if all <see cref="MoveResult"/>s in the span are <see cref="Valid"/>.
+    /// </summary>
     public static bool AllValid(ReadOnlySpan<MoveResult> span)
     {
         foreach (var result in span)
@@ -79,6 +82,9 @@ public readonly record struct MoveResult(MoveLearnInfo Info, byte EvoStage = 0, 
         return true;
     }
 
+    /// <summary>
+    /// Checks if all <see cref="MoveResult"/>s in the span are <see cref="IsParsed"/>.
+    /// </summary>
     public static bool AllParsed(ReadOnlySpan<MoveResult> span)
     {
         foreach (var result in span)

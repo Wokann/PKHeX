@@ -1,16 +1,13 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
 
-public sealed class InventoryPouch3 : InventoryPouch
+public sealed class InventoryPouch3(InventoryType type, IItemStorage info, int maxCount, int offset, [ConstantExpected] int size)
+    : InventoryPouch(type, info, maxCount, offset, size)
 {
     public uint SecurityKey { private get; set; } // = 0 // Gen3 Only
-
-    public InventoryPouch3(InventoryType type, IItemStorage info, int maxCount, int offset, int size)
-        : base(type, info, maxCount, offset, size)
-    {
-    }
 
     public override void GetPouch(ReadOnlySpan<byte> data)
     {
@@ -30,8 +27,7 @@ public sealed class InventoryPouch3 : InventoryPouch
 
     public override void SetPouch(Span<byte> data)
     {
-        if (Items.Length != PouchDataSize)
-            throw new ArgumentException("Item array length does not match original pouch size.");
+        ArgumentOutOfRangeException.ThrowIfNotEqual(Items.Length, PouchDataSize);
 
         var span = data[Offset..];
         for (int i = 0; i < Items.Length; i++)

@@ -11,12 +11,34 @@ public sealed partial class MemoryContext6 : MemoryContext
     public static readonly MemoryContext6 Instance = new();
     private MemoryContext6() { }
 
-    private static ReadOnlySpan<byte> GetPokeCenterLocations(GameVersion game)
+    public override EntityContext Context => EntityContext.Gen6;
+
+    public static bool GetCanBeCaptured(ushort species, GameVersion version) => version switch
     {
-        return GameVersion.XY.Contains(game) ? LocationsWithPokeCenter_XY : LocationsWithPokeCenter_AO;
+        GameVersion.Any => GetCanBeCaptured(species, CaptureFlagsX) || GetCanBeCaptured(species, CaptureFlagsY)
+                        || GetCanBeCaptured(species, CaptureFlagsAS) || GetCanBeCaptured(species, CaptureFlagsOR),
+        GameVersion.X  => GetCanBeCaptured(species, CaptureFlagsX),
+        GameVersion.Y  => GetCanBeCaptured(species, CaptureFlagsY),
+        GameVersion.AS => GetCanBeCaptured(species, CaptureFlagsAS),
+        GameVersion.OR => GetCanBeCaptured(species, CaptureFlagsOR),
+        _ => false,
+    };
+
+    private static bool GetCanBeCaptured(ushort species, ReadOnlySpan<byte> flags)
+    {
+        int offset = species >> 3;
+        if (offset >= flags.Length)
+            return false;
+        int bitIndex = species & 7;
+        return (flags[offset] & (1 << bitIndex)) != 0;
     }
 
-    public static bool GetHasPokeCenterLocation(GameVersion game, int loc)
+    private static ReadOnlySpan<byte> GetPokeCenterLocations(GameVersion game)
+    {
+        return game is GameVersion.X or GameVersion.Y ? LocationsWithPokeCenter_XY : LocationsWithPokeCenter_AO;
+    }
+
+    public static bool GetHasPokeCenterLocation(GameVersion game, ushort loc)
     {
         if (game == GameVersion.Any)
             return GetHasPokeCenterLocation(GameVersion.X, loc) || GetHasPokeCenterLocation(GameVersion.AS, loc);
@@ -43,7 +65,7 @@ public sealed partial class MemoryContext6 : MemoryContext
         var hashSet = new HashSet<ushort>(Legal.HeldItems_AO) { KeyItemUsableObserveEonFlute };
         foreach (var item in KeyItemMemoryArgsAnySpecies)
             hashSet.Add(item);
-        foreach (var tm in ItemStorage6AO.Pouch_TMHM_AO[..100])
+        foreach (var tm in ItemStorage6AO.Machine[..100])
             hashSet.Add(tm);
         return hashSet;
     }
@@ -51,7 +73,7 @@ public sealed partial class MemoryContext6 : MemoryContext
     public override bool IsUsedKeyItemUnspecific(int item) => KeyItemUsableObserveEonFlute == item;
     public override bool IsUsedKeyItemSpecific(int item, ushort species) => IsKeyItemMemoryArgValid(species, (ushort)item);
 
-    public override bool CanPlantBerry(int item) => ItemStorage6XY.Pouch_Berry_XY.Contains((ushort)item);
+    public override bool CanPlantBerry(int item) => ItemStorage6XY.Berry.Contains((ushort)item);
     public override bool CanHoldItem(int item) => Legal.HeldItems_AO.Contains((ushort)item);
 
     public override bool CanObtainMemoryOT(GameVersion pkmVersion, byte memory) => pkmVersion switch
@@ -62,14 +84,14 @@ public sealed partial class MemoryContext6 : MemoryContext
     };
 
     public override bool CanObtainMemory(byte memory) => memory <= MAX_MEMORY_ID_AO;
-    public override bool HasPokeCenter(GameVersion version, int location) => GetHasPokeCenterLocation(version, location);
+    public override bool HasPokeCenter(GameVersion version, ushort location) => GetHasPokeCenterLocation(version, location);
 
     public override bool IsInvalidGeneralLocationMemoryValue(byte memory, ushort variable, IEncounterTemplate enc, PKM pk)
     {
         return false; // todo
     }
 
-    public override bool IsInvalidMiscMemory(byte memory, ushort variable)
+    public override bool IsInvalidMiscMemory(byte memory, ushort variable, Species species, GameVersion version, int handler)
     {
         return false; // todo
     }
@@ -100,8 +122,12 @@ public sealed partial class MemoryContext6 : MemoryContext
         return (MemoryFeelings[memory] & (1 << feeling)) != 0;
     }
 
+    public const byte MaxIntensity = 7;
+
     public static bool CanHaveIntensity6(int memory, int intensity)
     {
+        if ((uint)intensity > MaxIntensity)
+            return false;
         if (memory >= MemoryFeelings.Length)
             return false;
         return MemoryMinIntensity[memory] <= intensity;
@@ -119,10 +145,10 @@ public sealed partial class MemoryContext6 : MemoryContext
         }
     }
 
-    public static int GetMinimumIntensity6(int memory)
+    public static byte GetMinimumIntensity6(int memory)
     {
         if (memory >= MemoryMinIntensity.Length)
-            return -1;
+            return 0;
         return MemoryMinIntensity[memory];
     }
 

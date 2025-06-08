@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -7,12 +8,12 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 5 <see cref="SaveFile"/> object.
 /// </summary>
-public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlag37
+public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlagProvider37, IBoxDetailName, IBoxDetailWallpaper, IDaycareRandomState<ulong>, IDaycareStorage, IDaycareExperience, IDaycareEggState, IMysteryGiftStorageProvider
 {
     protected override PK5 GetPKM(byte[] data) => new(data);
     protected override byte[] DecryptPKM(byte[] data) => PokeCrypto.DecryptArray45(data);
 
-    protected internal override string ShortSummary => $"{OT} ({(GameVersion)Game}) - {PlayTimeString}";
+    protected internal override string ShortSummary => $"{OT} ({Version}) - {PlayTimeString}";
     public override string Extension => ".sav";
 
     public override ReadOnlySpan<ushort> HeldItems => Legal.HeldItems_BW;
@@ -22,24 +23,19 @@ public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlag37
     public override Type PKMType => typeof(PK5);
 
     public override int BoxCount => 24;
-    public override int MaxEV => 255;
-    public override int Generation => 5;
+    public override int MaxEV => EffortValues.Max255;
+    public override byte Generation => 5;
     public override EntityContext Context => EntityContext.Gen5;
-    public override int MaxStringLengthOT => 7;
+    public override int MaxStringLengthTrainer => 7;
     public override int MaxStringLengthNickname => 10;
-    protected override int GiftCountMax => 12;
-    public abstract int EventFlagCount { get; }
-    public abstract int EventWorkCount { get; }
-    protected abstract int EventFlagOffset { get; }
-    protected abstract int EventWorkOffset { get; }
 
     public override ushort MaxMoveID => Legal.MaxMoveID_5;
     public override ushort MaxSpeciesID => Legal.MaxSpeciesID_5;
     public override int MaxAbilityID => Legal.MaxAbilityID_5;
     public override int MaxBallID => Legal.MaxBallID_5;
-    public override int MaxGameID => Legal.MaxGameID_5; // B2
+    public override GameVersion MaxGameID => Legal.MaxGameID_5; // B2
 
-    protected SAV5(int size) : base(size)
+    protected SAV5([ConstantExpected] int size) : base(size)
     {
         Initialize();
         ClearBoxes();
@@ -50,17 +46,10 @@ public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlag37
         Initialize();
     }
 
-    public override GameVersion Version
-    {
-        get => (GameVersion)Game;
-        protected set => Game = (int)value;
-    }
-
     private void Initialize()
     {
         Box = 0x400;
         Party = 0x18E00;
-        AdventureInfo = 0x1D900;
     }
 
     // Blocks & Offsets
@@ -68,21 +57,17 @@ public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlag37
     public override bool ChecksumsValid => AllBlocks.GetChecksumsValid(Data);
     public override string ChecksumInfo => AllBlocks.GetChecksumInfo(Data);
 
-    protected int CGearInfoOffset;
-    protected int CGearDataOffset;
-    protected int EntreeForestOffset;
-    private int AdventureInfo;
-    public abstract int GTS { get; }
-    public int PGL => AllBlocks[35].Offset + 8; // Dream World Upload
+    public sealed override bool HasPokeDex => true;
 
     // Daycare
-    public override int DaycareSeedSize => Daycare5.DaycareSeedSize;
-    public override bool? IsDaycareOccupied(int loc, int slot) => Daycare.IsOccupied(slot);
-    public override int GetDaycareSlotOffset(int loc, int slot) => Daycare.GetPKMOffset(slot);
-    public override uint? GetDaycareEXP(int loc, int slot) => Daycare.GetEXP(slot);
-    public override void SetDaycareEXP(int loc, int slot, uint EXP) => Daycare.SetEXP(slot, EXP);
-    public override void SetDaycareOccupied(int loc, int slot, bool occupied) => Daycare.SetOccupied(slot, occupied);
-    public override void SetDaycareRNGSeed(int loc, string seed) => Daycare.SetSeed(seed);
+    public int DaycareSlotCount => 2;
+    public Memory<byte> GetDaycareSlot(int slot) => Daycare.GetDaycareSlot(slot);
+    public bool IsDaycareOccupied(int slot) => Daycare.IsDaycareOccupied(slot);
+    public uint GetDaycareEXP(int slot) => Daycare.GetDaycareEXP(slot);
+    public void SetDaycareEXP(int slot, uint value) => Daycare.SetDaycareEXP(slot, value);
+    public void SetDaycareOccupied(int slot, bool occupied) => Daycare.SetDaycareOccupied(slot, occupied);
+    public bool IsEggAvailable { get => Daycare.IsEggAvailable; set => Daycare.IsEggAvailable = value; }
+    ulong IDaycareRandomState<ulong>.Seed { get => Daycare.Seed; set => Daycare.Seed = value; }
 
     // Storage
     public override int PartyCount
@@ -94,29 +79,19 @@ public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlag37
     public override int GetBoxOffset(int box) => Box + (SIZE_STORED * box * 30) + (box * 0x10);
     public override int GetPartyOffset(int slot) => Party + 8 + (SIZE_PARTY * slot);
 
-    protected override int GetBoxWallpaperOffset(int box) => BoxLayout.GetBoxWallpaperOffset(box);
     public override int BoxesUnlocked { get => BoxLayout.BoxesUnlocked; set => BoxLayout.BoxesUnlocked = (byte)value; }
-    public override int GetBoxWallpaper(int box) => BoxLayout.GetBoxWallpaper(box);
-    public override void SetBoxWallpaper(int box, int value) => BoxLayout.SetBoxWallpaper(box, value);
-    public override string GetBoxName(int box) => BoxLayout[box];
-    public override void SetBoxName(int box, ReadOnlySpan<char> value) => BoxLayout.SetBoxName(box, value);
+    public int GetBoxWallpaper(int box) => BoxLayout.GetBoxWallpaper(box);
+    public void SetBoxWallpaper(int box, int value) => BoxLayout.SetBoxWallpaper(box, value);
+    public string GetBoxName(int box) => BoxLayout[box];
+    public void SetBoxName(int box, ReadOnlySpan<char> value) => BoxLayout.SetBoxName(box, value);
     public override int CurrentBox { get => BoxLayout.CurrentBox; set => BoxLayout.CurrentBox = value; }
-
-    protected int BattleBoxOffset;
-
-    public bool BattleBoxLocked
-    {
-        get => Data[BattleBoxOffset + 0x358] != 0; // wifi/live
-        set => Data[BattleBoxOffset + 0x358] = value ? (byte)1 : (byte)0;
-    }
 
     protected override void SetPKM(PKM pk, bool isParty = false)
     {
         var pk5 = (PK5)pk;
         // Apply to this Save File
-        DateTime Date = DateTime.Now;
-        if (pk5.Trade(OT, ID32, Gender, Date.Day, Date.Month, Date.Year))
-            pk.RefreshChecksum();
+        pk5.UpdateHandler(this);
+        pk5.RefreshChecksum();
     }
 
     // Player Data
@@ -127,112 +102,63 @@ public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlag37
     public int Country { get => PlayerData.Country; set => PlayerData.Country = value; }
     public int Region { get => PlayerData.Region; set => PlayerData.Region = value; }
     public override int Language { get => PlayerData.Language; set => PlayerData.Language = value; }
-    public override int Game { get => PlayerData.Game; set => PlayerData.Game = value; }
-    public override int Gender { get => PlayerData.Gender; set => PlayerData.Gender = value; }
+    public override GameVersion Version { get => (GameVersion)PlayerData.Game; set => PlayerData.Game = (byte)value; }
+    public override byte Gender { get => PlayerData.Gender; set => PlayerData.Gender = value; }
     public override int PlayedHours { get => PlayerData.PlayedHours; set => PlayerData.PlayedHours = value; }
     public override int PlayedMinutes { get => PlayerData.PlayedMinutes; set => PlayerData.PlayedMinutes = value; }
     public override int PlayedSeconds { get => PlayerData.PlayedSeconds; set => PlayerData.PlayedSeconds = value; }
     public override uint Money { get => Misc.Money; set => Misc.Money = value; }
-    public override uint SecondsToStart { get => ReadUInt32LittleEndian(Data.AsSpan(AdventureInfo + 0x34)); set => WriteUInt32LittleEndian(Data.AsSpan(AdventureInfo + 0x34), value); }
-    public override uint SecondsToFame  { get => ReadUInt32LittleEndian(Data.AsSpan(AdventureInfo + 0x3C)); set => WriteUInt32LittleEndian(Data.AsSpan(AdventureInfo + 0x3C), value); }
-    public override MysteryGiftAlbum GiftAlbum { get => Mystery.GiftAlbum; set => Mystery.GiftAlbum = (EncryptedMysteryGiftAlbum)value; }
+    public override uint SecondsToStart { get => AdventureInfo.SecondsToStart; set => AdventureInfo.SecondsToStart = value; }
+    public override uint SecondsToFame  { get => AdventureInfo.SecondsToFame; set => AdventureInfo.SecondsToFame  = value; }
     public override IReadOnlyList<InventoryPouch> Inventory { get => Items.Inventory; set => Items.Inventory = value; }
 
     protected override void SetDex(PKM pk) => Zukan.SetDex(pk);
     public override bool GetCaught(ushort species) => Zukan.GetCaught(species);
     public override bool GetSeen(ushort species) => Zukan.GetSeen(species);
 
-    public sealed override string GetString(ReadOnlySpan<byte> data) => StringConverter5.GetString(data);
-
+    public sealed override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter5.GetString(data);
+    public sealed override int LoadString(ReadOnlySpan<byte> data, Span<char> result)
+        => StringConverter5.LoadString(data, result);
     public sealed override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter5.SetString(destBuffer, value, maxLength, option);
-    }
-
-    public bool GetEventFlag(int flagNumber)
-    {
-        if ((uint)flagNumber >= EventFlagCount)
-            throw new ArgumentOutOfRangeException(nameof(flagNumber), $"Event Flag to get ({flagNumber}) is greater than max ({EventFlagCount}).");
-        return GetFlag(EventFlagOffset + (flagNumber >> 3), flagNumber & 7);
-    }
-
-    public void SetEventFlag(int flagNumber, bool value)
-    {
-        if ((uint)flagNumber >= EventFlagCount)
-            throw new ArgumentOutOfRangeException(nameof(flagNumber), $"Event Flag to set ({flagNumber}) is greater than max ({EventFlagCount}).");
-        SetFlag(EventFlagOffset + (flagNumber >> 3), flagNumber & 7, value);
-    }
-
-    public ushort GetWork(int index) => ReadUInt16LittleEndian(Data.AsSpan(EventWorkOffset + (index * 2)));
-    public void SetWork(int index, ushort value) => WriteUInt16LittleEndian(Data.AsSpan(EventWorkOffset)[(index * 2)..], value);
-
-    // DLC
-    private int CGearSkinInfoOffset => CGearInfoOffset + (this is SAV5B2W2 ? 0x10 : 0) + 0x24;
-
-    private bool CGearSkinPresent
-    {
-        get => Data[CGearSkinInfoOffset + 2] == 1;
-        set => Data[CGearSkinInfoOffset + 2] = Data[PlayerData.Offset + (this is SAV5B2W2 ? 0x6C : 0x54)] = value ? (byte)1 : (byte)0;
-    }
-
-    private static ReadOnlySpan<byte> DLCFooter => new byte[] { 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x14, 0x27, 0x00, 0x00, 0x27, 0x35, 0x05, 0x31, 0x00, 0x00 };
-
-    public byte[] CGearSkinData
-    {
-        get
-        {
-            if (CGearSkinPresent)
-                return Data.AsSpan(CGearDataOffset, CGearBackground.SIZE_CGB).ToArray();
-            return new byte[CGearBackground.SIZE_CGB];
-        }
-        set
-        {
-            SetData(value, CGearDataOffset);
-
-            ushort chk = Checksums.CRC16_CCITT(value);
-            var footer = Data.AsSpan(CGearDataOffset + value.Length);
-
-            WriteUInt16LittleEndian(footer, 1); // block updated once
-            WriteUInt16LittleEndian(footer[2..], chk); // checksum
-            WriteUInt16LittleEndian(footer[0x100..], chk);  // second checksum
-
-            DLCFooter.CopyTo(footer[0x102..]);
-
-            ushort skinchkval = Checksums.CRC16_CCITT(footer[0x100..0x104]);
-            WriteUInt16LittleEndian(footer[0x112..], skinchkval);
-
-            // Indicate in the save file that data is present
-            WriteUInt16LittleEndian(Data.AsSpan(0x19438), 0xC21E);
-
-            WriteUInt16LittleEndian(Data.AsSpan(CGearSkinInfoOffset), chk);
-            CGearSkinPresent = true;
-
-            State.Edited = true;
-        }
-    }
-
-    public EntreeForest EntreeData
-    {
-        get => new(Data.AsSpan(EntreeForestOffset, EntreeForest.SIZE).ToArray());
-        set => SetData(value.Write(), EntreeForestOffset);
-    }
+        => StringConverter5.SetString(destBuffer, value, maxLength, Language, option);
 
     public abstract IReadOnlyList<BlockInfo> AllBlocks { get; }
     public abstract MyItem Items { get; }
     public abstract Zukan5 Zukan { get; }
     public abstract Misc5 Misc { get; }
     public abstract MysteryBlock5 Mystery { get; }
+    public abstract Chatter5 Chatter { get; }
     public abstract Daycare5 Daycare { get; }
     public abstract BoxLayout5 BoxLayout { get; }
     public abstract PlayerData5 PlayerData { get; }
+    public abstract PlayerPosition5 PlayerPosition { get; }
+    public abstract BattleSubwayPlay5 BattleSubwayPlay { get; }
     public abstract BattleSubway5 BattleSubway { get; }
     public abstract Entralink5 Entralink { get; }
     public abstract Musical5 Musical { get; }
     public abstract Encount5 Encount { get; }
+    public abstract UnityTower5 UnityTower { get; }
+    public abstract SkinInfo5 SkinInfo { get; }
+    public abstract EventWork5 EventWork { get; }
+    public abstract BattleBox5 BattleBox { get; }
+    public abstract EntreeForest EntreeForest { get; }
+    public abstract GlobalLink5 GlobalLink { get; }
+    public abstract WhiteBlack5 Forest { get; }
+    public abstract GTS5 GTS { get; }
+    public abstract AdventureInfo5 AdventureInfo { get; }
+    public abstract Record5 Records { get; }
+    IEventFlag37 IEventFlagProvider37.EventWork => EventWork;
+
+    protected override byte[] GetFinalData()
+    {
+        EntreeForest.EndAccess();
+        Mystery.EndAccess();
+        return base.GetFinalData();
+    }
 
     public static int GetMailOffset(int index) => (index * Mail5.SIZE) + 0x1DD00;
     public byte[] GetMailData(int offset) => Data.AsSpan(offset, Mail5.SIZE).ToArray();
-    public int GetBattleBoxSlot(int slot) => BattleBoxOffset + (slot * SIZE_STORED);
 
     public MailDetail GetMail(int mailIndex)
     {
@@ -240,4 +166,151 @@ public abstract class SAV5 : SaveFile, ISaveBlock5BW, IEventFlag37
         var data = GetMailData(ofs);
         return new Mail5(data, ofs);
     }
+
+    IMysteryGiftStorage IMysteryGiftStorageProvider.MysteryGiftStorage => Mystery;
+    protected abstract int ExtBattleVideoNativeOffset { get; }
+    protected abstract int ExtBattleVideoDownload1Offset { get; }
+    protected abstract int ExtBattleVideoDownload2Offset { get; }
+    protected abstract int ExtBattleVideoDownload3Offset { get; }
+    protected abstract int ExtCGearOffset { get; }
+    protected abstract int ExtBattleTestOffset { get; }
+    protected abstract int ExtMusicalDownloadOffset { get; }
+    protected abstract int ExtPokeDexSkinOffset { get; }
+    protected abstract int ExtHallOfFame1Offset { get; }
+    protected abstract int ExtHallOfFame2Offset { get; }
+    protected abstract int ExtLink1Offset { get; }
+    protected abstract int ExtLink2Offset { get; }
+
+    /// <summary> Variable sized NARC download depending on the game (B/W vs B2/W2). </summary>
+    public abstract int MusicalDownloadSize { get; }
+    public const int HallOfFameSize = 0x155C;
+    private const int Link3DSDataSize = 0x400;
+
+    public Memory<byte> BattleVideoNative => Data.AsMemory(ExtBattleVideoNativeOffset, BattleVideo5.SIZE);
+    public Memory<byte> BattleVideoDownload1 => Data.AsMemory(ExtBattleVideoDownload1Offset, BattleVideo5.SIZE);
+    public Memory<byte> BattleVideoDownload2 => Data.AsMemory(ExtBattleVideoDownload2Offset, BattleVideo5.SIZE);
+    public Memory<byte> BattleVideoDownload3 => Data.AsMemory(ExtBattleVideoDownload3Offset, BattleVideo5.SIZE);
+    public Memory<byte> CGearSkinData => Data.AsMemory(ExtCGearOffset, CGearBackground.SIZE);
+    public Memory<byte> BattleTest => Data.AsMemory(ExtBattleTestOffset, BattleTest5.SIZE);
+    public Memory<byte> MusicalDownloadData => Data.AsMemory(ExtMusicalDownloadOffset, MusicalDownloadSize);
+    public Memory<byte> PokedexSkinData => Data.AsMemory(ExtPokeDexSkinOffset, PokeDexSkin5.SIZE);
+    public Memory<byte> HallOfFame1 => Data.AsMemory(ExtHallOfFame1Offset, HallOfFameSize);
+    public Memory<byte> HallOfFame2 => Data.AsMemory(ExtHallOfFame2Offset, HallOfFameSize);
+    public Memory<byte> Link1Data => Data.AsMemory(ExtLink1Offset, Link3DSDataSize);
+    public Memory<byte> Link2Data => Data.AsMemory(ExtLink2Offset, Link3DSDataSize);
+
+    private const int ExtFooterLength = 0x14;
+
+    /// <summary>
+    /// Writes an extdata section
+    /// </summary>
+    /// <param name="data">Section of data to write</param>
+    /// <param name="offset">Offset within the save file to write to</param>
+    /// <param name="size">Expected size of the data</param>
+    /// <param name="count">Update count</param>
+    /// <returns>Checksum of the <see cref="data"/></returns>
+    protected ushort WriteExtSection(ReadOnlySpan<byte> data, int offset, int size, ushort count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNotEqual(data.Length, size);
+        SetData(data, offset);
+
+        // Update Tail Section
+        ushort chk = Checksums.CRC16_CCITT(data);
+        var tail = Data.AsSpan(offset + size);
+        WriteUInt16LittleEndian(tail, count); // block updated counter
+        WriteUInt16LittleEndian(tail[2..], chk); // checksum
+
+        // Update Footer
+        int lengthInner = size + 0x100 - (size % 0x100); // wasting 0x100 bytes, nice!
+        var footer = Data.AsSpan(offset + lengthInner, ExtFooterLength);
+        WriteFooterDLC(footer, chk, lengthInner + ExtFooterLength, count);
+        return chk;
+    }
+
+    private static void WriteFooterDLC(Span<byte> data, ushort chk, int length, ushort count)
+    {
+        WriteInt32LittleEndian(data, chk);
+        chk = Checksums.CRC16_CCITT(data[..4]); // checksum of a checksum
+        WriteFooter51(data[4..], chk, length, count);
+    }
+
+    private static void WriteFooter51(Span<byte> data, ushort chk, int length, ushort count)
+    {
+        WriteInt32LittleEndian(data, count);
+        WriteInt32LittleEndian(data[0x04..], length);
+        WriteInt32LittleEndian(data[0x08..], 0x31053527); // '5.1 magic prime 822424871
+
+        WriteUInt16LittleEndian(data[0x0C..], 0);
+        WriteUInt16LittleEndian(data[0x0E..], chk);
+    }
+
+    public void SetBattleVideo(int index, ReadOnlySpan<byte> data, ushort count = 1)
+    {
+        PlayerData.UpdateExtData(ExtDataSectionNote5.BattleVideo0 + index, count);
+        var offset = index switch
+        {
+            0 => ExtBattleVideoNativeOffset,
+            1 => ExtBattleVideoDownload1Offset,
+            2 => ExtBattleVideoDownload2Offset,
+            3 => ExtBattleVideoDownload3Offset,
+            _ => throw new ArgumentOutOfRangeException(nameof(index)),
+        };
+        WriteExtSection(data, offset, BattleVideo5.SIZE, count);
+    }
+
+    public Memory<byte> GetBattleVideo(int index) => index switch
+    {
+        0 => BattleVideoNative,
+        1 => BattleVideoDownload1,
+        2 => BattleVideoDownload2,
+        3 => BattleVideoDownload3,
+        _ => throw new ArgumentOutOfRangeException(nameof(index)),
+    };
+
+    public void SetCGearSkin(ReadOnlySpan<byte> data, ushort count = 1)
+    {
+        var chk = WriteExtSection(data, ExtCGearOffset, CGearBackground.SIZE, count);
+
+        // Indicate in the save file that data is present
+        SkinInfo.CGearSkinChecksum = chk;
+        SkinInfo.HasCGearSkin = true;
+        PlayerData.UpdateExtData(ExtDataSectionNote5.CGearSkin, count);
+    }
+
+    public void SetBattleTest(ReadOnlySpan<byte> data, ushort count = 1)
+    {
+        WriteExtSection(data, ExtBattleTestOffset, BattleTest5.SIZE, count);
+        PlayerData.UpdateExtData(ExtDataSectionNote5.BattleTest, count);
+    }
+
+    public void SetMusical(ReadOnlySpan<byte> data, ushort count = 1)
+    {
+        WriteExtSection(data, ExtMusicalDownloadOffset, MusicalDownloadSize, count);
+        PlayerData.UpdateExtData(ExtDataSectionNote5.Musical, count);
+        Musical.IsAvailableMusicalDLC = true;
+    }
+
+    public void SetPokeDexSkin(ReadOnlySpan<byte> data, ushort count = 1)
+    {
+        WriteExtSection(data, ExtPokeDexSkinOffset, PokeDexSkin5.SIZE, count);
+        PlayerData.UpdateExtData(ExtDataSectionNote5.PokedexSkin, count);
+        IsAvailablePokedexSkin = true;
+    }
+
+    private Span<byte> DexSkinFooter => Data.AsSpan((ExtPokeDexSkinOffset + PokeDexSkin5.SIZE - 4)..);
+
+    public bool IsAvailablePokedexSkin
+    {
+        get => ReadUInt32LittleEndian(DexSkinFooter) == 1;
+        set => WriteUInt32LittleEndian(DexSkinFooter, value ? 1u : 0u);
+    }
+
+    public void SetHallOfFame(ReadOnlySpan<byte> data, ushort count = 1)
+    {
+        WriteExtSection(data, ExtHallOfFame1Offset, HallOfFameSize, count);
+        PlayerData.UpdateExtData(ExtDataSectionNote5.HallOfFame, count);
+    }
+
+    public void SetLink1Data(ReadOnlySpan<byte> data) => SetData(data, ExtLink1Offset);
+    public void SetLink2Data(ReadOnlySpan<byte> data) => SetData(data, ExtLink2Offset);
 }

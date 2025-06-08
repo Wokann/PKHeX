@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -36,7 +37,8 @@ public static class BoxUtil
             var boxFolder = path;
             if (boxFolders)
             {
-                var boxName = Util.CleanFileName(sav.GetBoxName(box));
+                string boxName = sav is IBoxDetailName bn ? bn.GetBoxName(box) : BoxDetailNameExtensions.GetDefaultBoxName(box);
+                boxName = Util.CleanFileName(boxName);
                 boxFolder = Path.Combine(path, boxName);
                 Directory.CreateDirectory(boxFolder);
             }
@@ -93,17 +95,17 @@ public static class BoxUtil
     /// <param name="boxStart">First box to start loading to. All prior boxes are not modified.</param>
     /// <param name="boxClear">Instruction to clear boxes after the starting box.</param>
     /// <param name="overwrite">Overwrite existing full slots. If true, will only overwrite empty slots.</param>
-    /// <param name="noSetb">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
+    /// <param name="settings">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
     /// <param name="all">Enumerate all files even in sub-folders.</param>
     /// <returns>Count of files imported.</returns>
-    public static int LoadBoxes(this SaveFile sav, string path, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, PKMImportSetting noSetb = PKMImportSetting.UseDefault, bool all = false)
+    public static int LoadBoxes(this SaveFile sav, string path, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, EntityImportSettings settings = default, bool all = false)
     {
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
         { result = MsgSaveBoxExportPathInvalid; return -1; }
 
         var option = all ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
         var files = Directory.EnumerateFiles(path, "*.*", option);
-        return sav.LoadBoxes(files, out result, boxStart, boxClear, overwrite, noSetb);
+        return sav.LoadBoxes(files, out result, boxStart, boxClear, overwrite, settings);
     }
 
     /// <summary>
@@ -115,12 +117,12 @@ public static class BoxUtil
     /// <param name="boxStart">First box to start loading to. All prior boxes are not modified.</param>
     /// <param name="boxClear">Instruction to clear boxes after the starting box.</param>
     /// <param name="overwrite">Overwrite existing full slots. If true, will only overwrite empty slots.</param>
-    /// <param name="noSetb">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
+    /// <param name="settings">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
     /// <returns>Count of files imported.</returns>
-    public static int LoadBoxes(this SaveFile sav, IEnumerable<string> files, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, PKMImportSetting noSetb = PKMImportSetting.UseDefault)
+    public static int LoadBoxes(this SaveFile sav, IEnumerable<string> files, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, EntityImportSettings settings = default)
     {
         var pks = GetPossiblePKMsFromPaths(sav, files);
-        return sav.LoadBoxes(pks, out result, boxStart, boxClear, overwrite, noSetb);
+        return sav.LoadBoxes(pks, out result, boxStart, boxClear, overwrite, settings);
     }
 
     /// <summary>
@@ -132,12 +134,12 @@ public static class BoxUtil
     /// <param name="boxStart">First box to start loading to. All prior boxes are not modified.</param>
     /// <param name="boxClear">Instruction to clear boxes after the starting box.</param>
     /// <param name="overwrite">Overwrite existing full slots. If true, will only overwrite empty slots.</param>
-    /// <param name="noSetb">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
+    /// <param name="settings">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
     /// <returns>Count of files imported.</returns>
-    public static int LoadBoxes(this SaveFile sav, IEnumerable<IEncounterConvertible> encounters, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, PKMImportSetting noSetb = PKMImportSetting.UseDefault)
+    public static int LoadBoxes(this SaveFile sav, IEnumerable<IEncounterConvertible> encounters, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, EntityImportSettings settings = default)
     {
         var pks = encounters.Select(z => z.ConvertToPKM(sav));
-        return sav.LoadBoxes(pks, out result, boxStart, boxClear, overwrite, noSetb);
+        return sav.LoadBoxes(pks, out result, boxStart, boxClear, overwrite, settings);
     }
 
     /// <summary>
@@ -149,9 +151,9 @@ public static class BoxUtil
     /// <param name="boxStart">First box to start loading to. All prior boxes are not modified.</param>
     /// <param name="boxClear">Instruction to clear boxes after the starting box.</param>
     /// <param name="overwrite">Overwrite existing full slots. If true, will only overwrite empty slots.</param>
-    /// <param name="noSetb">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
+    /// <param name="settings">Bypass option to not modify <see cref="PKM"/> properties when setting to Save File.</param>
     /// <returns>True if any files are imported.</returns>
-    public static int LoadBoxes(this SaveFile sav, IEnumerable<PKM> pks, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, PKMImportSetting noSetb = PKMImportSetting.UseDefault)
+    public static int LoadBoxes(this SaveFile sav, IEnumerable<PKM> pks, out string result, int boxStart = 0, bool boxClear = false, bool overwrite = false, EntityImportSettings settings = default)
     {
         if (!sav.HasBox)
         { result = MsgSaveBoxFailNone; return -1; }
@@ -160,7 +162,7 @@ public static class BoxUtil
         if (boxClear)
             sav.ClearBoxes(boxStart);
 
-        int ctr = sav.ImportPKMs(compat, overwrite, boxStart, noSetb);
+        int ctr = sav.ImportPKMs(compat, overwrite, boxStart, settings);
         if (ctr <= 0)
         {
             result = MsgSaveBoxImportNoFiles;
@@ -223,21 +225,27 @@ public static class BoxUtil
     /// <returns>Returns default English box names in the event the save file does not have names (not exportable), or fails to return a box name.</returns>
     public static string[] GetBoxNames(SaveFile sav)
     {
-        int count = sav.BoxCount;
+        var count = sav.BoxCount;
+        if (count == 0)
+            return [];
         var result = new string[count];
-        if (!sav.State.Exportable)
-        {
-            for (int i = 0; i < count; i++)
-                result[i] = $"Box {i + 1}";
-            return result;
-        }
-
-        for (int i = 0; i < count; i++)
-        {
-            try { result[i] = sav.GetBoxName(i); }
-            catch { result[i] = $"Box {i + 1}"; }
-        }
-
+        GetBoxNames(sav, result);
         return result;
+    }
+
+    private static void GetBoxNames(SaveFile sav, Span<string> result)
+    {
+        if (!sav.State.Exportable || sav is not IBoxDetailNameRead r)
+        {
+            for (int i = 0; i < result.Length; i++)
+                result[i] = BoxDetailNameExtensions.GetDefaultBoxName(i);
+            return;
+        }
+
+        for (int i = 0; i < result.Length; i++)
+        {
+            try { result[i] = r.GetBoxName(i); }
+            catch { result[i] = BoxDetailNameExtensions.GetDefaultBoxName(i); }
+        }
     }
 }

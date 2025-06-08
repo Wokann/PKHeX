@@ -28,7 +28,7 @@ public sealed partial class SAV_GroupViewer : Form
         Regenerate(count);
         CenterToParent();
 
-        MouseWheel += (s, e) => CurrentGroup = e.Delta > 1 ? MoveLeft() : MoveRight();
+        MouseWheel += (_, e) => CurrentGroup = e.Delta > 1 ? MoveLeft() : MoveRight();
 
         var names = groups.Select(z => $"{z.GroupName}").ToArray();
         CB_BoxSelect.Items.AddRange(names);
@@ -36,16 +36,18 @@ public sealed partial class SAV_GroupViewer : Form
 
         foreach (PictureBox pb in Box.Entries)
         {
-            pb.Click += (o, args) => OmniClick(pb, args);
-            pb.MouseHover += (o, args) => HoverSlot(pb, args);
+            pb.Click += (_, args) => OmniClick(pb, args);
             pb.ContextMenuStrip = mnu;
+            pb.MouseMove += (_, args) => Preview.UpdatePreviewPosition(args.Location);
+            pb.MouseEnter += (_, _) => HoverSlot(pb);
+            pb.MouseLeave += (_, _) => Preview.Clear();
         }
+        Closing += (_, _) => Preview.Clear();
     }
 
-    private void HoverSlot(object sender, EventArgs e)
+    private void HoverSlot(PictureBox pb)
     {
         var group = Groups[CurrentGroup];
-        var pb = (PictureBox)sender;
         var index = Box.Entries.IndexOf(pb);
         var slot = group.Slots[index];
         Preview.Show(pb, slot);
@@ -115,7 +117,7 @@ public sealed partial class SAV_GroupViewer : Form
 
         var sav = SAV;
         for (int i = 0; i < slots.Length; i++)
-            Box.Entries[i].Image = slots[i].Sprite(sav, -1, -1, true);
+            Box.Entries[i].Image = slots[i].Sprite(sav, flagIllegal: true);
 
         if (slotSelected != -1 && (uint)slotSelected < Box.Entries.Count)
             Box.Entries[slotSelected].BackgroundImage = groupSelected != index ? null : SpriteUtil.Spriter.View;
@@ -143,7 +145,7 @@ public sealed partial class SAV_GroupViewer : Form
     private void ClickView(object sender, EventArgs e)
     {
         var pb = WinFormsUtil.GetUnderlyingControl<PictureBox>(sender);
-        if (pb == null)
+        if (pb is null)
             return;
         int index = Box.Entries.IndexOf(pb);
 

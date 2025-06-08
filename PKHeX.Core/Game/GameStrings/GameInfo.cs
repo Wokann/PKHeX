@@ -10,20 +10,11 @@ public static class GameInfo
     private static readonly GameStrings?[] Languages = new GameStrings[GameLanguage.LanguageCount];
 
     public static string CurrentLanguage { get; set; } = GameLanguage.DefaultLanguage;
-    public static readonly IReadOnlyList<string> GenderSymbolUnicode = new[] {"♂", "♀", "-"};
-    public static readonly IReadOnlyList<string> GenderSymbolASCII = new[] {"M", "F", "-"};
+    public static readonly IReadOnlyList<string> GenderSymbolUnicode = ["♂", "♀", "-"];
+    public static readonly IReadOnlyList<string> GenderSymbolASCII = ["M", "F", "-"];
     private static GameStrings _strings = GetStrings(CurrentLanguage);
-
-    public static GameStrings GetStrings(string lang)
-    {
-        int index = GameLanguage.GetLanguageIndex(lang);
-        return GetStrings(index);
-    }
-
-    public static GameStrings GetStrings(int index)
-    {
-        return Languages[index] ??= new GameStrings(GameLanguage.Language2Char(index));
-    }
+    public static GameDataSource Sources { get; private set; } = new(_strings);
+    public static FilteredGameDataSource FilteredSources { get; set; } = new(FakeSaveFile.Default, Sources);
 
     public static GameStrings Strings
     {
@@ -31,8 +22,11 @@ public static class GameInfo
         set => Sources = new GameDataSource(_strings = value);
     }
 
-    public static GameDataSource Sources { get; private set; } = new(_strings);
-    public static FilteredGameDataSource FilteredSources { get; set; } = new(FakeSaveFile.Default, Sources);
+    public static GameStrings GetStrings(string lang)
+    {
+        int index = GameLanguage.GetLanguageIndex(lang);
+        return Languages[index] ??= new GameStrings(lang);
+    }
 
     public static string GetVersionName(GameVersion version)
     {
@@ -55,18 +49,19 @@ public static class GameInfo
     public static IReadOnlyList<ComboItem> GroundTileDataSource => Sources.GroundTileDataSource;
     public static IReadOnlyList<ComboItem> Regions => GameDataSource.Regions;
 
-    public static IReadOnlyList<ComboItem> LanguageDataSource(int gen) => GameDataSource.LanguageDataSource(gen);
+    public static IReadOnlyList<ComboItem> LanguageDataSource(byte generation)
+        => GameDataSource.LanguageDataSource(generation);
 
     /// <summary>
     /// Gets the location name for the specified parameters.
     /// </summary>
-    /// <param name="isEggLocation">Location is from the <see cref="PKM.Egg_Location"/></param>
+    /// <param name="isEggLocation">Location is from the <see cref="PKM.EggLocation"/></param>
     /// <param name="location">Location value</param>
     /// <param name="format">Current <see cref="PKM.Format"/></param>
     /// <param name="generation"><see cref="PKM.Generation"/> of origin</param>
-    /// <param name="version">Current GameVersion (only applicable for <see cref="GameVersion.Gen7b"/> differentiation)</param>
+    /// <param name="version">Version within <see cref="generation"/>, if needed to differentiate.</param>
     /// <returns>Location name</returns>
-    public static string GetLocationName(bool isEggLocation, int location, int format, int generation, GameVersion version)
+    public static string GetLocationName(bool isEggLocation, ushort location, byte format, byte generation, GameVersion version)
     {
         return Strings.GetLocationName(isEggLocation, location, format, generation, version);
     }

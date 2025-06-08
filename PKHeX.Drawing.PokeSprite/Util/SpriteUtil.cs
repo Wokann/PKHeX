@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Drawing;
 using PKHeX.Core;
 using PKHeX.Drawing.PokeSprite.Properties;
@@ -24,7 +25,7 @@ public static class SpriteUtil
     /// Changes the builder mode to the requested mode.
     /// </summary>
     /// <param name="mode">Requested sprite builder mode</param>
-    /// <remarks>If an out of bounds value is provided, will not change.</remarks>
+    /// <remarks>If an out-of-bounds value is provided, will not change.</remarks>
     public static void ChangeMode(SpriteBuilderMode mode) => Spriter = mode switch
     {
         SpriteBuilderMode.SpritesArtwork5668 => SB8a,
@@ -51,41 +52,41 @@ public static class SpriteUtil
         Spriter.Initialize(sav);
     }
 
-    public static Image GetBallSprite(int ball)
+    public static Bitmap GetBallSprite(byte ball)
     {
         string resource = SpriteName.GetResourceStringBall(ball);
         return (Bitmap?)Resources.ResourceManager.GetObject(resource) ?? Resources._ball4; // Poké Ball (default)
     }
 
-    public static Image? GetItemSprite(int item) => Resources.ResourceManager.GetObject($"item_{item}") as Image;
+    public static Bitmap? GetItemSprite(int item) => Resources.ResourceManager.GetObject($"item_{item}") as Bitmap;
 
-    public static Image GetSprite(ushort species, byte form, int gender, uint formarg, int item, bool isegg, Shiny shiny, EntityContext context = EntityContext.None)
+    public static Bitmap GetSprite(ushort species, byte form, byte gender, uint formarg, int item, bool isegg, Shiny shiny, EntityContext context = EntityContext.None)
     {
         return Spriter.GetSprite(species, form, gender, formarg, item, isegg, shiny, context);
     }
 
-    private static Image GetSprite(PKM pk)
+    private static Bitmap GetSprite(PKM pk)
     {
         var formarg = pk is IFormArgument f ? f.FormArgument : 0;
-        var shiny = !pk.IsShiny ? Shiny.Never : (ShinyExtensions.IsSquareShinyExist(pk) ? Shiny.AlwaysSquare : Shiny.AlwaysStar);
+        var shiny = ShinyExtensions.GetType(pk);
 
         var img = GetSprite(pk.Species, pk.Form, pk.Gender, formarg, pk.SpriteItem, pk.IsEgg, shiny, pk.Context);
-        if (pk is IShadowCapture {IsShadow: true})
+        if (pk is IShadowCapture { IsShadow: true })
         {
-            const int Lugia = (int)Species.Lugia;
-            if (pk.Species == Lugia) // show XD shadow sprite
+            const ushort Lugia = (int)Species.Lugia;
+            if (pk.Species is Lugia) // show XD shadow sprite
                 img = Spriter.GetSprite(Spriter.ShadowLugia, Lugia, pk.SpriteItem, pk.IsEgg, shiny, pk.Context);
 
             GetSpriteGlow(pk, 75, 0, 130, out var pixels, out var baseSprite, true);
             var glowImg = ImageUtil.GetBitmap(pixels, baseSprite.Width, baseSprite.Height, baseSprite.PixelFormat);
             return ImageUtil.LayerImage(glowImg, img, 0, 0);
         }
-        if (pk is IGigantamaxReadOnly { CanGigantamax: true})
+        if (pk is IGigantamaxReadOnly { CanGigantamax: true })
         {
             var gm = Resources.dyna;
             return ImageUtil.LayerImage(img, gm, (img.Width - gm.Width) / 2, 0);
         }
-        if (pk is IAlpha {IsAlpha: true})
+        if (pk is IAlphaReadOnly { IsAlpha: true })
         {
             var alpha = Resources.alpha_alt;
             return ImageUtil.LayerImage(img, alpha, SlotTeamShiftX, 0);
@@ -93,7 +94,7 @@ public static class SpriteUtil
         return img;
     }
 
-    private static Image GetSprite(PKM pk, SaveFile sav, int box, int slot, bool flagIllegal = false)
+    private static Bitmap GetSprite(PKM pk, SaveFile sav, int box, int slot, bool flagIllegal = false, StorageSlotType storage = StorageSlotType.None)
     {
         bool inBox = (uint)slot < MaxSlotCount;
         bool empty = pk.Species == 0;
@@ -104,11 +105,15 @@ public static class SpriteUtil
             if (SpriteBuilder.ShowTeraType != SpriteBackgroundType.None && pk is ITeraType t)
             {
                 var type = t.TeraType;
-                sprite = ApplyTeraColor((byte)type, sprite, SpriteBuilder.ShowTeraType);
+                if (TeraTypeUtil.IsOverrideValid((byte)type))
+                    sprite = ApplyTeraColor((byte)type, sprite, SpriteBuilder.ShowTeraType);
             }
             if (flagIllegal)
             {
-                var la = new LegalityAnalysis(pk, sav.Personal, box != -1 ? SlotOrigin.Box : SlotOrigin.Party);
+                var la = pk.GetType() == sav.PKMType // quick sanity check
+                    ? new LegalityAnalysis(pk, sav.Personal, storage)
+                    : new LegalityAnalysis(pk, pk.PersonalInfo, storage);
+
                 if (!la.Valid)
                     sprite = ImageUtil.LayerImage(sprite, Resources.warn, 0, FlagIllegalShiftY);
                 else if (pk.Format >= 8 && MoveInfo.IsDummiedMoveAny(pk))
@@ -123,7 +128,7 @@ public static class SpriteUtil
         }
         if (inBox) // in box
         {
-            var flags = sav.GetSlotFlags(box, slot);
+            var flags = sav.GetBoxSlotFlags(box, slot);
 
             // Indicate any battle box teams & according locked state.
             int team = flags.IsBattleTeam();
@@ -132,7 +137,7 @@ public static class SpriteUtil
             if (flags.HasFlag(StorageSlotSource.Locked))
                 sprite = ImageUtil.LayerImage(sprite, Resources.locked, SlotLockShiftX, 0);
 
-            // Some games store Party directly in the list of pokemon data (LGP/E). Indicate accordingly.
+            // Some games store Party directly in the list of Pokémon data (LGP/E). Indicate accordingly.
             int party = flags.IsParty();
             if (party >= 0)
                 sprite = ImageUtil.LayerImage(sprite, PartyMarks[party], PartyMarkShiftX, 0);
@@ -146,16 +151,16 @@ public static class SpriteUtil
         return sprite;
     }
 
-    private static Image ApplyTeraColor(byte elementalType, Image img, SpriteBackgroundType type)
+    private static Bitmap ApplyTeraColor(byte elementalType, Bitmap img, SpriteBackgroundType type)
     {
-        var color = TypeColor.GetTypeSpriteColor(elementalType);
+        var color = TypeColor.GetTeraSpriteColor(elementalType);
         var thk = SpriteBuilder.ShowTeraThicknessStripe;
         var op  = SpriteBuilder.ShowTeraOpacityStripe;
         var bg  = SpriteBuilder.ShowTeraOpacityBackground;
         return ApplyColor(img, type, color, thk, op, bg);
     }
 
-    public static Image ApplyEncounterColor(IEncounterTemplate enc, Image img, SpriteBackgroundType type)
+    public static Bitmap ApplyEncounterColor(IEncounterTemplate enc, Bitmap img, SpriteBackgroundType type)
     {
         var index = (enc.GetType().Name.GetHashCode() * 0x43FD43FD);
         var color = Color.FromArgb(index);
@@ -165,7 +170,7 @@ public static class SpriteUtil
         return ApplyColor(img, type, color, thk, op, bg);
     }
 
-    private static Image ApplyColor(Image img, SpriteBackgroundType type, Color color, int thick, byte opacStripe, byte opacBack)
+    private static Bitmap ApplyColor(Bitmap img, SpriteBackgroundType type, Color color, int thick, byte opacStripe, byte opacBack)
     {
         if (type == SpriteBackgroundType.BottomStripe)
         {
@@ -190,7 +195,7 @@ public static class SpriteUtil
         return img;
     }
 
-    private static Image ApplyExperience(PKM pk, Image img, IEncounterTemplate? enc = null)
+    private static Bitmap ApplyExperience(PKM pk, Bitmap img, IEncounterTemplate? enc = null)
     {
         const int bpp = 4;
         int start = bpp * SpriteWidth * (SpriteHeight - 1);
@@ -202,21 +207,22 @@ public static class SpriteUtil
         if (pct is not 0)
             return ImageUtil.WritePixels(img, Color.DodgerBlue, start, start + (int)(SpriteWidth * pct * bpp));
 
-        var encLevel = enc is { EggEncounter: true } x ? x.LevelMin : pk.Met_Level;
+        var encLevel = enc is { IsEgg: true } ? enc.LevelMin : pk.MetLevel;
         var color = level != encLevel && pk.HasOriginalMetLocation ? Color.DarkOrange : Color.Yellow;
         return ImageUtil.WritePixels(img, color, start, start + (SpriteWidth * bpp));
     }
 
     private static readonly Bitmap[] PartyMarks =
-    {
+    [
         Resources.party1, Resources.party2, Resources.party3, Resources.party4, Resources.party5, Resources.party6,
-    };
+    ];
 
     public static void GetSpriteGlow(PKM pk, byte blue, byte green, byte red, out byte[] pixels, out Image baseSprite, bool forceHollow = false)
     {
         bool egg = pk.IsEgg;
         var formarg = pk is IFormArgument f ? f.FormArgument : 0;
-        baseSprite = GetSprite(pk.Species, pk.Form, pk.Gender, formarg, 0, egg, Shiny.Never, pk.Context);
+        var shiny = pk.IsShiny ? Shiny.Always : Shiny.Never;
+        baseSprite = GetSprite(pk.Species, pk.Form, pk.Gender, formarg, 0, egg, shiny, pk.Context);
         GetSpriteGlow(baseSprite, blue, green, red, out pixels, forceHollow || egg);
     }
 
@@ -232,26 +238,33 @@ public static class SpriteUtil
         // If the image has any transparency, any derived background will bleed into it.
         // Need to undo any transparency values if any present.
         // Remove opaque pixels from original image, leaving only the glow effect pixels.
-        var original = (byte[])pixels.Clone();
+        var temp = ArrayPool<byte>.Shared.Rent(pixels.Length);
+        var original = temp.AsSpan(0, pixels.Length);
+        pixels.CopyTo(original);
+
         ImageUtil.SetAllUsedPixelsOpaque(pixels);
         ImageUtil.GlowEdges(pixels, blue, green, red, baseSprite.Width);
         ImageUtil.RemovePixels(pixels, original);
+
+        original.Clear();
+        ArrayPool<byte>.Shared.Return(temp);
     }
 
-    public static Image GetLegalIndicator(bool valid) => valid ? Resources.valid : Resources.warn;
+    public static Bitmap GetLegalIndicator(bool valid) => valid ? Resources.valid : Resources.warn;
 
     // Extension Methods
-    public static Image Sprite(this PKM pk) => GetSprite(pk);
+    public static Bitmap Sprite(this PKM pk) => GetSprite(pk);
 
-    public static Image Sprite(this IEncounterTemplate enc)
+    public static Bitmap Sprite(this IEncounterTemplate enc)
     {
         if (enc is MysteryGift g)
             return GetMysteryGiftPreviewPoke(g);
         var gender = GetDisplayGender(enc);
-        var img = GetSprite(enc.Species, enc.Form, gender, 0, 0, enc.EggEncounter, enc.IsShiny ? Shiny.Always : Shiny.Never, enc.Context);
-        if (SpriteBuilder.ShowEncounterBall && enc is IFixedBall {FixedBall: not Ball.None} b)
+        var shiny = enc.IsShiny ? Shiny.Always : Shiny.Never;
+        var img = GetSprite(enc.Species, enc.Form, gender, 0, 0, enc.IsEgg, shiny, enc.Context);
+        if (SpriteBuilder.ShowEncounterBall && enc is {FixedBall: not Ball.None})
         {
-            var ballSprite = GetBallSprite((int)b.FixedBall);
+            var ballSprite = GetBallSprite((byte)enc.FixedBall);
             img = ImageUtil.LayerImage(img, ballSprite, 0, img.Height - ballSprite.Height);
         }
         if (enc is IGigantamaxReadOnly {CanGigantamax: true})
@@ -269,28 +282,28 @@ public static class SpriteUtil
         return img;
     }
 
-    public static int GetDisplayGender(IEncounterTemplate enc) => enc switch
+    public static byte GetDisplayGender(IEncounterTemplate enc) => enc switch
     {
-        EncounterSlotGO g => (int)g.Gender & 1,
-        EncounterStatic s => Math.Max(0, (int)s.Gender),
-        EncounterTrade t => Math.Max(0, (int)t.Gender),
+        IFixedGender { IsFixedGender: true } s => Math.Max((byte)0, s.Gender),
+        IPogoSlot g => (byte)((int)g.Gender & 1),
         _ => 0,
     };
 
-    public static Image Sprite(this PKM pk, SaveFile sav, int box, int slot, bool flagIllegal = false)
-        => GetSprite(pk, sav, box, slot, flagIllegal);
+    public static Bitmap Sprite(this PKM pk, SaveFile sav, int box = -1, int slot = -1,
+        bool flagIllegal = false, StorageSlotType storage = StorageSlotType.None)
+        => GetSprite(pk, sav, box, slot, flagIllegal, storage);
 
-    public static Image GetMysteryGiftPreviewPoke(MysteryGift gift)
+    public static Bitmap GetMysteryGiftPreviewPoke(MysteryGift gift)
     {
         if (gift is { IsEgg: true, Species: (int)Species.Manaphy }) // Manaphy Egg
             return GetSprite((int)Species.Manaphy, 0, 2, 0, 0, true, Shiny.Never, gift.Context);
 
-        var gender = Math.Max(0, gift.Gender);
+        var gender = Math.Max((byte)0, gift.Gender);
         var img = GetSprite(gift.Species, gift.Form, gender, 0, gift.HeldItem, gift.IsEgg, gift.IsShiny ? Shiny.Always : Shiny.Never, gift.Context);
 
-        if (SpriteBuilder.ShowEncounterBall && gift is IFixedBall { FixedBall: not Ball.None } b)
+        if (SpriteBuilder.ShowEncounterBall && gift is { FixedBall: not Ball.None })
         {
-            var ballSprite = GetBallSprite((int)b.FixedBall);
+            var ballSprite = GetBallSprite((byte)gift.FixedBall);
             img = ImageUtil.LayerImage(img, ballSprite, 0, img.Height - ballSprite.Height);
         }
 
@@ -300,5 +313,24 @@ public static class SpriteUtil
             img = ImageUtil.LayerImage(img, gm, (img.Width - gm.Width) / 2, 0);
         }
         return img;
+    }
+
+    public static Image? GetStatusSprite(this StatusCondition value)
+    {
+        if (value == 0)
+            return null;
+        if (value < StatusCondition.Poison)
+            return Resources.sicksleep;
+        if (value.HasFlag(StatusCondition.PoisonBad))
+            return Resources.sicktoxic;
+        if (value.HasFlag(StatusCondition.Poison))
+            return Resources.sickpoison;
+        if (value.HasFlag(StatusCondition.Burn))
+            return Resources.sickburn;
+        if (value.HasFlag(StatusCondition.Paralysis))
+            return Resources.sickparalyze;
+        if (value.HasFlag(StatusCondition.Freeze))
+            return Resources.sickfrostbite;
+        return null;
     }
 }

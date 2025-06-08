@@ -16,24 +16,30 @@ public sealed class MarkVerifier : Verifier
         if (pk is not IRibbonIndex m)
             return;
 
-        if (!MarkRules.IsEncounterMarkAllowed(data)) // Shedinja doesn't copy Ribbons or Marks
+        if (!MarkRules.IsEncounterMarkAllowed(data.EncounterOriginal, data.Entity)) // Shedinja doesn't copy Ribbons or Marks
             VerifyNoMarksPresent(data, m);
         else
             VerifyMarksPresent(data, m);
 
         VerifyAffixedRibbonMark(data, m);
+        if (pk.IsEgg && pk is IRibbonSetAffixed a && a.AffixedRibbon != -1)
+        {
+            // Disallow affixed values on eggs.
+            var affix = (RibbonIndex)a.AffixedRibbon;
+            data.AddLine(GetInvalid(string.Format(LRibbonMarkingAffixedF_0, GetRibbonNameSafe(affix))));
+        }
 
-        // temp logic to catch this case; in the future we will need more robust checks for encounters
-        if (data.EncounterMatch is WC9 { RibbonMarkCharismatic: true} && pk is IRibbonSetMark8 { RibbonMarkCharismatic: false})
-            data.AddLine(GetInvalid(string.Format(LRibbonMarkingFInvalid_0, GetRibbonNameSafe(MarkCharismatic))));
+        // Some encounters come with a fixed Mark, and we've not yet checked if it's missing.
+        if (data.EncounterMatch is IEncounterMarkExtra extra && extra.IsMissingExtraMark(pk, out var missing))
+            data.AddLine(GetInvalid(string.Format(LRibbonMarkingFInvalid_0, GetRibbonNameSafe(missing))));
     }
 
     private void VerifyNoMarksPresent(LegalityAnalysis data, IRibbonIndex m)
     {
-        for (var x = MarkLunchtime; x <= MarkSlump; x++)
+        for (var mark = MarkLunchtime; mark <= MarkSlump; mark++)
         {
-            if (m.GetRibbon((int)x))
-                data.AddLine(GetInvalid(string.Format(LRibbonMarkingFInvalid_0, GetRibbonNameSafe(x))));
+            if (m.GetRibbon((int)mark))
+                data.AddLine(GetInvalid(string.Format(LRibbonMarkingFInvalid_0, GetRibbonNameSafe(mark))));
         }
     }
 
@@ -81,8 +87,8 @@ public sealed class MarkVerifier : Verifier
             return;
 
         var affix = (RibbonIndex)affixValue;
-        var max = MarkRules.GetMaxAffixValue(data.Entity.Format, m is IHomeTrack { HasTracker: true });
-        if (affix > max)
+        var max = MarkRules.GetMaxAffixValue(data.Info.EvoChainsAllGens);
+        if ((sbyte)max == -1 || affix > max)
         {
             data.AddLine(GetInvalid(string.Format(LRibbonMarkingAffixedF_0, GetRibbonNameSafe(affix))));
             return;
@@ -91,7 +97,7 @@ public sealed class MarkVerifier : Verifier
         if (m is not PKM pk)
             return;
 
-        if (MarkRules.IsEncounterMarkLost(data))
+        if (MarkRules.IsEncounterMarkLost(data.EncounterOriginal, data.Entity))
         {
             VerifyShedinjaAffixed(data, affix, pk, m);
             return;
@@ -131,7 +137,7 @@ public sealed class MarkVerifier : Verifier
 
     private static bool IsMoveSetEvolvedShedinja(PKM pk)
     {
-        // Check for gen3/4 exclusive moves that are Ninjask glitch only.
+        // Check for Gen3/4 exclusive moves that are Ninjask glitch only.
         if (pk.HasMove((int) Move.Screech))
             return true;
         if (pk.HasMove((int) Move.SwordsDance))

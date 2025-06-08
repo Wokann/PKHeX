@@ -28,26 +28,27 @@ public static class StringConverter7
     public static int LoadString(ReadOnlySpan<byte> data, Span<char> result)
     {
         int i = 0;
+        int ctr = 0;
         for (; i < data.Length; i += 2)
         {
-            var value = ReadUInt16LittleEndian(data[i..]);
+            var value = (char)ReadUInt16LittleEndian(data[i..]);
             if (value == TerminatorNull)
                 break;
-            result[i/2] = StringConverter.SanitizeChar((char)value);
-        }
 
-        var span = result[..(i/2)];
-        StringConverter7ZH.RemapChineseGlyphsBin2String(span);
-        return i/2;
+            result[ctr++] = StringConverter7ZH.IsPrivateChar(value)
+                ? StringConverter7ZH.GetUnicodeChar(value)
+                : StringConverter.NormalizeGenderSymbol(value);
+        }
+        return ctr;
     }
 
     /// <summary>Gets the bytes for a Generation 7 string.</summary>
     /// <param name="destBuffer">Span of bytes to write encoded string data</param>
     /// <param name="value">Decoded string.</param>
     /// <param name="maxLength">Maximum length of the input <see cref="value"/></param>
-    /// <param name="language">Language specific conversion (Chinese)</param>
+    /// <param name="language">Language specific conversion</param>
     /// <param name="option">Buffer pre-formatting option</param>
-    /// <param name="chinese">Chinese string remapping should be attempted</param>
+    /// <param name="chinese">Chinese string remapping should be attempted (only Pokémon names, without Nickname flag set)</param>
     /// <returns>Encoded data.</returns>
     public static int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, int language,
         StringConverterOption option = StringConverterOption.ClearZero, bool chinese = false)
@@ -58,16 +59,15 @@ public static class StringConverter7
         if (option is StringConverterOption.ClearZero)
             destBuffer.Clear();
 
-        bool trad = StringConverter7ZH.IsTraditional(value, language);
-        bool isFullWidth = StringConverter.GetIsFullWidthString(value);
+        bool isHalfWidth = language == (int)LanguageID.Korean || !StringConverter.GetIsFullWidthString(value);
         for (int i = 0; i < value.Length; i++)
         {
-            char c = value[i];
-            if (!isFullWidth)
-                c = StringConverter.UnSanitizeChar(c);
+            var chr = value[i];
+            if (isHalfWidth)
+                chr = StringConverter.UnNormalizeGenderSymbol(chr);
             if (chinese)
-                c = StringConverter7ZH.ConvertString2BinG7_zh(c, trad);
-            WriteUInt16LittleEndian(destBuffer[(i * 2)..], c);
+                chr = StringConverter7ZH.GetPrivateChar(chr, language == (int)LanguageID.ChineseT);
+            WriteUInt16LittleEndian(destBuffer[(i * 2)..], chr);
         }
 
         int count = value.Length * 2;

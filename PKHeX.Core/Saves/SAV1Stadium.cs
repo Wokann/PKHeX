@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -6,24 +7,24 @@ namespace PKHeX.Core;
 /// <summary>
 /// Pokémon Stadium (Pokémon Stadium 2 in Japan)
 /// </summary>
-public sealed class SAV1Stadium : SAV_STADIUM
+public sealed class SAV1Stadium : SAV_STADIUM, IStorageCleanup
 {
     public override int SaveRevision => Japanese ? 0 : 1;
     public override string SaveRevisionString => Japanese ? "J" : "U";
 
     public override PersonalTable1 Personal => PersonalTable.Y;
-    public override int MaxEV => ushort.MaxValue;
-    public override ReadOnlySpan<ushort> HeldItems => Array.Empty<ushort>();
-    public override GameVersion Version { get; protected set; } = GameVersion.Stadium;
+    public override int MaxEV => EffortValues.Max12;
+    public override ReadOnlySpan<ushort> HeldItems => [];
+    public override GameVersion Version { get => GameVersion.Stadium; set { } }
 
     protected override SAV1Stadium CloneInternal() => new((byte[])Data.Clone(), Japanese);
 
-    public override int Generation => 1;
+    public override byte Generation => 1;
     public override EntityContext Context => EntityContext.Gen1;
     private int StringLength => Japanese ? StringLengthJ : StringLengthU;
     private const int StringLengthJ = 6;
     private const int StringLengthU = 11;
-    public override int MaxStringLengthOT => StringLength;
+    public override int MaxStringLengthTrainer => StringLength;
     public override int MaxStringLengthNickname => StringLength;
     public override int BoxCount => Japanese ? 8 : 12;
     public override int BoxSlotCount => Japanese ? 30 : 20;
@@ -65,6 +66,7 @@ public sealed class SAV1Stadium : SAV_STADIUM
     public SAV1Stadium(byte[] data, bool japanese) : base(data, japanese, GetIsSwap(data, japanese))
     {
         Box = BoxStart;
+        ConditionBoxes();
     }
 
     public SAV1Stadium(bool japanese = false) : base(japanese, SaveUtil.SIZE_G1STAD)
@@ -73,11 +75,93 @@ public sealed class SAV1Stadium : SAV_STADIUM
         ClearBoxes();
     }
 
+    public static bool IsHeaderValid(ReadOnlySpan<byte> header, ReadOnlySpan<byte> footer, bool japanese)
+    {
+        var h = ReadUInt32BigEndian(header);
+        var expect = GetExpectedHeader4(japanese);
+        if (h != expect)
+            return false;
+
+        var f = ReadUInt32LittleEndian(footer);
+        if (f != MAGIC_FOOTER)
+            return false;
+
+        return true;
+    }
+
+    private static uint GetExpectedHeader4(bool japanese) => japanese ? 0x00_00_50_00u : 0x00_50_00_00u;
+
+    public bool IsUsingBackupBoxSlots { get; private set; }
+
+    /// <summary>
+    /// Detect the current box buffer, initialize boxes if not already, and hide (delete) slots that aren't present (ignore ghost slots).
+    /// </summary>
+    private void ConditionBoxes()
+    {
+        var blank = BlankPKM;
+        for (int i = 0; i < BoxCount; i++)
+        {
+            // If the box is uninitialized, reset it to the right state.
+            var ofs = GetBoxOffset(i);
+            var raw = Data.AsSpan(ofs - ListHeaderSize, BoxSize);
+            var header = raw[..ListHeaderSize];
+            var footer = raw[^ListFooterSize..];
+
+            if (!IsHeaderValid(header, footer, Japanese))
+            {
+                if (i == 0 && !IsUsingBackupBoxSlots && IsBackupSegmentValid())
+                {
+                    IsUsingBackupBoxSlots = true;
+                    Box += 0x1_0000;
+                    i--; // reset to repeat iteration on backup-Box-0.
+                    continue;
+                }
+                ResetBox(raw, header, footer);
+                continue;
+            }
+
+            // Wipe empty slots after the count; don't display ghost slots.
+            var count = GetBoxSlotCount(ofs);
+            if (count >= BoxSlotCount)
+                continue; // already full
+
+            // Fill empty slots with blank PKM so that arbitrary reads are correct
+            // If you want to see the ghost slots, add your own code to `continue` instead of doing the loop.
+            for (int s = count; s < BoxSlotCount; s++)
+            {
+                var rel = ofs + (s * SIZE_STORED);
+                var slice = Data.AsSpan(rel, SIZE_STORED);
+                var species = slice[0];
+                if (species == 0) // don't bother converting from internal->national
+                    continue; // don't bother wiping already-empty slots.
+                WriteBoxSlot(blank, slice);
+            }
+        }
+    }
+
+    private bool IsBackupSegmentValid()
+    {
+        var ofs = GetBoxOffset(0);
+        ofs += 0x1_0000;
+        var raw = Data.AsSpan(ofs - ListHeaderSize, BoxSize);
+        var header = raw[..ListHeaderSize];
+        var footer = raw[^ListFooterSize..];
+        return IsHeaderValid(header, footer, Japanese);
+    }
+
+    private void ResetBox(Span<byte> raw, Span<byte> header, Span<byte> footer)
+    {
+        raw.Clear();
+        header.Clear();
+        WriteUInt32BigEndian(header, GetExpectedHeader4(Japanese));
+        WriteUInt32LittleEndian(footer, MAGIC_FOOTER);
+    }
+
     protected override bool GetIsBoxChecksumValid(int box)
     {
         var boxOfs = GetBoxOffset(box) - ListHeaderSize;
         var size = BoxSize - 2;
-        var chk = Checksums.CheckSum16(new ReadOnlySpan<byte>(Data, boxOfs, size));
+        var chk = Checksums.CheckSum16(Data.AsSpan(boxOfs, size));
         var actual = ReadUInt16BigEndian(Data.AsSpan(boxOfs + size));
         return chk == actual;
     }
@@ -86,7 +170,7 @@ public sealed class SAV1Stadium : SAV_STADIUM
     {
         var boxOfs = GetBoxOffset(box) - ListHeaderSize;
         var size = BoxSize - 2;
-        var chk = Checksums.CheckSum16(new ReadOnlySpan<byte>(Data, boxOfs, size));
+        var chk = Checksums.CheckSum16(Data.AsSpan(boxOfs, size));
         WriteUInt16BigEndian(Data.AsSpan(boxOfs + size), chk);
     }
 
@@ -101,10 +185,46 @@ public sealed class SAV1Stadium : SAV_STADIUM
             var rel = bdata + (SIZE_STORED * s);
             if (Data[rel] != 0) // Species present
                 count++;
+            else
+                break; // stop at first empty slot
         }
 
         // Last byte of header
-        Data[bdata - 1] = (byte)count;
+        SetBoxSlotCount(bdata, count);
+    }
+
+    // offset immediately after the header
+    private void SetBoxSlotCount(int boxDataStart, int count) => Data[boxDataStart - 1] = (byte)count;
+    private byte GetBoxSlotCount(int boxDataStart) => Data[boxDataStart - 1];
+
+    public bool FixStoragePreWrite()
+    {
+        // Compress the storage.
+        bool anyShifted = false;
+        // For each box, move present slots to the front.
+        for (int i = 0; i < BoxCount; i++)
+        {
+            int present = 0;
+            var ofs = GetBoxOffset(i);
+            for (int s = 0; s < BoxSlotCount; s++)
+            {
+                var rel = ofs + (s * SIZE_STORED);
+                var species = Data[rel];
+                if (species == 0)
+                    continue;
+                if (present != s)
+                {
+                    anyShifted = true;
+                    var upSlot = Data.AsSpan(ofs + (present * SIZE_STORED));
+                    var src = Data.AsSpan(rel, SIZE_STORED);
+                    src.CopyTo(upSlot);
+                    // wipe the old slot
+                    src.Clear();
+                }
+                present++;
+            }
+        }
+        return anyShifted;
     }
 
     protected override PK1 GetPKM(byte[] data)
@@ -112,10 +232,9 @@ public sealed class SAV1Stadium : SAV_STADIUM
         int len = StringLength;
         var nick = data.AsSpan(PokeCrypto.SIZE_1STORED, len);
         var ot = data.AsSpan(PokeCrypto.SIZE_1STORED + len, len);
-        data = data.Slice(0, PokeCrypto.SIZE_1STORED);
-        var pk1 = new PK1(data, Japanese);
-        nick.CopyTo(pk1.Nickname_Trash);
-        ot.CopyTo(pk1.OT_Trash);
+        var pk1 = new PK1(data[..PokeCrypto.SIZE_1STORED], Japanese);
+        nick.CopyTo(pk1.NicknameTrash);
+        ot.CopyTo(pk1.OriginalTrainerTrash);
         return pk1;
     }
 
@@ -127,8 +246,8 @@ public sealed class SAV1Stadium : SAV_STADIUM
         var data = pk.Data;
         int len = StringLength;
         data.CopyTo(result, 0);
-        gb.Nickname_Trash.CopyTo(result.AsSpan(PokeCrypto.SIZE_1STORED));
-        gb.OT_Trash.CopyTo(result.AsSpan(PokeCrypto.SIZE_1STORED + len));
+        gb.NicknameTrash.CopyTo(result.AsSpan(PokeCrypto.SIZE_1STORED));
+        gb.OriginalTrainerTrash.CopyTo(result.AsSpan(PokeCrypto.SIZE_1STORED + len));
         return result;
     }
 
@@ -140,14 +259,14 @@ public sealed class SAV1Stadium : SAV_STADIUM
 
     private int GetTeamOffsetJ(int team)
     {
-        if ((uint) team > TeamCount)
+        if ((uint) team >= TeamCount)
             throw new ArgumentOutOfRangeException(nameof(team));
         return GetTeamTypeOffsetJ(team / TeamCountJ) + (TeamSizeJ * (team % TeamCountJ));
     }
 
     private int GetTeamOffsetU(int team)
     {
-        if ((uint)team > TeamCount)
+        if ((uint)team >= TeamCount)
             throw new ArgumentOutOfRangeException(nameof(team));
         return GetTeamTypeOffsetU(team / TeamCountU) + (TeamSizeU * (team % TeamCountU));
     }
@@ -289,7 +408,7 @@ public sealed class SAV1Stadium : SAV_STADIUM
         return result == StadiumSaveType.Swapped;
     }
 
-    private static StadiumSaveType IsStadium(ReadOnlySpan<byte> data, int teamSize, int boxSize)
+    private static StadiumSaveType IsStadium(ReadOnlySpan<byte> data, [ConstantExpected] int teamSize, [ConstantExpected] int boxSize)
     {
         var isTeam = StadiumUtil.IsMagicPresentEither(data, teamSize, MAGIC_FOOTER, 10);
         if (isTeam != StadiumSaveType.None)

@@ -8,7 +8,7 @@ public interface ISlotInfo
     /// <summary>
     /// Indicates the type of format the slot originates. Useful for legality purposes.
     /// </summary>
-    SlotOrigin Origin { get; }
+    StorageSlotType Type { get; }
 
     /// <summary>
     /// Differentiating slot number from other infos of the same type.
@@ -19,7 +19,7 @@ public interface ISlotInfo
     /// Indicates if this slot can write to the requested <see cref="sav"/>.
     /// </summary>
     /// <param name="sav">Save file to try writing to.</param>
-    /// <returns>True if can write to</returns>
+    /// <returns>True if the slot can be written to</returns>
     bool CanWriteTo(SaveFile sav);
 
     /// <summary>
@@ -27,7 +27,7 @@ public interface ISlotInfo
     /// </summary>
     /// <param name="sav">Save file to try writing to.</param>
     /// <param name="pk">Entity data to try writing.</param>
-    /// <returns>True if can write to</returns>
+    /// <returns>True if the slot can be written to</returns>
     WriteBlockedMessage CanWriteTo(SaveFile sav, PKM pk);
 
     /// <summary>
@@ -35,9 +35,9 @@ public interface ISlotInfo
     /// </summary>
     /// <param name="sav">Save file to try writing to.</param>
     /// <param name="pk">Entity data to try writing.</param>
-    /// <param name="setting">Setting to use when importing the <see cref="pk"/> data</param>
+    /// <param name="settings">Setting to use when importing the <see cref="pk"/> data</param>
     /// <returns>Returns false if it did not succeed.</returns>
-    bool WriteTo(SaveFile sav, PKM pk, PKMImportSetting setting = PKMImportSetting.UseDefault);
+    bool WriteTo(SaveFile sav, PKM pk, EntityImportSettings settings = default);
 
     /// <summary>
     /// Reads a <see cref="PKM"/> from the <see cref="sav"/>.

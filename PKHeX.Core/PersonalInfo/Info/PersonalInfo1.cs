@@ -5,13 +5,12 @@ namespace PKHeX.Core;
 /// <summary>
 /// <see cref="PersonalInfo"/> class with values from Generation 1 games.
 /// </summary>
-public sealed class PersonalInfo1 : PersonalInfo, IPersonalInfoTM
+public sealed class PersonalInfo1(Memory<byte> Raw) : PersonalInfo, IPersonalInfoTM
 {
     public const int SIZE = 0x1C;
-    private readonly byte[] Data;
 
-    public PersonalInfo1(byte[] data) => Data = data;
-    public override byte[] Write() => Data;
+    private Span<byte> Data => Raw.Span;
+    public override byte[] Write() => Raw.ToArray();
 
     public override byte Gender { get => Data[0x00]; set => Data[0x00] = value; }
     public override int HP { get => Data[0x01]; set => Data[0x01] = (byte)value; }
@@ -23,7 +22,7 @@ public sealed class PersonalInfo1 : PersonalInfo, IPersonalInfoTM
     public override int SPD { get => SPC; set => SPC = value; }
     public override byte Type1 { get => Data[0x06]; set => Data[0x06] = value; }
     public override byte Type2 { get => Data[0x07]; set => Data[0x07] = value; }
-    public override int CatchRate { get => Data[0x08]; set => Data[0x08] = (byte)value; }
+    public override byte CatchRate { get => Data[0x08]; set => Data[0x08] = value; }
     public override int BaseEXP { get => Data[0x09]; set => Data[0x09] = (byte)value; }
     public byte Move1 { get => Data[0x0F]; set => Data[0x0F] = value; }
     public byte Move2 { get => Data[0x10]; set => Data[0x10] = value; }
@@ -31,7 +30,7 @@ public sealed class PersonalInfo1 : PersonalInfo, IPersonalInfoTM
     public byte Move4 { get => Data[0x12]; set => Data[0x12] = value; }
     public override byte EXPGrowth { get => Data[0x13]; set => Data[0x13] = value; }
 
-    // EV Yields are just aliases for base stats in Gen I
+    // EV Yields are just aliases for base stats in Gen1
     public override int EV_HP { get => HP; set { } }
     public override int EV_ATK { get => ATK; set { } }
     public override int EV_DEF { get => DEF; set { } }
@@ -46,8 +45,8 @@ public sealed class PersonalInfo1 : PersonalInfo, IPersonalInfoTM
     public override int GetIndexOfAbility(int abilityID) => -1;
     public override int GetAbilityAtIndex(int abilityIndex) => -1;
     public override int AbilityCount => 0;
-    public override int HatchCycles { get => 0; set { } }
-    public override int BaseFriendship { get => 0; set { } }
+    public override byte HatchCycles { get => 0; set { } }
+    public override byte BaseFriendship { get => 0; set { } }
     public override int EscapeRate { get => 0; set { } }
     public override int Color { get => 0; set { } }
 
@@ -82,11 +81,60 @@ public sealed class PersonalInfo1 : PersonalInfo, IPersonalInfoTM
 
     public void SetAllLearnTM(Span<bool> result, ReadOnlySpan<byte> moves)
     {
-        var span = Data.AsSpan(TMHM, ByteCountTM);
+        var span = Data.Slice(TMHM, ByteCountTM);
         for (int index = CountTMHM - 1; index >= 0; index--)
         {
             if ((span[index >> 3] & (1 << (index & 7))) != 0)
                 result[moves[index]] = true;
         }
     }
+
+    /// <summary>
+    /// Technical Machine moves corresponding to their index within TM bitflag permissions.
+    /// </summary>
+    public static ReadOnlySpan<byte> MachineMoves =>
+    [
+        005, 013, 014, 018, 025, 092, 032, 034, 036, 038,
+        061, 055, 058, 059, 063, 006, 066, 068, 069, 099,
+        072, 076, 082, 085, 087, 089, 090, 091, 094, 100,
+        102, 104, 115, 117, 118, 120, 121, 126, 129, 130,
+        135, 138, 143, 156, 086, 149, 153, 157, 161, 164,
+
+        015, 019, 057, 070, 148,
+    ];
+
+    // 0-2 to indicate how many steps down to get the base species ID.
+    private static ReadOnlySpan<byte> EvoStages =>
+    [
+        0, 0, 1, 2, 0, 1, 2, 0, 1, 2,
+        0, 1, 2, 0, 1, 2, 0, 1, 2, 0,
+        1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+        1, 2, 0, 1, 2, 0, 1, 0, 1, 0,
+        1, 0, 1, 0, 1, 2, 0, 1, 0, 1,
+        0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
+        0, 1, 2, 0, 1, 2, 0, 1, 2, 0,
+        1, 2, 0, 1, 0, 1, 2, 0, 1, 0,
+        1, 0, 1, 0, 0, 1, 0, 1, 0, 1,
+        0, 1, 0, 1, 2, 0, 0, 1, 0, 1,
+        0, 1, 0, 1, 0, 1, 0, 0, 0, 0,
+        1, 0, 1, 0, 0, 0, 0, 1, 0, 1,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 1, 1, 1, 0, 0, 1,
+        0, 1, 0, 0, 0, 0, 0, 0, 1, 2,
+    ];
+
+    /// <summary>
+    /// Gets the amount of times a species has evolved from the base species.
+    /// </summary>
+    /// <param name="species">Current species</param>
+    /// <returns>Baby species</returns>
+    public static int GetEvolutionStage(int species)
+    {
+        if ((uint)species >= EvoStages.Length)
+            return 0;
+        return EvoStages[species];
+    }
+
+    public (bool Match1, bool Match2) IsMatchType(IPersonalType other) => IsMatchType(other.Type1, other.Type2);
+    private (bool Match1, bool Match2) IsMatchType(byte type1, byte type2) => (type1 == Type1, type2 == Type2);
 }

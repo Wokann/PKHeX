@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -6,15 +7,15 @@ namespace PKHeX.Core;
 /// <summary>
 /// Abstract <see cref="SaveFile"/> format for <see cref="GameVersion.DP"/> and <see cref="GameVersion.Pt"/>
 /// </summary>
-public abstract class SAV4Sinnoh : SAV4
+public abstract class SAV4Sinnoh : SAV4, IBoxDetailName, IBoxDetailWallpaper
 {
     protected override int FooterSize => 0x14;
-    protected SAV4Sinnoh(int gSize, int sSize) : base(gSize, sSize) { }
-    protected SAV4Sinnoh(byte[] data, int gSize, int sSize, int sStart) : base(data, gSize, sSize, sStart) { }
+    protected SAV4Sinnoh([ConstantExpected] int gSize, [ConstantExpected] int sSize) : base(gSize, sSize) { }
+    protected SAV4Sinnoh(byte[] data, [ConstantExpected] int gSize, [ConstantExpected] int sSize, [ConstantExpected] int sStart) : base(data, gSize, sSize, sStart) { }
 
     #region Storage
     // u32 currentBox
-    // box{pk4[30}[18]
+    // box{pk4[30][18]}
     // g4str[18] boxNames
     // byte[18] boxWallpapers
     private const int BOX_COUNT = 18;
@@ -29,7 +30,7 @@ public abstract class SAV4Sinnoh : SAV4
 
     public override int GetBoxOffset(int box) => 4 + (box * BOX_DATA_LEN);
     private static int GetBoxNameOffset(int box) => BOX_NAME + (box * BOX_NAME_LEN);
-    protected override int GetBoxWallpaperOffset(int box) => BOX_WP + box;
+    protected static int GetBoxWallpaperOffset(int box) => BOX_WP + box;
 
     public override int CurrentBox // (align 32)
     {
@@ -39,19 +40,21 @@ public abstract class SAV4Sinnoh : SAV4
 
     public override byte[] BoxFlags
     {
-        get => new[] { Storage[BOX_FLAGS] };
+        get => [ Storage [BOX_FLAGS] ];
         set => Storage[BOX_FLAGS] = value[0];
     }
 
     private Span<byte> GetBoxNameSpan(int box) => Storage.Slice(GetBoxNameOffset(box), BOX_NAME_LEN);
-    public override string GetBoxName(int box) => GetString(GetBoxNameSpan(box));
+    public string GetBoxName(int box) => GetString(GetBoxNameSpan(box));
 
-    public override void SetBoxName(int box, ReadOnlySpan<char> value)
+    public void SetBoxName(int box, ReadOnlySpan<char> value)
     {
         const int maxlen = 8;
         var span = GetBoxNameSpan(box);
         SetString(span, value, maxlen, StringConverterOption.ClearZero);
     }
+    public abstract int GetBoxWallpaper(int box);
+    public abstract void SetBoxWallpaper(int box, int value);
     #endregion
 
     #region Poketch
@@ -70,7 +73,7 @@ public abstract class SAV4Sinnoh : SAV4
 
     public bool PoketchFlag6 { get => (PoketchPacked & 0x40) != 0; set => PoketchPacked = (byte)(value ? (PoketchPacked | 0x40) : (PoketchPacked & ~0x40)); }
     public bool PoketchFlag7 { get => (PoketchPacked & 0x80) != 0; set => PoketchPacked = (byte)(value ? (PoketchPacked | 0x80) : (PoketchPacked & ~0x80)); }
-    public byte Poketch1 { get => General[PoketchStart + 1]; set => General[PoketchStart + 1] = value; }
+    public byte PoketchUnlockedCount { get => General[PoketchStart + 1]; set => General[PoketchStart + 1] = value; }
     public sbyte CurrentPoketchApp { get => (sbyte)General[PoketchStart + 2]; set => General[PoketchStart + 2] = (byte)Math.Min((sbyte)PoketchApp.Alarm_Clock, value); }
 
     public bool GetPoketchAppUnlocked(PoketchApp index)
@@ -125,25 +128,6 @@ public abstract class SAV4Sinnoh : SAV4
     public HoneyTreeValue GetHoneyTree(int index) => new(GetHoneyTreeSpan(index).ToArray());
     public void SetHoneyTree(HoneyTreeValue tree, int index) => SetData(GetHoneyTreeSpan(index), tree.Data);
 
-    public MunchlaxTreeSet4 GetMunchlaxTrees() => CalculateMunchlaxTrees(TID16, SID16);
-
-    public static MunchlaxTreeSet4 CalculateMunchlaxTrees(ushort tid, ushort sid)
-    {
-        int A = (tid >> 8) % 21;
-        int B = (tid & 0x00FF) % 21;
-        int C = (sid >> 8) % 21;
-        int D = (sid & 0x00FF) % 21;
-
-        if (A == B) B = (B + 1) % 21;
-        if (A == C) C = (C + 1) % 21;
-        if (B == C) C = (C + 1) % 21;
-        if (A == D) D = (D + 1) % 21;
-        if (B == D) D = (D + 1) % 21;
-        if (C == D) D = (D + 1) % 21;
-
-        return new(A, B, C, D);
-    }
-
     #endregion
 
     public int OFS_PoffinCase { get; protected set; }
@@ -151,13 +135,29 @@ public abstract class SAV4Sinnoh : SAV4
     #region Underground
     //Underground Scores
     protected int OFS_UG_Stats;
-    public uint UG_PlayersMet     { get => ReadUInt32LittleEndian(General[(OFS_UG_Stats + 0x00)..]); set => WriteUInt32LittleEndian(General[(OFS_UG_Stats + 0x00)..], value); }
-    public uint UG_Gifts          { get => ReadUInt32LittleEndian(General[(OFS_UG_Stats + 0x04)..]); set => WriteUInt32LittleEndian(General[(OFS_UG_Stats + 0x04)..], value); }
-    public uint UG_Spheres        { get => ReadUInt32LittleEndian(General[(OFS_UG_Stats + 0x0C)..]); set => WriteUInt32LittleEndian(General[(OFS_UG_Stats + 0x0C)..], value); }
-    public uint UG_Fossils        { get => ReadUInt32LittleEndian(General[(OFS_UG_Stats + 0x10)..]); set => WriteUInt32LittleEndian(General[(OFS_UG_Stats + 0x10)..], value); }
-    public uint UG_TrapsAvoided   { get => ReadUInt32LittleEndian(General[(OFS_UG_Stats + 0x18)..]); set => WriteUInt32LittleEndian(General[(OFS_UG_Stats + 0x18)..], value); }
-    public uint UG_TrapsTriggered { get => ReadUInt32LittleEndian(General[(OFS_UG_Stats + 0x1C)..]); set => WriteUInt32LittleEndian(General[(OFS_UG_Stats + 0x1C)..], value); }
-    public uint UG_Flags          { get => ReadUInt32LittleEndian(General[(OFS_UG_Stats + 0x34)..]); set => WriteUInt32LittleEndian(General[(OFS_UG_Stats + 0x34)..], value); }
+    public const uint UG_MAX = 999_999;
+    private Span<byte> UndergroundStats => General.Slice(OFS_UG_Stats, 0x38); // Length?
+    public uint UG_PeopleMet      { get => ReadUInt32LittleEndian(UndergroundStats[0x00..]); set => WriteUInt32LittleEndian(UndergroundStats[0x00..], value); }
+    public uint UG_GiftsGiven     { get => ReadUInt32LittleEndian(UndergroundStats[0x04..]); set => WriteUInt32LittleEndian(UndergroundStats[0x04..], value); }
+    public uint UG_FlagsTaken     { get => ReadUInt32LittleEndian(UndergroundStats[0x08..]); set => WriteUInt32LittleEndian(UndergroundStats[0x08..], value); }
+    public uint UG_Spheres        { get => ReadUInt32LittleEndian(UndergroundStats[0x0C..]); set => WriteUInt32LittleEndian(UndergroundStats[0x0C..], value); }
+    public uint UG_Fossils        { get => ReadUInt32LittleEndian(UndergroundStats[0x10..]); set => WriteUInt32LittleEndian(UndergroundStats[0x10..], value); }
+    public uint UG_TrapPlayers    { get => ReadUInt32LittleEndian(UndergroundStats[0x18..]); set => WriteUInt32LittleEndian(UndergroundStats[0x18..], value); }
+    public uint UG_TrapSelf       { get => ReadUInt32LittleEndian(UndergroundStats[0x1C..]); set => WriteUInt32LittleEndian(UndergroundStats[0x1C..], value); }
+    public uint UG_HelpedOthers   { get => ReadUInt32LittleEndian(UndergroundStats[0x20..]); set => WriteUInt32LittleEndian(UndergroundStats[0x20..], value); }
+    public uint UG_GiftsReceived  { get => ReadUInt32LittleEndian(UndergroundStats[0x24..]); set => WriteUInt32LittleEndian(UndergroundStats[0x24..], value); }
+
+    // taken from my base
+    public uint UG_FlagsFromMe    { get => ReadUInt32LittleEndian(UndergroundStats[0x28..]); set => WriteUInt32LittleEndian(UndergroundStats[0x28..], value); }
+
+    // recovered mine from others
+    public uint UG_FlagsRecovered { get => ReadUInt32LittleEndian(UndergroundStats[0x2C..]); set => WriteUInt32LittleEndian(UndergroundStats[0x2C..], value); }
+
+    // number of times the secret base was moved
+    public uint UG_MyBaseMoved    { get => ReadUInt32LittleEndian(UndergroundStats[0x30..]); set => WriteUInt32LittleEndian(UndergroundStats[0x30..], value); }
+
+    // number of captured flags registered on the PC
+    public uint UG_FlagsCaptured  { get => ReadUInt32LittleEndian(UndergroundStats[0x34..]); set => WriteUInt32LittleEndian(UndergroundStats[0x34..], value); }
 
     //Underground Items
     protected int OFS_UG_Items;
@@ -171,7 +171,6 @@ public abstract class SAV4Sinnoh : SAV4
     /// <summary>
     /// First 40 are the sphere type, last 40 are the sphere sizes
     /// </summary>
-    /// <returns></returns>
     public Span<byte> GetUGI_Spheres() => General.Slice(OFS_UG_Items + 0x78, UG_POUCH_SIZE * 2);
 
     #endregion
@@ -185,50 +184,4 @@ public abstract class SAV4Sinnoh : SAV4
 
     public ushort GetHoneyTreeSpecies(int group, int index) =>
         TreeSpecies.Slice(group * GroupEntryCount, GroupEntryCount)[index];
-}
-
-public enum PoketchColor
-{
-    Green = 0,
-    Yellow = 1,
-    Orange = 2,
-    Red = 3,
-    Purple = 4,
-    Blue = 5,
-    Turquoise = 6,
-    White = 7,
-}
-
-public enum PoketchApp
-{
-    Digital_Watch,
-    Calculator,
-    Memo_Pad,
-    Pedometer,
-    Party,
-    Friendship_Checker,
-    Dowsing_Machine,
-    Berry_Searcher,
-    Daycare,
-    History,
-    Counter,
-    Analog_Watch,
-    Marking_Map,
-    Link_Searcher,
-    Coin_Toss,
-    Move_Tester,
-    Calendar,
-    Dot_Artist,
-    Roulette,
-    Trainer_Counter,
-    Kitchen_Timer,
-    Color_Changer,
-    Matchup_Checker,
-    Stopwatch,
-    Alarm_Clock,
-}
-
-public readonly record struct MunchlaxTreeSet4(int Tree1, int Tree2, int Tree3, int Tree4)
-{
-    public bool Contains(int tree) => tree == Tree1 || tree == Tree2 || tree == Tree3 || tree == Tree4;
 }

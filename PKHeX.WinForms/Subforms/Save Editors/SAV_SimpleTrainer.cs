@@ -17,10 +17,10 @@ public partial class SAV_SimpleTrainer : Form
         SAV = (Origin = sav).Clone();
         Loading = true;
 
-        cba = new[] { CHK_1, CHK_2, CHK_3, CHK_4, CHK_5, CHK_6, CHK_7, CHK_8 };
-        TB_OTName.MaxLength = SAV.MaxStringLengthOT;
-        B_MaxCash.Click += (sender, e) => MT_Money.Text = SAV.MaxMoney.ToString();
-        B_MaxCoins.Click += (sender, e) => MT_Coins.Text = SAV.MaxCoins.ToString();
+        cba = [CHK_1, CHK_2, CHK_3, CHK_4, CHK_5, CHK_6, CHK_7, CHK_8];
+        TB_OTName.MaxLength = SAV.MaxStringLengthTrainer;
+        B_MaxCash.Click += (_, _) => MT_Money.Text = SAV.MaxMoney.ToString();
+        B_MaxCoins.Click += (_, _) => MT_Coins.Text = SAV.MaxCoins.ToString();
         MT_Money.Mask = "".PadRight((int)Math.Floor(Math.Log10(SAV.MaxMoney) + 1), '0');
         MT_Coins.Mask = "".PadRight((int)Math.Floor(Math.Log10(SAV.MaxCoins) + 1), '0');
 
@@ -56,9 +56,9 @@ public partial class SAV_SimpleTrainer : Form
             CAL_AdventureStartTime.Visible = CAL_HoFTime.Visible = false;
             GB_Map.Visible = false;
             GB_Options.Visible = true;
-            CB_BattleStyle.Items.AddRange(new[] { "Switch", "Set" });
-            CB_SoundType.Items.AddRange(new[] { "Mono", "Stereo", "Left", "Right" });
-            CB_TextSpeed.Items.AddRange(new[] { "0 (Instant)", "1 (Fast)", "2", "3 (Normal)", "4", "5 (Slow)", "6", "7" });
+            CB_BattleStyle.Items.AddRange(["Switch", "Set"]);
+            CB_SoundType.Items.AddRange(["Mono", "Stereo", "Left", "Right"]);
+            CB_TextSpeed.Items.AddRange(["0 (Instant)", "1 (Fast)", "2", "3 (Normal)", "4", "5 (Slow)", "6", "7"]);
 
             CHK_BattleEffects.Checked = sav1.BattleEffects;
             CB_BattleStyle.SelectedIndex = sav1.BattleStyleSwitch ? 0 : 1;
@@ -84,16 +84,16 @@ public partial class SAV_SimpleTrainer : Form
             CAL_AdventureStartTime.Visible = CAL_HoFTime.Visible = false;
             GB_Map.Visible = false;
             GB_Options.Visible = true;
-            CB_BattleStyle.Items.AddRange(new[] { "Switch", "Set" });
-            CB_SoundType.Items.AddRange(new[] { "Mono", "Stereo" });
-            CB_TextSpeed.Items.AddRange(new[] { "0 (Instant)", "1 (Fast)", "2", "3 (Normal)", "4", "5 (Slow)", "6", "7" });
+            CB_BattleStyle.Items.AddRange(["Switch", "Set"]);
+            CB_SoundType.Items.AddRange(["Mono", "Stereo"]);
+            CB_TextSpeed.Items.AddRange(["0 (Instant)", "1 (Fast)", "2", "3 (Normal)", "4", "5 (Slow)", "6", "7"]);
 
             CHK_BattleEffects.Checked = sav2.BattleEffects;
             CB_BattleStyle.SelectedIndex = sav2.BattleStyleSwitch ? 0 : 1;
             CB_SoundType.SelectedIndex = sav2.Sound > 0 ? 1 : 0;
             CB_TextSpeed.SelectedIndex = sav2.TextSpeed;
             badgeval = sav2.Badges;
-            cba = new[] { CHK_1, CHK_2, CHK_3, CHK_4, CHK_6, CHK_5, CHK_7, CHK_8, CHK_H1, CHK_H2, CHK_H3, CHK_H4, CHK_H5, CHK_H6, CHK_H7, CHK_H8 };
+            cba = [CHK_1, CHK_2, CHK_3, CHK_4, CHK_6, CHK_5, CHK_7, CHK_8, CHK_H1, CHK_H2, CHK_H3, CHK_H4, CHK_H5, CHK_H6, CHK_H7, CHK_H8];
         }
 
         if (SAV is SAV3 sav3)
@@ -127,7 +127,7 @@ public partial class SAV_SimpleTrainer : Form
             if (sav4 is SAV4HGSS hgss)
             {
                 badgeval |= hgss.Badges16 << 8;
-                cba = cba.Concat(new[] { CHK_H1, CHK_H2, CHK_H3, CHK_H4, CHK_H5, CHK_H6, CHK_H7, CHK_H8 }).ToArray();
+                cba = [..cba, CHK_H1, CHK_H2, CHK_H3, CHK_H4, CHK_H5, CHK_H6, CHK_H7, CHK_H8];
             }
 
             Main.SetCountrySubRegion(CB_Country, "gen4_countries");
@@ -146,7 +146,7 @@ public partial class SAV_SimpleTrainer : Form
             L_Coins.Text = "BP"; // no translation boo
             MT_Coins.Text = s.BattleSubway.BP.ToString();
 
-            var pd = s.PlayerData;
+            var pd = s.PlayerPosition;
             NUD_M.Value = pd.M;
             NUD_X.Value = pd.X;
             NUD_Z.Value = pd.Z;
@@ -261,7 +261,7 @@ public partial class SAV_SimpleTrainer : Form
         {
             if (MapUpdated)
             {
-                var pd = s.PlayerData;
+                var pd = s.PlayerPosition;
                 pd.M = (int)NUD_M.Value;
                 pd.X = (int)NUD_X.Value;
                 pd.Z = (int)NUD_Z.Value;

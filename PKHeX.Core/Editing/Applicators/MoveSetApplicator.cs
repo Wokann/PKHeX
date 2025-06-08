@@ -48,7 +48,6 @@ public static class MoveSetApplicator
 
         var clone = pk.Clone();
         clone.SetMoves(moves);
-        clone.SetMaximumPPCurrent(moves);
         var newLa = new LegalityAnalysis(clone);
 
         if (newLa.Valid)
@@ -86,7 +85,7 @@ public static class MoveSetApplicator
         if (moves[0] != 0)
             return;
 
-        if (enc is MysteryGift or EncounterEgg)
+        if (enc is MysteryGift or IEncounterEgg)
             return;
 
         if (enc is EncounterSlot6AO {CanDexNav: true} dn)

@@ -14,29 +14,30 @@ public sealed class IndividualValueVerifier : Verifier
     {
         switch (data.EncounterMatch)
         {
-            case EncounterStatic s:
-                VerifyIVsStatic(data, s);
+            case IPogoSlot s:
+                VerifyIVsGoTransfer(data, s);
                 break;
-            case EncounterSlot w:
-                VerifyIVsSlot(data, w);
+            case IFlawlessIVCount s:
+                VerifyIVsFlawless(data, s);
+                break;
+            case EncounterSlot7:
+                VerifyIVsGen7(data);
                 break;
             case MysteryGift g:
                 VerifyIVsMystery(data, g);
                 break;
         }
-
         var pk = data.Entity;
-        {
-            var hpiv = pk.IV_HP;
-            if (hpiv < 30 && AllIVsEqual(pk, hpiv))
-                data.AddLine(Get(string.Format(LIVAllEqual_0, hpiv), Severity.Fishy));
-        }
+        var hp = pk.IV_HP;
+        if (hp < 30 && AllIVsEqual(pk, hp))
+            data.AddLine(Get(string.Format(LIVAllEqual_0, hp), Severity.Fishy));
     }
 
-    private static bool AllIVsEqual(PKM pk, int hpiv)
-    {
-        return (pk.IV_ATK == hpiv) && (pk.IV_DEF == hpiv) && (pk.IV_SPA == hpiv) && (pk.IV_SPD == hpiv) && (pk.IV_SPE == hpiv);
-    }
+    private static bool AllIVsEqual(PKM pk, int hp) => pk.IV_ATK == hp
+                                                    && pk.IV_DEF == hp
+                                                    && pk.IV_SPA == hp
+                                                    && pk.IV_SPD == hp
+                                                    && pk.IV_SPE == hp;
 
     private void VerifyIVsMystery(LegalityAnalysis data, MysteryGift g)
     {
@@ -45,8 +46,8 @@ public sealed class IndividualValueVerifier : Verifier
 
         Span<int> IVs = stackalloc int[6];
         g.GetIVs(IVs);
-        var ivflag = IVs.Find(static iv => (byte)(iv - 0xFC) < 3);
-        if (ivflag == default) // Random IVs
+        var ivflag = IVs.IndexOfAny(0xFC, 0xFD, 0xFE);
+        if (ivflag == -1) // Random IVs
         {
             bool valid = Legal.GetIsFixedIVSequenceValidSkipRand(IVs, data.Entity);
             if (!valid)
@@ -54,29 +55,15 @@ public sealed class IndividualValueVerifier : Verifier
         }
         else
         {
-            int IVCount = ivflag - 0xFB;  // IV2/IV3
+            int IVCount = IVs[ivflag] - 0xFB;  // IV2/IV3
             VerifyIVsFlawless(data, IVCount);
-        }
-    }
-
-    private void VerifyIVsSlot(LegalityAnalysis data, EncounterSlot w)
-    {
-        switch (w.Generation)
-        {
-            case 6: VerifyIVsGen6(data, w); break;
-            case 7: VerifyIVsGen7(data); break;
-            case 8: VerifyIVsGen8(data); break;
         }
     }
 
     private void VerifyIVsGen7(LegalityAnalysis data)
     {
         var pk = data.Entity;
-        if (pk.GO)
-        {
-            VerifyIVsGoTransfer(data);
-        }
-        else if (pk.AbilityNumber == 4)
+        if (pk.AbilityNumber == 4)
         {
             var abilities = (IPersonalAbility12H)pk.PersonalInfo;
             if (!AbilityVerifier.CanAbilityPatch(pk.Format, abilities, pk.Species))
@@ -84,24 +71,10 @@ public sealed class IndividualValueVerifier : Verifier
         }
     }
 
-    private void VerifyIVsGen8(LegalityAnalysis data)
+    private void VerifyIVsFlawless(LegalityAnalysis data, IFlawlessIVCount s)
     {
-        var pk = data.Entity;
-        if (pk.GO)
-            VerifyIVsGoTransfer(data);
-        else if (data.EncounterMatch is EncounterSlot8a s)
+        if (s.FlawlessIVCount != 0)
             VerifyIVsFlawless(data, s.FlawlessIVCount);
-    }
-
-    private void VerifyIVsGen6(LegalityAnalysis data, EncounterSlot w)
-    {
-        if (w is EncounterSlot6XY xy)
-        {
-            if (PersonalTable.XY[xy.Species].IsEggGroup(15)) // Undiscovered
-                VerifyIVsFlawless(data, 3);
-            if (xy.IsFriendSafari)
-                VerifyIVsFlawless(data, 2);
-        }
     }
 
     private void VerifyIVsFlawless(LegalityAnalysis data, int count)
@@ -110,15 +83,9 @@ public sealed class IndividualValueVerifier : Verifier
             data.AddLine(GetInvalid(string.Format(LIVF_COUNT0_31, count)));
     }
 
-    private void VerifyIVsStatic(LegalityAnalysis data, EncounterStatic s)
+    private void VerifyIVsGoTransfer(LegalityAnalysis data, IPogoSlot g)
     {
-        if (s.FlawlessIVCount != 0)
-            VerifyIVsFlawless(data, s.FlawlessIVCount);
-    }
-
-    private void VerifyIVsGoTransfer(LegalityAnalysis data)
-    {
-        if (data.EncounterMatch is EncounterSlotGO g && !g.GetIVsValid(data.Entity))
+        if (!g.GetIVsValid(data.Entity))
             data.AddLine(GetInvalid(LIVNotCorrect));
     }
 }

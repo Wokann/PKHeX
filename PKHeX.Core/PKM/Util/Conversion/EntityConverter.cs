@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using static PKHeX.Core.EntityConverterResult;
+using static PKHeX.Core.GameVersion;
 
 namespace PKHeX.Core;
 
@@ -29,16 +30,43 @@ public static class EntityConverter
     /// </summary>
     public static IHomeStorage HOME { get; set; } = new HomeStorageFacade();
 
+    private static GameVersion _vc1 = RD;
+    private static GameVersion _vc2 = SI;
+
+    /// <summary>
+    /// Default source game for trading from PK2 to PK7.
+    /// </summary>
+    public static GameVersion VirtualConsoleSourceGen1
+    {
+        get => _vc1;
+        set => _vc1 = (value is RD or BU or GN or YW) ? value : RD;
+    }
+
+    /// <summary>
+    /// Default source game for trading from PK2 to PK7.
+    /// </summary>
+    public static GameVersion VirtualConsoleSourceGen2
+    {
+        get => _vc2;
+        set => _vc2 = (value is GD or SI or C) ? value : SI;
+    }
+
+    /// <summary>
+    /// Retain the Met Date when transferring from Gen4 to Gen5.
+    /// </summary>
+    /// <remarks>Default behavior is to update it with a new date based on the time of transfer.</remarks>
+    public static bool RetainMetDateTransfer45 { get; set; }
+
     /// <summary>
     /// Checks if the input <see cref="PKM"/> file is capable of being converted to the desired format.
     /// </summary>
     /// <param name="pk"></param>
     /// <param name="format"></param>
-    /// <returns>True if can be converted to the requested format value.</returns>
-    public static bool IsConvertibleToFormat(PKM pk, int format)
+    /// <returns>True if it can be converted to the requested format value.</returns>
+    public static bool IsConvertibleToFormat(PKM pk, byte format)
     {
-        if (pk.Format >= 3 && pk.Format > format)
-            return false; // pk3->upward can't go backwards
+        if (pk.Format >= 3 && pk.Format > format && format < 8)
+            return false; // pk3->upward can't go backwards until Gen8+
         if (pk.Format <= 2 && format is > 2 and < 7)
             return false; // pk1/2->upward has to be 7 or greater
         return true;
@@ -108,7 +136,7 @@ public static class EntityConverter
         while (true)
         {
             entity = IntermediaryConvert(entity, destType, ref result);
-            if (entity == null) // fail convert
+            if (entity is null) // fail convert
                 return null;
             if (entity.GetType() == destType) // finish convert
                 return entity;
@@ -118,8 +146,8 @@ public static class EntityConverter
     private static PKM? IntermediaryConvert(PKM pk, Type destType, ref EntityConverterResult result) => pk switch
     {
         // Non-sequential
-        PK1 pk1 when destType.Name[^1] - '0' > 2 => pk1.ConvertToPK7(),
-        PK2 pk2 when destType.Name[^1] - '0' > 2 => pk2.ConvertToPK7(),
+        PK1 pk1 when destType.Name[^1] - '0' is not (1 or 2) => pk1.ConvertToPK7(),
+        PK2 pk2 when destType.Name[^1] - '0' is not (1 or 2) => pk2.ConvertToPK7(),
         PK2 pk2 when destType == typeof(SK2) => pk2.ConvertToSK2(),
         PK3 pk3 when destType == typeof(CK3) => pk3.ConvertToCK3(),
         PK3 pk3 when destType == typeof(XK3) => pk3.ConvertToXK3(),
@@ -133,7 +161,6 @@ public static class EntityConverter
         PK4 pk4 => pk4.ConvertToPK5(),
         PK5 pk5 => pk5.ConvertToPK6(),
         PK6 pk6 => pk6.ConvertToPK7(),
-        PK7 pk7 => pk7.ConvertToPK8(),
 
         // Side-Formats back to Mainline
         SK2 sk2 => sk2.ConvertToPK2(),
@@ -150,7 +177,13 @@ public static class EntityConverter
         // Every format can eventually feed into HOME. Don't bother checking current type.
         var type = PKH.GetType(destType);
         if (type is not HomeGameDataFormat.None)
-            return HOME.GetEntity(pk).ConvertToPKM(type);
+        {
+            var pkh = HOME.GetEntity(pk);
+            var converted = pkh.ConvertToPKM(type);
+            if (converted is null)
+                result = IncompatibleSpecies;
+            return converted;
+        }
 
         result = NoTransferRoute;
         return null;
@@ -169,6 +202,7 @@ public static class EntityConverter
         PB7 { Species: (int)Species.Eevee, Form: not 0 } => IncompatibleForm,
         PB8 { Species: (int)Species.Spinda } => IncompatibleSpecies, // Incorrect arrangement of spots (PID endianness)
         PB8 { Species: (int)Species.Nincada } => IncompatibleSpecies, // Clone paranoia with Shedinja
+        PK9 { Species: (int)Species.Koraidon or (int)Species.Miraidon, FormArgument: not 0 } => IncompatibleForm, // Ride
         _ => Success,
     };
 
@@ -190,7 +224,7 @@ public static class EntityConverter
             };
         }
 
-        if (destType.Name[^1] == '1' && pk.Species > Legal.MaxSpeciesID_1)
+        if (destType.Name.EndsWith('1') && pk.Species > Legal.MaxSpeciesID_1)
             return IncompatibleSpecies;
 
         return Success;
@@ -203,7 +237,7 @@ public static class EntityConverter
     /// If the PKM is compatible, some properties may be forced to sanitized values.</remarks>
     /// <param name="pk">PKM input that is to be sanity checked.</param>
     /// <param name="limit">Value clamps for the destination format</param>
-    /// <returns>Indication whether or not the PKM is compatible.</returns>
+    /// <returns>Indication whether the PKM is compatible.</returns>
     public static bool IsCompatibleWithModifications(PKM pk, IGameValueLimit limit)
     {
         if (pk.Species > limit.MaxSpeciesID)
@@ -221,8 +255,11 @@ public static class EntityConverter
         if (pk.Nickname.Length > limit.MaxStringLengthNickname)
             pk.Nickname = pk.Nickname[..pk.MaxStringLengthNickname];
 
-        if (pk.OT_Name.Length > limit.MaxStringLengthOT)
-            pk.OT_Name = pk.OT_Name[..pk.MaxStringLengthOT];
+        Span<char> trainer = stackalloc char[pk.TrashCharCountTrainer];
+        int len = pk.LoadString(pk.OriginalTrainerTrash, trainer);
+        var max = limit.MaxStringLengthTrainer;
+        if (len > max)
+            pk.SetString(pk.OriginalTrainerTrash, trainer[..max], max, StringConverterOption.None);
 
         if (pk.Move1 > limit.MaxMoveID || pk.Move2 > limit.MaxMoveID || pk.Move3 > limit.MaxMoveID || pk.Move4 > limit.MaxMoveID)
             pk.ClearInvalidMoves();
@@ -264,14 +301,14 @@ public static class EntityConverter
                 return false;
             }
         }
-        if (IsIncompatibleGB(target, target.Japanese, pk.Japanese))
+        if (!IsCompatibleGB(target, target.Japanese, pk.Japanese))
         {
             converted = target;
             result = IncompatibleLanguageGB;
             return false;
         }
         var convert = ConvertToType(pk, target.GetType(), out result);
-        if (convert == null)
+        if (convert is null)
         {
             converted = target;
             return false;
@@ -284,14 +321,14 @@ public static class EntityConverter
     /// <summary>
     /// Checks if a <see cref="GBPKM"/> is incompatible with the Generation 1/2 destination environment.
     /// </summary>
-    public static bool IsIncompatibleGB(PKM pk, bool destJapanese, bool srcJapanese)
+    public static bool IsCompatibleGB(PKM pk, bool destJapanese, bool srcJapanese)
     {
         if (pk.Format > 2)
-            return false;
+            return true;
         if (destJapanese == srcJapanese)
-            return false;
+            return true;
         if (pk is SK2 sk2 && sk2.IsPossible(srcJapanese))
-            return false;
-        return true;
+            return true;
+        return false;
     }
 }

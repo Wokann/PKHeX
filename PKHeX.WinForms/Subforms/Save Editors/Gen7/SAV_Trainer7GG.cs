@@ -13,12 +13,12 @@ public partial class SAV_Trainer7GG : Form
     private readonly SAV7b SAV;
     private readonly GoParkStorage Park;
 
-    public SAV_Trainer7GG(SaveFile sav)
+    public SAV_Trainer7GG(SAV7b sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
         SAV = (SAV7b)(Origin = sav).Clone();
-        Park = new GoParkStorage(SAV);
+        Park = SAV.Park;
         UpdateGoSummary(0);
 
         if (Main.Unicode)
@@ -26,11 +26,13 @@ public partial class SAV_Trainer7GG : Form
             TB_OTName.Font = TB_RivalName.Font = FontUtil.GetPKXFont();
         }
 
-        B_MaxCash.Click += (sender, e) => MT_Money.Text = "9,999,999";
+        B_MaxCash.Click += (_, _) => MT_Money.Text = "9,999,999";
 
         GetComboBoxes();
         LoadTrainerInfo();
     }
+
+    private bool MapUpdated;
 
     // Drag & Drop Events
     private void Main_DragEnter(object? sender, DragEventArgs? e)
@@ -39,7 +41,7 @@ public partial class SAV_Trainer7GG : Form
             return;
         if (e.AllowedEffect == (DragDropEffects.Copy | DragDropEffects.Link)) // external file
             e.Effect = DragDropEffects.Copy;
-        else if (e.Data != null) // within
+        else if (e.Data is not null) // within
             e.Effect = DragDropEffects.Move;
     }
 
@@ -58,7 +60,7 @@ public partial class SAV_Trainer7GG : Form
         CB_Language.InitializeBinding();
         CB_Language.DataSource = GameInfo.LanguageDataSource(SAV.Generation);
         CB_Game.InitializeBinding();
-        CB_Game.DataSource = new BindingSource(GameInfo.VersionDataSource.Where(z => GameVersion.Gen7b.Contains(z.Value)).ToList(), null);
+        CB_Game.DataSource = new BindingSource(GameInfo.VersionDataSource.Where(z => (GameVersion)z.Value is GameVersion.GP or GameVersion.GE).ToList(), string.Empty);
     }
 
     private void LoadTrainerInfo()
@@ -69,14 +71,34 @@ public partial class SAV_Trainer7GG : Form
         CB_Language.SelectedValue = SAV.Language;
         MT_Money.Text = SAV.Blocks.Misc.Money.ToString();
 
-        CB_Game.SelectedValue = SAV.Game;
+        CB_Game.SelectedValue = (int)SAV.Version;
         CB_Gender.SelectedIndex = SAV.Gender;
         trainerID1.LoadIDValues(SAV, SAV.Generation);
+
+        NUD_M.Value = SAV.Coordinates.M;
+        // Sanity Check Map Coordinates
+        try
+        {
+            NUD_X.Value = (decimal)(double)SAV.Coordinates.X;
+            NUD_Z.Value = (decimal)(double)SAV.Coordinates.Z;
+            NUD_Y.Value = (decimal)(double)SAV.Coordinates.Y;
+            NUD_SX.Value = (decimal)(double)SAV.Coordinates.SX;
+            NUD_SZ.Value = (decimal)(double)SAV.Coordinates.SZ;
+            NUD_SY.Value = (decimal)(double)SAV.Coordinates.SY;
+            NUD_R.Value = (decimal)(Math.Atan2(SAV.Coordinates.RZ, SAV.Coordinates.RW) * 360.0 / Math.PI);
+        }
+        catch { GB_Map.Enabled = false; }
 
         // Load Play Time
         MT_Hours.Text = SAV.PlayedHours.ToString();
         MT_Minutes.Text = SAV.PlayedMinutes.ToString();
         MT_Seconds.Text = SAV.PlayedSeconds.ToString();
+
+        CAL_AdventureBeginDate.Value = CAL_AdventureBeginTime.Value = SAV.PlayerGeoLocation.AdventureBegin.Timestamp;
+        if (SAV.Played.LastSavedDate is { } d)
+            CAL_LastSavedDate.Value = CAL_LastSavedTime.Value = d;
+        else
+            CAL_LastSavedDate.Enabled = CAL_LastSavedTime.Enabled = false;
     }
 
     private void Save()
@@ -86,7 +108,7 @@ public partial class SAV_Trainer7GG : Form
 
     private void SaveTrainerInfo()
     {
-        SAV.Game = WinFormsUtil.GetIndex(CB_Game);
+        SAV.Version = (GameVersion)WinFormsUtil.GetIndex(CB_Game);
         SAV.Gender = (byte)CB_Gender.SelectedIndex;
 
         SAV.Money = Util.ToUInt32(MT_Money.Text);
@@ -95,10 +117,31 @@ public partial class SAV_Trainer7GG : Form
         SAV.OT = TB_OTName.Text;
         SAV.Blocks.Misc.Rival = TB_RivalName.Text;
 
+        // Copy Position
+        if (GB_Map.Enabled && MapUpdated)
+        {
+            SAV.Coordinates.M = (ulong)NUD_M.Value;
+            SAV.Coordinates.X = (float)NUD_X.Value;
+            SAV.Coordinates.Z = (float)NUD_Z.Value;
+            SAV.Coordinates.Y = (float)NUD_Y.Value;
+            SAV.Coordinates.SX = (float)NUD_SX.Value;
+            SAV.Coordinates.SZ = (float)NUD_SZ.Value;
+            SAV.Coordinates.SY = (float)NUD_SY.Value;
+            var angle = (double)NUD_R.Value * Math.PI / 360.0;
+            SAV.Coordinates.RX = 0;
+            SAV.Coordinates.RZ = (float)Math.Sin(angle);
+            SAV.Coordinates.RY = 0;
+            SAV.Coordinates.RW = (float)Math.Cos(angle);
+        }
+
         // Save PlayTime
         SAV.PlayedHours = ushort.Parse(MT_Hours.Text);
         SAV.PlayedMinutes = ushort.Parse(MT_Minutes.Text) % 60;
         SAV.PlayedSeconds = ushort.Parse(MT_Seconds.Text) % 60;
+
+        SAV.PlayerGeoLocation.AdventureBegin.Timestamp = CAL_AdventureBeginDate.Value.Date.AddSeconds(CAL_AdventureBeginTime.Value.TimeOfDay.TotalSeconds);
+        if (CAL_LastSavedDate.Enabled)
+            SAV.Played.LastSavedDate = CAL_LastSavedDate.Value.Date.AddSeconds(CAL_LastSavedTime.Value.TimeOfDay.TotalSeconds);
     }
 
     private void ClickString(object sender, MouseEventArgs e)
@@ -109,7 +152,7 @@ public partial class SAV_Trainer7GG : Form
         TextBox tb = sender as TextBox ?? TB_OTName;
 
         // Special Character Form
-        var d = new TrashEditor(tb, SAV);
+        var d = new TrashEditor(tb, SAV, SAV.Generation, SAV.Context);
         d.ShowDialog();
         tb.Text = d.FinalString;
     }
@@ -131,6 +174,11 @@ public partial class SAV_Trainer7GG : Form
         MaskedTextBox box = (MaskedTextBox)sender;
         if (box.Text.Length == 0) box.Text = "0";
         if (Util.ToInt32(box.Text) > 255) box.Text = "255";
+    }
+
+    private void ChangeMapValue(object sender, EventArgs e)
+    {
+        MapUpdated = true;
     }
 
     private void B_ExportGoSummary_Click(object sender, EventArgs e)
@@ -165,12 +213,10 @@ public partial class SAV_Trainer7GG : Form
 
     private void B_Import_Click(object sender, EventArgs e)
     {
-        using var sfd = new OpenFileDialog
-        {
-            Filter = GoFilter,
-            FilterIndex = 0,
-            RestoreDirectory = true,
-        };
+        using var sfd = new OpenFileDialog();
+        sfd.Filter = GoFilter;
+        sfd.FilterIndex = 0;
+        sfd.RestoreDirectory = true;
 
         // Export
         if (sfd.ShowDialog() != DialogResult.OK)
@@ -197,7 +243,7 @@ public partial class SAV_Trainer7GG : Form
             return;
         }
         var gp1 = new GP1();
-        data.CopyTo(gp1.Data, 0);
+        data.CopyTo(gp1.Data);
         Park[index] = gp1;
         UpdateGoSummary((int)NUD_GoIndex.Value);
     }
@@ -211,13 +257,11 @@ public partial class SAV_Trainer7GG : Form
         index = Math.Clamp(index, 0, max);
         var data = Park[index];
 
-        using var sfd = new SaveFileDialog
-        {
-            FileName = data.FileName,
-            Filter = GoFilter,
-            FilterIndex = 0,
-            RestoreDirectory = true,
-        };
+        using var sfd = new SaveFileDialog();
+        sfd.FileName = data.FileName;
+        sfd.Filter = GoFilter;
+        sfd.FilterIndex = 0;
+        sfd.RestoreDirectory = true;
 
         if (sfd.ShowDialog() != DialogResult.OK)
             return;

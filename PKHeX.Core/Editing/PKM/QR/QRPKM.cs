@@ -25,7 +25,7 @@ public static class QRPKM
             if (move == 0)
                 continue;
             if (sb.Length != 0)
-                sb.Append(" / ");
+                sb.Append(Moveset.DefaultSeparator);
             var moveName = move < s.movelist.Length ? s.movelist[move] : "ERROR";
             sb.Append(moveName);
         }
@@ -33,12 +33,12 @@ public static class QRPKM
         string IVs = $"IVs: {pk.IV_HP:00}/{pk.IV_ATK:00}/{pk.IV_DEF:00}/{pk.IV_SPA:00}/{pk.IV_SPD:00}/{pk.IV_SPE:00}";
         string EVs = $"EVs: {pk.EV_HP:00}/{pk.EV_ATK:00}/{pk.EV_DEF:00}/{pk.EV_SPA:00}/{pk.EV_SPD:00}/{pk.EV_SPE:00}";
 
-        return new[]
-        {
-            string.Join(" ", header),
+        return
+        [
+            string.Join(' ', header),
             sb.ToString(),
             IVs + "   " + EVs,
-        };
+        ];
     }
 
     private static IEnumerable<string> GetHeader(PKM pk, GameStrings s)
@@ -68,6 +68,6 @@ public static class QRPKM
         }
 
         if (pk.Format >= 3 && (uint)pk.Nature < s.Natures.Count)
-            yield return s.natures[pk.Nature];
+            yield return s.natures[(byte)pk.Nature];
     }
 }

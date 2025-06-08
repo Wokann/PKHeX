@@ -4,8 +4,6 @@ using static PKHeX.Core.GameVersion;
 using static PKHeX.Core.AreaWeather8;
 using static PKHeX.Core.AbilityPermission;
 
-using static PKHeX.Core.Encounters8Nest;
-
 namespace PKHeX.Core;
 
 /// <summary>
@@ -13,61 +11,50 @@ namespace PKHeX.Core;
 /// </summary>
 internal static class Encounters8
 {
-    private static readonly EncounterArea8[] SlotsSW_Symbol = EncounterArea8.GetAreas(Get("sw_symbol", "sw"), SW, true);
-    private static readonly EncounterArea8[] SlotsSH_Symbol = EncounterArea8.GetAreas(Get("sh_symbol", "sh"), SH, true);
-    private static readonly EncounterArea8[] SlotsSW_Hidden = EncounterArea8.GetAreas(Get("sw_hidden", "sw"), SW);
-    private static readonly EncounterArea8[] SlotsSH_Hidden = EncounterArea8.GetAreas(Get("sh_hidden", "sh"), SH);
+    public static readonly EncounterArea8[] SlotsSW_Symbol = EncounterArea8.GetAreas(Get("sw_symbol", "sw"u8), SW, true);
+    public static readonly EncounterArea8[] SlotsSH_Symbol = EncounterArea8.GetAreas(Get("sh_symbol", "sh"u8), SH, true);
+    public static readonly EncounterArea8[] SlotsSW_Hidden = EncounterArea8.GetAreas(Get("sw_hidden", "sw"u8), SW);
+    public static readonly EncounterArea8[] SlotsSH_Hidden = EncounterArea8.GetAreas(Get("sh_hidden", "sh"u8), SH);
 
-    internal static readonly EncounterArea8[] SlotsSW = ArrayUtil.ConcatAll(SlotsSW_Symbol, SlotsSW_Hidden);
-    internal static readonly EncounterArea8[] SlotsSH = ArrayUtil.ConcatAll(SlotsSH_Symbol, SlotsSH_Hidden);
-
-    static Encounters8()
-    {
-        foreach (var t in TradeGift_R1)
-            t.TrainerNames = TradeOT_R1;
-
-        MarkEncounterTradeStrings(TradeGift_SWSH, TradeSWSH);
-    }
-
-    private static readonly EncounterStatic8[] Encounter_SWSH_0 =
-    {
+    public static readonly EncounterStatic8[] StaticSWSH =
+    [
         // gifts
-        new()     { Gift = true, Species = 810, Shiny = Never, Level = 05, Location = 006 }, // Grookey
-        new()     { Gift = true, Species = 813, Shiny = Never, Level = 05, Location = 006 }, // Scorbunny
-        new()     { Gift = true, Species = 816, Shiny = Never, Level = 05, Location = 006 }, // Sobble
+        new()     { FixedBall = Ball.Poke, Species = 810, Shiny = Never, Level = 05, Location = 006 }, // Grookey
+        new()     { FixedBall = Ball.Poke, Species = 813, Shiny = Never, Level = 05, Location = 006 }, // Scorbunny
+        new()     { FixedBall = Ball.Poke, Species = 816, Shiny = Never, Level = 05, Location = 006 }, // Sobble
 
-        new()     { Gift = true, Species = 772, Shiny = Never, Level = 50, Location = 158, FlawlessIVCount = 3 }, // Type: Null
-        new()     { Gift = true, Species = 848, Shiny = Never, Level = 01, Location = 040, IVs = new(-1,31,-1,-1,31,-1), Ball = 11 }, // Toxel, Attack flawless
+        new()     { FixedBall = Ball.Poke, Species = 772, Shiny = Never, Level = 50, Location = 158, FlawlessIVCount = 3 }, // Type: Null
+        new()     { FixedBall = Ball.Luxury, Species = 848, Shiny = Never, Level = 01, Location = 040, IVs = new(-1,31,-1,-1,31,-1) }, // Toxel, Attack flawless
 
-        new()     { Gift = true, Species = 880, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Dracozolt @ Route 6
-        new()     { Gift = true, Species = 881, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Arctozolt @ Route 6
-        new()     { Gift = true, Species = 882, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Dracovish @ Route 6
-        new()     { Gift = true, Species = 883, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Arctovish @ Route 6
+        new()     { FixedBall = Ball.Poke, Species = 880, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Dracozolt @ Route 6
+        new()     { FixedBall = Ball.Poke, Species = 881, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Arctozolt @ Route 6
+        new()     { FixedBall = Ball.Poke, Species = 882, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Dracovish @ Route 6
+        new()     { FixedBall = Ball.Poke, Species = 883, FlawlessIVCount = 3, Level = 10, Location = 068 }, // Arctovish @ Route 6
 
-        new()     { Gift = true, Species = 004, Shiny = Never, Level = 05, Location = 006, FlawlessIVCount = 3, CanGigantamax = true, Ability = OnlyFirst }, // Charmander
-        new()     { Gift = true, Species = 025, Shiny = Never, Level = 10, Location = 156, FlawlessIVCount = 6, CanGigantamax = true }, // Pikachu
-        new()     { Gift = true, Species = 133, Shiny = Never, Level = 10, Location = 156, FlawlessIVCount = 6, CanGigantamax = true }, // Eevee
+        new()     { FixedBall = Ball.Poke, Species = 004, Shiny = Never, Level = 05, Location = 006, FlawlessIVCount = 3, CanGigantamax = true, Ability = OnlyFirst }, // Charmander
+        new()     { FixedBall = Ball.Poke, Species = 025, Shiny = Never, Level = 10, Location = 156, FlawlessIVCount = 6, CanGigantamax = true }, // Pikachu
+        new()     { FixedBall = Ball.Poke, Species = 133, Shiny = Never, Level = 10, Location = 156, FlawlessIVCount = 6, CanGigantamax = true }, // Eevee
 
         // DLC gifts
-        new()     { Gift = true, Species = 001, Level = 05, Location = 196, Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3, CanGigantamax = true }, // Bulbasaur
-        new()     { Gift = true, Species = 007, Level = 05, Location = 196, Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3, CanGigantamax = true }, // Squirtle
-        new()     { Gift = true, Species = 137, Level = 25, Location = 196, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Porygon
-        new()     { Gift = true, Species = 891, Level = 10, Location = 196, Shiny = Never, FlawlessIVCount = 3 }, // Kubfu
+        new()     { FixedBall = Ball.Poke, Species = 001, Level = 05, Location = 196, Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3, CanGigantamax = true }, // Bulbasaur
+        new()     { FixedBall = Ball.Poke, Species = 007, Level = 05, Location = 196, Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3, CanGigantamax = true }, // Squirtle
+        new()     { FixedBall = Ball.Poke, Species = 137, Level = 25, Location = 196, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Porygon
+        new()     { FixedBall = Ball.Poke, Species = 891, Level = 10, Location = 196, Shiny = Never, FlawlessIVCount = 3 }, // Kubfu
 
-        new()     { Gift = true, Species = 079, Level = 10, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Slowpoke
-        new()     { Gift = true, Species = 722, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Rowlet
-        new()     { Gift = true, Species = 725, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Litten
-        new()     { Gift = true, Species = 728, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Popplio
-        new()     { Gift = true, Species = 026, Level = 30, Location = 164, Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3, Form = 01 }, // Raichu-1
-        new()     { Gift = true, Species = 027, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Sandshrew-1
-        new()     { Gift = true, Species = 037, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Vulpix-1
-        new()     { Gift = true, Species = 052, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Meowth-1
-        new()     { Gift = true, Species = 103, Level = 30, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Exeggutor-1
-        new()     { Gift = true, Species = 105, Level = 30, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Marowak-1
-        new()     { Gift = true, Species = 050, Level = 20, Location = 164, Shiny = Never, Ability = OnlyHidden, Gender = 0, Nature = Nature.Jolly, FlawlessIVCount = 6, Form = 01 }, // Diglett-1
+        new()     { FixedBall = Ball.Poke, Species = 079, Level = 10, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Slowpoke
+        new()     { FixedBall = Ball.Poke, Species = 722, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Rowlet
+        new()     { FixedBall = Ball.Poke, Species = 725, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Litten
+        new()     { FixedBall = Ball.Poke, Species = 728, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3 }, // Popplio
+        new()     { FixedBall = Ball.Poke, Species = 026, Level = 30, Location = 164, Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3, Form = 01 }, // Raichu-1
+        new()     { FixedBall = Ball.Poke, Species = 027, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Sandshrew-1
+        new()     { FixedBall = Ball.Poke, Species = 037, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Vulpix-1
+        new()     { FixedBall = Ball.Poke, Species = 052, Level = 05, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Meowth-1
+        new()     { FixedBall = Ball.Poke, Species = 103, Level = 30, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Exeggutor-1
+        new()     { FixedBall = Ball.Poke, Species = 105, Level = 30, Location = 164, Shiny = Never, Ability = OnlyHidden, FlawlessIVCount = 3, Form = 01 }, // Marowak-1
+        new()     { FixedBall = Ball.Poke, Species = 050, Level = 20, Location = 164, Shiny = Never, Ability = OnlyHidden, Gender = 0, Nature = Nature.Jolly, FlawlessIVCount = 6, Form = 01 }, // Diglett-1
 
-        new()     { Gift = true, Species = 789, Level = 05, Location = 206, FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst }, // Cosmog
-        new()     { Gift = true, Species = 803, Level = 20, Location = 244, FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst,  Ball = 26 }, // Poipole
+        new()     { FixedBall = Ball.Poke, Species = 789, Level = 05, Location = 206, FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst }, // Cosmog
+        new()     { FixedBall = Ball.Beast,Species = 803, Level = 20, Location = 244, FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst }, // Poipole
 
         // Technically a gift, but copies ball from Calyrex.
         new()     { Species = 896, Level = 75, Location = 220, ScriptedNoMarks = true, FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst,  Relearn = new(556) }, // Glastrier
@@ -75,13 +62,10 @@ internal static class Encounters8
 
         #region Static Part 1
         // encounters
-        new(SW  ) { Species = 888, Level = 70, Location = 66, ScriptedNoMarks = true, Moves = new(533,014,442,242), Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3 }, // Zacian
-        new(  SH) { Species = 889, Level = 70, Location = 66, ScriptedNoMarks = true, Moves = new(163,242,442,334), Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3 }, // Zamazenta
         new()     { Species = 890, Level = 60, Location = 66, ScriptedNoMarks = true, Moves = new(440,406,053,744), Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3 }, // Eternatus-1 (reverts to form 0)
 
         // Motostoke Stadium Static Encounters
         new()     { Species = 037, Level = 24, Location = 24, ScriptedNoMarks = true }, // Vulpix at Motostoke Stadium
-      //new(  SH) { Species = 058, Level = 24, Location = 24, ScriptedNoMarks = true }, // Growlithe at Motostoke Stadium (both versions have Vulpix)
         new()     { Species = 607, Level = 25, Location = 24, ScriptedNoMarks = true }, // Litwick at Motostoke Stadium
         new()     { Species = 850, Level = 25, Location = 24, ScriptedNoMarks = true, FlawlessIVCount = 3 }, // Sizzlipede at Motostoke Stadium
 
@@ -110,10 +94,9 @@ internal static class Encounters8
         new()     { Species = 460, Level = 55, Location = 106, Moves = new(008,059,452,275), Weather = Snowstorm }, // Abomasnow on Route 10
         new()     { Species = 342, Level = 50, Location = 034, Moves = new(242,014,534,400), FlawlessIVCount = 3 }, // Crawdaunt in the town of Turffield
         #endregion
-    };
 
-    private static readonly EncounterStatic8[] Encounter_SWSH_Strong0 =
-    {
+        // Strong-0
+
         // Some of these may be crossover cases. For now, just log the locations they can show up in and re-categorize later.
         new()     { Species = 095, Level = 26, Location = 122, Weather = All }, // Onix in the Rolling Fields
         new()     { Species = 291, Level = 15, Location = 122, Weather = All }, // Ninjask in the Rolling Fields
@@ -137,8 +120,6 @@ internal static class Encounters8
         new()     { Species = 760, Level = 34, Location = 124, Weather = All }, // Bewear in the Dappled Grove
         new()     { Species = 826, Level = 65, Location = 124, Weather = All }, // Orbeetle in the Dappled Grove
         new()     { Species = 045, Level = 36, Location = 124, Weather = Normal | Overcast | Heavy_Fog }, // Vileplume in the Dappled Grove
-        new(SW  ) { Species = 275, Level = 34, Location = 124, Weather = Normal | Overcast | Stormy | Heavy_Fog }, // Shiftry in the Dappled Grove
-        new(  SH) { Species = 272, Level = 34, Location = 124, Weather = Normal | Overcast | Stormy | Heavy_Fog }, // Ludicolo in the Dappled Grove
         new()     { Species = 675, Level = 32, Location = 124, Weather = Intense_Sun | Icy | Sandstorm }, // Pangoro in the Dappled Grove
         new()     { Species = 537, Level = 36, Location = 124, Weather = Stormy }, // Seismitoad in the Dappled Grove
         new()     { Species = 583, Level = 36, Location = 124, Weather = Icy }, // Vanillish in the Dappled Grove
@@ -173,10 +154,10 @@ internal static class Encounters8
         new()     { Species = 593, Level = 46, Location = 130, Weather = Overcast | Raining | Heavy_Fog }, // Jellicent at West Lake Axewell
         new()     { Species = 119, Level = 46, Location = 130, Crossover = new(142), Weather = Normal | Overcast | Sandstorm }, // Seaking at West Lake Axewell, Bridge Field
         new()     { Species = 131, Level = 56, Location = 130, Crossover = new(134, 138, 154), Weather = Normal | Stormy | Icy | Heavy_Fog }, // Lapras at North/East/South Lake Miloch/Axewell, the Lake of Outrage
-        new()     { Species = 612, Level = 60, Location = 132, Ability = OnlyFirst,  Weather = Normal | Overcast | Raining | Intense_Sun | Sandstorm | Heavy_Fog }, // Haxorus on Axew’s Eye
-        new()     { Species = 845, Level = 65, Location = 132, Weather = All }, // Cramorant on Axew’s Eye
-        new()     { Species = 537, Level = 60, Location = 132, Weather = Thunderstorm }, // Seismitoad on Axew’s Eye
-        new()     { Species = 460, Level = 60, Location = 132, Weather = Icy }, // Abomasnow on Axew’s Eye
+        new()     { Species = 612, Level = 60, Location = 132, Ability = OnlyFirst,  Weather = Normal | Overcast | Raining | Intense_Sun | Sandstorm | Heavy_Fog }, // Haxorus on Axew's Eye
+        new()     { Species = 845, Level = 65, Location = 132, Weather = All }, // Cramorant on Axew's Eye
+        new()     { Species = 537, Level = 60, Location = 132, Weather = Thunderstorm }, // Seismitoad on Axew's Eye
+        new()     { Species = 460, Level = 60, Location = 132, Weather = Icy }, // Abomasnow on Axew's Eye
         new()     { Species = 067, Level = 26, Location = 134, Weather = All }, // Machoke at South Lake Miloch
         new()     { Species = 828, Level = 65, Location = 134, Weather = All }, // Thievul at South Lake Miloch
         new()     { Species = 119, Level = 46, Location = 134, Weather = Normal | Overcast | Stormy | Sandstorm }, // Seaking at South Lake Miloch
@@ -195,19 +176,19 @@ internal static class Encounters8
         new()     { Species = 130, Level = 60, Location = 134, Crossover = new(138, 154), Weather = Normal | Overcast | Stormy | Intense_Sun | Icy | Sandstorm }, // Gyarados at North/South Lake Miloch, the Lake of Outrage
         new()     { Species = 593, Level = 46, Location = 134, Crossover = new(142), Weather = Raining | Heavy_Fog }, // Jellicent at South Lake Miloch, Bridge Field
         new()     { Species = 350, Level = 60, Location = 134, Crossover = new(154), Gender = 0, Ability = OnlyFirst,  Weather = Heavy_Fog }, // Milotic at South Lake Miloch, the Lake of Outrage
-        new()     { Species = 208, Level = 50, Location = 136, Weather = All }, // Steelix near the Giant’s Seat
-        new()     { Species = 738, Level = 46, Location = 136, Weather = Normal | Overcast | Intense_Sun | Sandstorm }, // Vikavolt near the Giant’s Seat
-        new()     { Species = 112, Level = 46, Location = 136 }, // Rhydon near the Giant’s Seat
-        new()     { Species = 625, Level = 52, Location = 136, Weather = All }, // Bisharp near the Giant’s Seat
-        new()     { Species = 884, Level = 65, Location = 136, Weather = All }, // Duraludon near the Giant’s Seat
-        new()     { Species = 437, Level = 46, Location = 136, Weather = Overcast | Raining }, // Bronzong near the Giant’s Seat
-        new()     { Species = 460, Level = 46, Location = 136, Weather = Icy }, // Abomasnow near the Giant’s Seat
-        new()     { Species = 750, Level = 46, Location = 136, Weather = Intense_Sun }, // Mudsdale near the Giant’s Seat
-        new()     { Species = 623, Level = 46, Location = 136, Weather = Sandstorm }, // Golurk near the Giant’s Seat
-        new()     { Species = 356, Level = 46, Location = 136, Weather = Heavy_Fog }, // Dusclops near the Giant’s Seat
-        new()     { Species = 518, Level = 46, Location = 136, Weather = Heavy_Fog }, // Musharna near the Giant’s Seat
-        new()     { Species = 362, Level = 46, Location = 136, Weather = Icy }, // Glalie near the Giant’s Seat
-        new()     { Species = 596, Level = 46, Location = 136, Weather = Raining }, // Galvantula near the Giant’s Seat
+        new()     { Species = 208, Level = 50, Location = 136, Weather = All }, // Steelix near the Giant's Seat
+        new()     { Species = 738, Level = 46, Location = 136, Weather = Normal | Overcast | Intense_Sun | Sandstorm }, // Vikavolt near the Giant's Seat
+        new()     { Species = 112, Level = 46, Location = 136 }, // Rhydon near the Giant's Seat
+        new()     { Species = 625, Level = 52, Location = 136, Weather = All }, // Bisharp near the Giant's Seat
+        new()     { Species = 884, Level = 65, Location = 136, Weather = All }, // Duraludon near the Giant's Seat
+        new()     { Species = 437, Level = 46, Location = 136, Weather = Overcast | Raining }, // Bronzong near the Giant's Seat
+        new()     { Species = 460, Level = 46, Location = 136, Weather = Icy }, // Abomasnow near the Giant's Seat
+        new()     { Species = 750, Level = 46, Location = 136, Weather = Intense_Sun }, // Mudsdale near the Giant's Seat
+        new()     { Species = 623, Level = 46, Location = 136, Weather = Sandstorm }, // Golurk near the Giant's Seat
+        new()     { Species = 356, Level = 46, Location = 136, Weather = Heavy_Fog }, // Dusclops near the Giant's Seat
+        new()     { Species = 518, Level = 46, Location = 136, Weather = Heavy_Fog }, // Musharna near the Giant's Seat
+        new()     { Species = 362, Level = 46, Location = 136, Weather = Icy }, // Glalie near the Giant's Seat
+        new()     { Species = 596, Level = 46, Location = 136, Weather = Raining }, // Galvantula near the Giant's Seat
         new()     { Species = 823, Level = 50, Location = 138, Weather = All }, // Corviknight at North Lake Miloch
         new()     { Species = 510, Level = 28, Location = 138, Weather = All }, // Liepard at North Lake Miloch
         new()     { Species = 119, Level = 46, Location = 138, Weather = Stormy | Sandstorm }, // Seaking at North Lake Miloch
@@ -272,8 +253,6 @@ internal static class Encounters8
         new()     { Species = 750, Level = 41, Location = 146, Weather = Normal | Intense_Sun | Sandstorm }, // Mudsdale in Dusty Bowl
         new()     { Species = 185, Level = 41, Location = 146, Weather = Normal | Overcast | Intense_Sun | Icy | Sandstorm | Heavy_Fog }, // Sudowoodo in Dusty Bowl
         new()     { Species = 437, Level = 41, Location = 146, Weather = Normal | Stormy | Icy | Heavy_Fog }, // Bronzong in Dusty Bowl
-        new(SW  ) { Species = 784, Level = 60, Location = 146, Ability = OnlyFirst,  Weather = Normal | Intense_Sun | Icy | Sandstorm | Heavy_Fog }, // Kommo-o in Dusty Bowl
-        new(  SH) { Species = 248, Level = 60, Location = 146, Weather = Normal | Intense_Sun | Icy | Sandstorm | Heavy_Fog }, // Tyranitar in Dusty Bowl
         new()     { Species = 213, Level = 34, Location = 146, Weather = All }, // Shuckle in Dusty Bowl
         new()     { Species = 330, Level = 51, Location = 146, Weather = Normal | Sandstorm }, // Flygon in Dusty Bowl
         new()     { Species = 526, Level = 51, Location = 146, Weather = Normal | Intense_Sun }, // Gigalith in Dusty Bowl
@@ -286,16 +265,16 @@ internal static class Encounters8
         new()     { Species = 689, Level = 60, Location = 146, Weather = Overcast | Stormy }, // Barbaracle in Dusty Bowl
         new()     { Species = 561, Level = 51, Location = 146, Weather = Overcast | Stormy | Intense_Sun | Icy | Heavy_Fog }, // Sigilyph in Dusty Bowl
         new()     { Species = 623, Level = 51, Location = 146, Weather = Overcast | Stormy | Icy | Sandstorm | Heavy_Fog }, // Golurk in Dusty Bowl
-        new()     { Species = 423, Level = 56, Location = 146, Crossover = new(148), Form = 01, Weather = All }, // Gastrodon in Dusty Bowl, Giant’s Mirror
-        new()     { Species = 208, Level = 50, Location = 148, Weather = All }, // Steelix around the Giant’s Mirror
-        new()     { Species = 068, Level = 60, Location = 148, Ability = OnlyFirst,  Weather = All }, // Machamp around the Giant’s Mirror
-        new()     { Species = 182, Level = 41, Location = 148, Weather = Normal | Intense_Sun | Heavy_Fog }, // Bellossom around the Giant’s Mirror
-        new()     { Species = 521, Level = 41, Location = 148, Weather = Normal | Overcast | Intense_Sun }, // Unfezant around the Giant’s Mirror
-        new()     { Species = 045, Level = 41, Location = 148, Weather = Overcast | Stormy | Icy | Sandstorm }, // Vileplume around the Giant’s Mirror
-        new()     { Species = 863, Level = 65, Location = 148, Weather = All }, // Perrserker around the Giant’s Mirror
-        new()     { Species = 537, Level = 60, Location = 148, Weather = Raining }, // Seismitoad around the Giant’s Mirror
-        new()     { Species = 460, Level = 60, Location = 148, Weather = Snowing }, // Abomasnow around the Giant’s Mirror
-        new()     { Species = 178, Level = 41, Location = 148, Weather = Raining | Icy | Sandstorm | Heavy_Fog }, // Xatu around the Giant’s Mirror
+        new()     { Species = 423, Level = 56, Location = 146, Crossover = new(148), Form = 01, Weather = All }, // Gastrodon in Dusty Bowl, Giant's Mirror
+        new()     { Species = 208, Level = 50, Location = 148, Weather = All }, // Steelix around the Giant's Mirror
+        new()     { Species = 068, Level = 60, Location = 148, Ability = OnlyFirst,  Weather = All }, // Machamp around the Giant's Mirror
+        new()     { Species = 182, Level = 41, Location = 148, Weather = Normal | Intense_Sun | Heavy_Fog }, // Bellossom around the Giant's Mirror
+        new()     { Species = 521, Level = 41, Location = 148, Weather = Normal | Overcast | Intense_Sun }, // Unfezant around the Giant's Mirror
+        new()     { Species = 045, Level = 41, Location = 148, Weather = Overcast | Stormy | Icy | Sandstorm }, // Vileplume around the Giant's Mirror
+        new()     { Species = 863, Level = 65, Location = 148, Weather = All }, // Perrserker around the Giant's Mirror
+        new()     { Species = 537, Level = 60, Location = 148, Weather = Raining }, // Seismitoad around the Giant's Mirror
+        new()     { Species = 460, Level = 60, Location = 148, Weather = Snowing }, // Abomasnow around the Giant's Mirror
+        new()     { Species = 178, Level = 41, Location = 148, Weather = Raining | Icy | Sandstorm | Heavy_Fog }, // Xatu around the Giant's Mirror
         new()     { Species = 701, Level = 36, Location = 150, Weather = All }, // Hawlucha on the Hammerlocke Hills
         new()     { Species = 711, Level = 41, Location = 150, Weather = All }, // Gourgeist on the Hammerlocke Hills
         new()     { Species = 879, Level = 65, Location = 150, Weather = All }, // Copperajah on the Hammerlocke Hills
@@ -306,19 +285,19 @@ internal static class Encounters8
         new()     { Species = 407, Level = 41, Location = 150, Weather = Overcast | Heavy_Fog }, // Roserade on the Hammerlocke Hills
         new()     { Species = 460, Level = 41, Location = 150, Weather = Icy}, // Abomasnow on the Hammerlocke Hills
       //new()     { Species = 510, Level = 31, Location =  -1, }, // Liepard
-        new()     { Species = 768, Level = 60, Location = 152, Weather = Raining }, // Golisopod near the Giant’s Cap
-        new()     { Species = 614, Level = 60, Location = 152, Weather = Snowing }, // Beartic near the Giant’s Cap
-        new()     { Species = 530, Level = 46, Location = 152, Weather = Intense_Sun | Sandstorm }, // Excadrill near the Giant’s Cap
-        new()     { Species = 362, Level = 46, Location = 152, Weather = Icy }, // Glalie near the Giant’s Cap
-        new()     { Species = 537, Level = 46, Location = 152, Weather = Raining }, // Seismitoad near the Giant’s Cap
-        new()     { Species = 681, Level = 58, Location = 152, Weather = Heavy_Fog }, // Aegislash near the Giant’s Cap
-        new()     { Species = 094, Level = 60, Location = 152, Weather = Normal | Overcast | Thunderstorm | Intense_Sun | Snowstorm  | Sandstorm | Heavy_Fog }, // Gengar near the Giant’s Cap
-        new()     { Species = 823, Level = 39, Location = 152, Weather = All }, // Corviknight near the Giant’s Cap
-        new()     { Species = 573, Level = 46, Location = 152, Weather = Normal | Overcast | Heavy_Fog }, // Cinccino near the Giant’s Cap
-        new()     { Species = 826, Level = 41, Location = 152, Weather = All }, // Orbeetle near the Giant’s Cap
-        new()     { Species = 834, Level = 36, Location = 152, Weather = All }, // Drednaw near the Giant’s Cap
-        new()     { Species = 680, Level = 56, Location = 152, Weather = Normal | Overcast | Stormy | Intense_Sun | Icy | Sandstorm }, // Doublade near the Giant’s Cap
-        new()     { Species = 839, Level = 65, Location = 152, Weather = All }, // Coalossal near the Giant’s Cap
+        new()     { Species = 768, Level = 60, Location = 152, Weather = Raining }, // Golisopod near the Giant's Cap
+        new()     { Species = 614, Level = 60, Location = 152, Weather = Snowing }, // Beartic near the Giant's Cap
+        new()     { Species = 530, Level = 46, Location = 152, Weather = Intense_Sun | Sandstorm }, // Excadrill near the Giant's Cap
+        new()     { Species = 362, Level = 46, Location = 152, Weather = Icy }, // Glalie near the Giant's Cap
+        new()     { Species = 537, Level = 46, Location = 152, Weather = Raining }, // Seismitoad near the Giant's Cap
+        new()     { Species = 681, Level = 58, Location = 152, Weather = Heavy_Fog }, // Aegislash near the Giant's Cap
+        new()     { Species = 094, Level = 60, Location = 152, Weather = Normal | Overcast | Thunderstorm | Intense_Sun | Snowstorm  | Sandstorm | Heavy_Fog }, // Gengar near the Giant's Cap
+        new()     { Species = 823, Level = 39, Location = 152, Weather = All }, // Corviknight near the Giant's Cap
+        new()     { Species = 573, Level = 46, Location = 152, Weather = Normal | Overcast | Heavy_Fog }, // Cinccino near the Giant's Cap
+        new()     { Species = 826, Level = 41, Location = 152, Weather = All }, // Orbeetle near the Giant's Cap
+        new()     { Species = 834, Level = 36, Location = 152, Weather = All }, // Drednaw near the Giant's Cap
+        new()     { Species = 680, Level = 56, Location = 152, Weather = Normal | Overcast | Stormy | Intense_Sun | Icy | Sandstorm }, // Doublade near the Giant's Cap
+        new()     { Species = 839, Level = 65, Location = 152, Weather = All }, // Coalossal near the Giant's Cap
         new()     { Species = 853, Level = 56, Location = 154, Weather = All }, // Grapploct at the Lake of Outrage
         new()     { Species = 282, Level = 60, Location = 154, Weather = Normal | Heavy_Fog }, // Gardevoir at the Lake of Outrage
         new()     { Species = 470, Level = 56, Location = 154, Weather = Normal }, // Leafeon at the Lake of Outrage
@@ -335,12 +314,11 @@ internal static class Encounters8
         new()     { Species = 136, Level = 56, Location = 154, Weather = Intense_Sun }, // Flareon at the Lake of Outrage
         new()     { Species = 197, Level = 56, Location = 154, Weather = Sandstorm }, // Umbreon at the Lake of Outrage
         new()     { Species = 700, Level = 56, Location = 154, Weather = Heavy_Fog }, // Sylveon at the Lake of Outrage
-    };
 
-    private static readonly EncounterStatic8[] Encounter_SWSH_Strong1 =
-    {
+        // Strong 1
+
         new()     { Species = 079, Level = 12, Location = 016, ScriptedNoMarks = true, Form = 01, Shiny = Never }, // Slowpoke-1 at Wedgehurst Station
-        new()     { Species = 321, Level = 80, Location = 186, Weather = All_IoA }, // Wailord in the Workout Sea
+        new()     { Species = 321, Level = 80, Location = 186, Weather = Normal | Overcast | Raining | Thunderstorm | Intense_Sun | Heavy_Fog }, // Wailord in the Workout Sea
 
         new()     { Species = 748, Level = 20, Location = 164, Weather = Normal | Heavy_Fog }, // Toxapex in the Fields of Honor
         new()     { Species = 099, Level = 20, Location = 164, Weather = Normal | Overcast | Stormy | Intense_Sun }, // Kingler in the Fields of Honor
@@ -370,8 +348,6 @@ internal static class Encounters8
         new()     { Species = 186, Level = 32, Location = 166, Weather = Stormy }, // Politoed in the Soothing Wetlands
         new()     { Species = 061, Level = 20, Location = 166, Weather = Stormy | Heavy_Fog }, // Poliwhirl in the Soothing Wetlands
         new()     { Species = 549, Level = 22, Location = 166, Weather = Intense_Sun }, // Lilligant in the Soothing Wetlands
-        new(SW  ) { Species = 559, Level = 20, Location = 166, Weather = Overcast }, // Scraggy in the Soothing Wetlands
-        new(  SH) { Species = 453, Level = 20, Location = 166, Weather = Overcast }, // Croagunk in the Soothing Wetlands
         new()     { Species = 663, Level = 32, Location = 166, Weather = Intense_Sun }, // Talonflame in the Soothing Wetlands
         new()     { Species = 026, Level = 26, Location = 166, Crossover = new(168), Weather = Thunderstorm }, // Raichu in the Soothing Wetlands, in the Forest of Focus
         new()     { Species = 184, Level = 21, Location = 166, Crossover = new(168), Weather = Heavy_Fog }, // Azumarill in the Soothing Wetlands, in the Forest of Focus
@@ -380,20 +356,14 @@ internal static class Encounters8
       //new()     { Species = 834, Level = 21, Location = -1 }, // Drednaw
       //new()     { Species = 768, Level = 26, Location = -1 }, // Golisopod
         new()     { Species = 025, Level = 22, Location = 168, Weather = Normal | Overcast | Stormy }, // Pikachu in the Forest of Focus
-        new(SW  ) { Species = 766, Level = 26, Location = 168 }, // Passimian in the Forest of Focus
-        new(  SH) { Species = 765, Level = 26, Location = 168 }, // Oranguru in the Forest of Focus
         new()     { Species = 342, Level = 26, Location = 168, Weather = Overcast | Stormy }, // Crawdaunt in the Forest of Focus
         new()     { Species = 040, Level = 26, Location = 168, Weather = Heavy_Fog }, // Wigglytuff in the Forest of Focus
         new()     { Species = 028, Level = 26, Location = 168, Weather = Sandstorm }, // Sandslash in the Forest of Focus
         new()     { Species = 589, Level = 32, Location = 168, Weather = Sandstorm }, // Escavalier in the Forest of Focus
         new()     { Species = 104, Level = 20, Location = 168, Weather = Sandstorm }, // Cubone in the Forest of Focus
         new()     { Species = 545, Level = 32, Location = 168, Weather = Overcast }, // Scolipede in the Forest of Focus
-        new(SW  ) { Species = 127, Level = 26, Location = 168, Weather = Intense_Sun }, // Pinsir in the Forest of Focus
-        new(  SH) { Species = 214, Level = 26, Location = 168, Weather = Intense_Sun }, // Heracross in the Forest of Focus
         new()     { Species = 636, Level = 15, Location = 168, Weather = Intense_Sun }, // Larvesta in the Forest of Focus
         new()     { Species = 465, Level = 36, Location = 168, Weather = Intense_Sun }, // Tangrowth in the Forest of Focus
-        new(SW  ) { Species = 616, Level = 20, Location = 168, Weather = Stormy }, // Shelmet in the Forest of Focus
-        new(  SH) { Species = 704, Level = 20, Location = 168, Weather = Stormy }, // Goomy in the Forest of Focus
         new()     { Species = 172, Level = 20, Location = 168, Weather = Thunderstorm }, // Pichu in the Forest of Focus
         new()     { Species = 845, Level = 20, Location = 168, Weather = Normal | Raining | Intense_Sun | Heavy_Fog }, // Cramorant in the Forest of Focus
         new()     { Species = 617, Level = 32, Location = 168, Weather = Raining }, // Accelgor in the Forest of Focus
@@ -446,17 +416,13 @@ internal static class Encounters8
         new()     { Species = 091, Level = 42, Location = 170, Weather = Raining | Heavy_Fog }, // Cloyster on Challenge Beach
         new()     { Species = 130, Level = 50, Location = 170, Weather = Normal | Raining | Intense_Sun }, // Gyarados on Challenge Beach
         new()     { Species = 130, Level = 50, Location = 178, Weather = Normal | Stormy | Intense_Sun }, // Gyarados in Loop Lagoon
-        new()     { Species = 062, Level = 36, Location = 172 }, // Poliwrath in Brawlers’ Cave
-        new()     { Species = 294, Level = 26, Location = 172 }, // Loudred in Brawlers’ Cave
-        new()     { Species = 528, Level = 26, Location = 172 }, // Swoobat in Brawlers’ Cave
-        new()     { Species = 621, Level = 36, Location = 172 }, // Druddigon in Brawlers’ Cave
-        new()     { Species = 055, Level = 26, Location = 172 }, // Golduck in Brawlers’ Cave
-        new()     { Species = 526, Level = 42, Location = 172 }, // Gigalith in Brawlers’ Cave
-        new(SW  ) { Species = 744, Level = 22, Location = 172, Crossover = new(174), Weather = Normal | Overcast }, // Rockruff on Challenge Road, Brawlers' Cave (c)
-        new(  SH) { Species = 744, Level = 22, Location = 172, Crossover = new(174), Weather = Normal | Overcast | Intense_Sun | Heavy_Fog }, // Rockruff on Challenge Road, Brawlers' Cave (c)
-        new(SW  ) { Species = 560, Level = 26, Location = 172, Crossover = new(174, 180), Weather = Stormy }, // Scrafty on Challenge Road, Brawlers’ Cave (c), Training Lowlands
-        new(  SH) { Species = 454, Level = 26, Location = 172, Crossover = new(174, 180), Weather = Stormy }, // Toxicroak on Challenge Road, Brawlers’ Cave (c), Training Lowlands
-        new()     { Species = 558, Level = 26, Location = 172, Crossover = new(174, 180), Weather = Sandstorm }, // Crustle on Challenge Road, Brawlers’ Cave (c), Training Lowlands
+        new()     { Species = 062, Level = 36, Location = 172 }, // Poliwrath in Brawlers' Cave
+        new()     { Species = 294, Level = 26, Location = 172 }, // Loudred in Brawlers' Cave
+        new()     { Species = 528, Level = 26, Location = 172 }, // Swoobat in Brawlers' Cave
+        new()     { Species = 621, Level = 36, Location = 172 }, // Druddigon in Brawlers' Cave
+        new()     { Species = 055, Level = 26, Location = 172 }, // Golduck in Brawlers' Cave
+        new()     { Species = 526, Level = 42, Location = 172 }, // Gigalith in Brawlers' Cave
+        new()     { Species = 558, Level = 26, Location = 172, Crossover = new(174, 180), Weather = Sandstorm }, // Crustle on Challenge Road, Brawlers' Cave (c), Training Lowlands
         new()     { Species = 340, Level = 42, Location = 172, Crossover = new(176) }, // Whiscash in Courageous Cavern, Brawlers' Cave
         new()     { Species = 620, Level = 28, Location = 174 }, // Mienshao on Challenge Road
         new()     { Species = 625, Level = 36, Location = 174, Weather = Overcast }, // Bisharp on Challenge Road
@@ -465,13 +431,7 @@ internal static class Encounters8
         new()     { Species = 745, Level = 32, Location = 174 }, // Lycanroc on Challenge Road
         new()     { Species = 745, Level = 32, Location = 174, Form = 01, Weather = Overcast }, // Lycanroc-1 on Challenge Road
         new()     { Species = 212, Level = 40, Location = 174, Weather = Sandstorm }, // Scizor on Challenge Road
-        new(SW  ) { Species = 127, Level = 26, Location = 174, Weather = Intense_Sun }, // Pinsir on Challenge Road
-        new(  SH) { Species = 214, Level = 26, Location = 174, Weather = Intense_Sun }, // Heracross on Challenge Road
-        new(SW  ) { Species = 782, Level = 22, Location = 174, Weather = Intense_Sun | Sandstorm | Heavy_Fog }, // Jangmo-o on Challenge Road
-        new()     { Species = 227, Level = 26, Location = 174, Weather = Normal | Raining | Intense_Sun | Sandstorm }, // Skarmory on Challenge Road
         new()     { Species = 426, Level = 26, Location = 174, Weather = Heavy_Fog }, // Drifblim on Challenge Road
-        new(SW  ) { Species = 628, Level = 26, Location = 174, Weather = Overcast }, // Braviary on Challenge Road
-        new(  SH) { Species = 630, Level = 26, Location = 174, Weather = Overcast }, // Mandibuzz on Challenge Road
         new()     { Species = 082, Level = 26, Location = 174, Weather = Thunderstorm }, // Magneton on Challenge Road
         new()     { Species = 507, Level = 28, Location = 174, Crossover = new(180), Weather = Normal | Heavy_Fog }, // Herdier on Challenge Road, Training Lowlands
         new()     { Species = 558, Level = 28, Location = 176 }, // Crustle in Courageous Cavern
@@ -514,14 +474,12 @@ internal static class Encounters8
         new()     { Species = 764, Level = 28, Location = 180, Weather = Heavy_Fog }, // Comfey in the Training Lowlands
         new()     { Species = 452, Level = 28, Location = 180, Weather = Overcast | Intense_Sun }, // Drapion in the Training Lowlands
         new()     { Species = 279, Level = 28, Location = 180, Weather = Raining }, // Pelipper in the Training Lowlands
-        new(SW  ) { Species = 127, Level = 28, Location = 180, Weather = Normal | Intense_Sun }, // Pinsir in the Training Lowlands
-        new(  SH) { Species = 214, Level = 28, Location = 180, Weather = Normal | Intense_Sun }, // Heracross in the Training Lowlands
+        new()     { Species = 227, Level = 26, Location = 174, Weather = Normal | Raining | Intense_Sun | Sandstorm }, // Skarmory on Challenge Road
         new()     { Species = 528, Level = 28, Location = 180, Weather = Overcast }, // Swoobat in the Training Lowlands
         new()     { Species = 241, Level = 28, Location = 180, Weather = Normal | Overcast | Intense_Sun }, // Miltank in the Training Lowlands
         new()     { Species = 082, Level = 28, Location = 180, Weather = Thunderstorm }, // Magneton in the Training Lowlands
         new()     { Species = 662, Level = 28, Location = 180, Weather = Intense_Sun }, // Fletchinder in the Training Lowlands
         new()     { Species = 227, Level = 26, Location = 180, Weather = Sandstorm }, // Skarmory in the Training Lowlands
-        new(SW  ) { Species = 782, Level = 22, Location = 180, Weather = Sandstorm }, // Jangmo-o in Training Lowlands
         new()     { Species = 128, Level = 28, Location = 180, Weather = All_IoA }, // Tauros in the Training Lowlands
         new()     { Species = 687, Level = 28, Location = 180, Weather = Overcast | Raining }, // Malamar in the Training Lowlands
         new()     { Species = 549, Level = 28, Location = 180, Weather = Intense_Sun }, // Lilligant in the Training Lowlands
@@ -543,8 +501,6 @@ internal static class Encounters8
         new()     { Species = 844, Level = 42, Location = 184, Weather = Normal | Intense_Sun | Heavy_Fog }, // Sandaconda in the Potbottom Desert
         new()     { Species = 637, Level = 50, Location = 184, Weather = Intense_Sun }, // Volcarona in the Potbottom Desert
         new()     { Species = 028, Level = 42, Location = 184, Weather = Sandstorm }, // Sandslash in the Potbottom Desert
-        new(SW  ) { Species = 628, Level = 42, Location = 184, Weather = Normal | Overcast | Raining | Sandstorm | Intense_Sun | Heavy_Fog }, // Braviary in the Potbottom Desert
-        new(  SH) { Species = 630, Level = 42, Location = 184, Weather = Normal | Overcast | Raining | Sandstorm | Intense_Sun | Heavy_Fog }, // Mandibuzz in the Potbottom Desert
         new()     { Species = 479, Level = 50, Location = 186, FlawlessIVCount = 3, Weather = Normal | Stormy | Intense_Sun | Heavy_Fog }, // Rotom in the Workout Sea
         new()     { Species = 479, Level = 50, Location = 186, Form = 01, Weather = Normal | Stormy | Intense_Sun | Heavy_Fog }, // Rotom-1 in the Workout Sea
         new()     { Species = 479, Level = 50, Location = 186, Form = 02, Weather = Normal | Stormy | Intense_Sun | Heavy_Fog }, // Rotom-2 in the Workout Sea
@@ -564,10 +520,9 @@ internal static class Encounters8
         new()     { Species = 117, Level = 45, Location = 192, Weather = Normal | Overcast | Stormy | Intense_Sun | Heavy_Fog }, // Seadra in the Honeycalm Sea
         new()     { Species = 549, Level = 45, Location = 194, Weather = Normal | Intense_Sun }, // Lilligant on Honeycalm Island
         new()     { Species = 415, Level = 40, Location = 194, Weather = Overcast | Stormy }, // Combee on Honeycalm Island
-    };
 
-    private static readonly EncounterStatic8[] Encounter_SWSH_Strong2 =
-    {
+        // Strong 2
+
         new()     { Species = 144, Level = 70, Location = 208, Crossover = new(210, 212, 214), Moves = new(821,542,427, 375), FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst,  Form = 01, Weather = All_CT }, // Articuno-1 in the Crown Tundra
         new()     { Species = 145, Level = 70, Location = 122, Crossover = new(124, 126, 128, 130), Moves = new(823,065,179,116), FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst,  Form = 01, Weather = All }, // Zapdos-1 in a Wild Area
         new()     { Species = 146, Level = 70, Location = 164, Crossover = new(166, 170, 178, 186, 188, 190, 192), Moves = new(822,542,389,417), FlawlessIVCount = 3, Shiny = Never, Ability = OnlyFirst,  Form = 01, Weather = All_IoA }, // Moltres-1 on the Isle of Armor
@@ -576,7 +531,7 @@ internal static class Encounters8
         new()     { Species = 379, Level = 70, Location = 240, ScriptedNoMarks = true, Moves = new(484,430,334,451), FlawlessIVCount = 3, Ability = OnlyFirst }, // Registeel
         new()     { Species = 894, Level = 70, Location = 242, ScriptedNoMarks = true, Moves = new(819,527,245,393), FlawlessIVCount = 3, Ability = OnlyFirst }, // Regieleki
         new()     { Species = 895, Level = 70, Location = 242, ScriptedNoMarks = true, Moves = new(820,337,359,673), FlawlessIVCount = 3, Ability = OnlyFirst }, // Regidrago
-        new()     { Species = 486, Level =100, Location = 210, ScriptedNoMarks = true, Moves = new(416,428,359,462), FlawlessIVCount = 3, Ability = OnlyFirst,  DynamaxLevel = 10 }, // Regigigas in the Giant’s Bed
+        new()     { Species = 486, Level =100, Location = 210, ScriptedNoMarks = true, Moves = new(416,428,359,462), FlawlessIVCount = 3, Ability = OnlyFirst,  DynamaxLevel = 10 }, // Regigigas in the Giant's Bed
         new()     { Species = 638, Level = 70, Location = 226, FlawlessIVCount = 3, Ability = OnlyFirst,  Weather = No_Sun_Sand }, // Cobalion at the Frigid Sea
         new()     { Species = 639, Level = 70, Location = 232, FlawlessIVCount = 3, Ability = OnlyFirst,  Weather = Overcast }, // Terrakion in Lakeside Cavern
         new()     { Species = 640, Level = 70, Location = 210, FlawlessIVCount = 3, Ability = OnlyFirst,  Weather = All_CT }, // Virizion at Giant's Bed
@@ -603,14 +558,12 @@ internal static class Encounters8
         new()     { Species = 143, Level = 65, Location = 204, Weather = Normal | Intense_Sun }, // Snorlax on Slippery Slope
         new()     { Species = 872, Level = 60, Location = 204, Weather = Normal | Heavy_Fog }, // Snom on Slippery Slope
         new()     { Species = 832, Level = 63, Location = 204, Crossover = new(208), Weather = Normal | Intense_Sun }, // Dubwool on Slippery Slope, Frostpoint Field
-        new(SW  ) { Species = 576, Level = 65, Location = 204, Crossover = new(208), Weather = Heavy_Fog }, // Gothitelle on Slippery Slope, Frostpoint Field
-        new(  SH) { Species = 579, Level = 65, Location = 204, Crossover = new(208), Weather = Heavy_Fog }, // Reuniclus on Slippery Slope, Frostpoint Field
         new()     { Species = 461, Level = 63, Location = 204, Crossover = new(208), Weather = Overcast }, // Weavile on Slippery Slope, Frostpoint Field
         new()     { Species = 531, Level = 62, Location = 204, Crossover = new(208), Weather = Normal | Overcast | Intense_Sun | Icy | Heavy_Fog }, // Audino on Slippery Slope, Frostpoint Field
-        new()     { Species = 615, Level = 62, Location = 204, Crossover = new(208, 210), Weather = Icy }, // Cryogonal on Slippery Slope, Frostpoint Field, Giant’s Bed
-        new()     { Species = 778, Level = 62, Location = 204, Crossover = new(208, 210, 212), Weather = Heavy_Fog }, // Mimikyu on Slippery Slope, Frostpoint Field, Giant’s Bed, Old Cemetery
-        new()     { Species = 126, Level = 62, Location = 204, Crossover = new(210), Weather = Intense_Sun }, // Magmar on Slippery Slope, Giant’s Bed
-        new()     { Species = 861, Level = 65, Location = 204, Crossover = new(210), Weather = Heavy_Fog }, // Grimmsnarl on Slippery Slope, Giant’s Bed
+        new()     { Species = 615, Level = 62, Location = 204, Crossover = new(208, 210), Weather = Icy }, // Cryogonal on Slippery Slope, Frostpoint Field, Giant's Bed
+        new()     { Species = 778, Level = 62, Location = 204, Crossover = new(208, 210, 212), Weather = Heavy_Fog }, // Mimikyu on Slippery Slope, Frostpoint Field, Giant's Bed, Old Cemetery
+        new()     { Species = 126, Level = 62, Location = 204, Crossover = new(210), Weather = Intense_Sun }, // Magmar on Slippery Slope, Giant's Bed
+        new()     { Species = 861, Level = 65, Location = 204, Crossover = new(210), Weather = Heavy_Fog }, // Grimmsnarl on Slippery Slope, Giant's Bed
         new()     { Species = 709, Level = 63, Location = 204, Crossover = new(210, 212), Weather = Overcast }, // Trevenant on Slippery Slope, Giant's Bed, Old Cemetery
         new()     { Species = 124, Level = 62, Location = 208, Weather = Snowing | Heavy_Fog }, // Jynx in Frostpoint Field
         new()     { Species = 460, Level = 65, Location = 208, Weather = Normal | Overcast | Intense_Sun | Snowing }, // Abomasnow in Frostpoint Field
@@ -620,53 +573,50 @@ internal static class Encounters8
         new()     { Species = 032, Level = 60, Location = 208, Weather = Normal | Overcast | Intense_Sun | Icy }, // Nidoran♂ in Frostpoint Field
         new()     { Species = 359, Level = 62, Location = 208, Weather = Snowstorm }, // Absol in Frostpoint Field
         new()     { Species = 143, Level = 65, Location = 208, Weather = Normal | Stormy | Intense_Sun | Overcast }, // Snorlax in Frostpoint Field
-        new()     { Species = 584, Level = 65, Location = 208, Crossover = new(210), Weather = Icy }, // Vanilluxe in Frostpoint Field, Giant’s Bed
-        new()     { Species = 333, Level = 60, Location = 208, Crossover = new(210), Weather = Overcast }, // Swablu in Frostpoint Field, Giant’s Bed
-        new()     { Species = 034, Level = 65, Location = 208, Crossover = new(210), Weather = No_Sun_Sand }, // Nidoking in Frostpoint Field, Giant’s Bed
-        new()     { Species = 030, Level = 63, Location = 208, Crossover = new(210), Weather = All_CT }, // Nidorina in Frostpoint Field (c), in the Giant’s Bed
-        new()     { Species = 858, Level = 65, Location = 208, Crossover = new(210), Weather = Heavy_Fog }, // Hatterene in Frostpoint Field, Giant’s Bed
-        new()     { Species = 437, Level = 65, Location = 208, Crossover = new(222), Weather = Normal | Overcast }, // Bronzong in Frostpoint Field (c), Giant’s Foot
-        new()     { Species = 029, Level = 60, Location = 210, Weather = Normal | Stormy | Intense_Sun }, // Nidoran♀ in the Giant’s Bed
-        new()     { Species = 832, Level = 63, Location = 210 }, // Dubwool in the Giant’s Bed
-        new(SW  ) { Species = 874, Level = 63, Location = 210, Weather = All_CT }, // Stonjourner in the Giant’s Bed
-        new(  SH) { Species = 143, Level = 65, Location = 210, Weather = All_CT }, // Snorlax in the Giant’s Bed
-        new()     { Species = 142, Level = 65, Location = 210, Weather = All_CT }, // Aerodactyl in the Giant’s Bed
-        new()     { Species = 133, Level = 60, Location = 210 }, // Eevee in the Giant’s Bed
-        new()     { Species = 470, Level = 63, Location = 210 }, // Leafeon in the Giant’s Bed
-        new()     { Species = 033, Level = 63, Location = 210, Weather = All_CT }, // Nidorino in the Giant’s Bed
-        new()     { Species = 534, Level = 65, Location = 210 }, // Conkeldurr in the Giant’s Bed
-        new()     { Species = 820, Level = 65, Location = 210, Weather = No_Sun_Sand }, // Greedent in the Giant’s Bed
-        new()     { Species = 031, Level = 65, Location = 210, Weather = Normal | Overcast | Raining | Intense_Sun | Icy | Heavy_Fog }, // Nidoqueen in the Giant’s Bed
-        new()     { Species = 862, Level = 65, Location = 210, Weather = Overcast | Raining }, // Obstagoon in the Giant’s Bed
-        new()     { Species = 609, Level = 65, Location = 210, Weather = Overcast | Heavy_Fog }, // Chandelure in the Giant’s Bed
-        new()     { Species = 752, Level = 65, Location = 210, Weather = Stormy }, // Araquanid in the Giant’s Bed
-        new()     { Species = 134, Level = 63, Location = 210, Weather = Raining }, // Vaporeon in the Giant’s Bed
-        new()     { Species = 596, Level = 63, Location = 210, Weather = Thunderstorm }, // Galvantula in the Giant’s Bed
-        new()     { Species = 466, Level = 65, Location = 210, Weather = Thunderstorm }, // Electivire in the Giant’s Bed
-        new()     { Species = 135, Level = 63, Location = 210, Weather = Thunderstorm }, // Jolteon in the Giant’s Bed
-        new()     { Species = 125, Level = 63, Location = 210, Weather = Thunderstorm }, // Electabuzz in the Giant’s Bed
-        new()     { Species = 467, Level = 63, Location = 210, Weather = Intense_Sun }, // Magmortar in the Giant’s Bed
-        new()     { Species = 631, Level = 63, Location = 210, Weather = Intense_Sun }, // Heatmor in the Giant’s Bed
-        new()     { Species = 632, Level = 63, Location = 210, Weather = Intense_Sun }, // Durant in the Giant’s Bed
-        new()     { Species = 136, Level = 63, Location = 210, Weather = Intense_Sun }, // Flareon in the Giant’s Bed
-        new()     { Species = 197, Level = 63, Location = 210, Weather = Overcast }, // Umbreon in the Giant’s Bed
-        new()     { Species = 196, Level = 63, Location = 210, Weather = Snowing }, // Espeon in the Giant’s Bed
-        new()     { Species = 359, Level = 65, Location = 210, Weather = Snowstorm }, // Absol in the Giant’s Bed
-        new()     { Species = 471, Level = 63, Location = 210, Weather = Snowstorm }, // Glaceon in the Giant’s Bed
-        new()     { Species = 700, Level = 63, Location = 210, Weather = Heavy_Fog }, // Sylveon in the Giant’s Bed
-        new()     { Species = 036, Level = 63, Location = 210, Weather = Heavy_Fog }, // Clefable in the Giant’s Bed
-        new()     { Species = 340, Level = 65, Location = 210, Weather = All_CT }, // Whiscash in the Giant’s Bed
-        new()     { Species = 855, Level = 63, Location = 210, Crossover = new(212), Weather = Normal | Stormy | Intense_Sun | Snowstorm  | Heavy_Fog }, // Polteageist in the Giant’s Bed, Old Cemetery
-        new()     { Species = 887, Level = 65, Location = 210, Crossover = new(212), Weather = Normal | Overcast | Stormy | Intense_Sun | Snowing }, // Dragapult in the Giant’s Bed, Old Cemetery
-        new()     { Species = 478, Level = 65, Location = 210, Crossover = new(212, 214), Weather = Icy }, // Froslass in the Giant’s Bed, Old Cemetery, Snowslide Slope
-        new()     { Species = 437, Level = 63, Location = 210, Crossover = new(214), Weather = All_CT }, // Bronzong in the Giant’s Bed, Snowslide Slope (c)
-        new()     { Species = 362, Level = 65, Location = 210, Crossover = new(214), Weather = Icy }, // Glalie in the Giant’s Bed, Snowslide Slope
-        new()     { Species = 334, Level = 65, Location = 210, Crossover = new(218, 222, 226, 230), Weather = Overcast }, // Altaria in the Giant’s Bed, Path to the Peak, Giant’s Foot, Frigid Sea, Ballimere Lake
-        new()     { Species = 344, Level = 65, Location = 210, Crossover = new(222), Weather = Overcast | Stormy | Intense_Sun | Icy | Heavy_Fog }, // Claydol in the Giant’s Bed, Giant’s Foot
-        new()     { Species = 531, Level = 62, Location = 210, Crossover = new(222, 230), Weather = All_CT }, // Audino in the Giant’s Bed, Giant’s Foot
-        new()     { Species = 130, Level = 67, Location = 210, Crossover = new(230), Weather = Normal | Overcast | Stormy | Intense_Sun | Icy }, // Gyarados in the Giant’s Bed, Ballimere Lake
-        new()     { Species = 350, Level = 67, Location = 210, Crossover = new(230), Weather = Heavy_Fog }, // Milotic in the Giant’s Bed, Ballimere Lake
-        new(  SH) { Species = 078, Level = 67, Location = 212, Form = 01, Weather = Heavy_Fog }, // Rapidash-1 in the Old Cemetery
+        new()     { Species = 584, Level = 65, Location = 208, Crossover = new(210), Weather = Icy }, // Vanilluxe in Frostpoint Field, Giant's Bed
+        new()     { Species = 333, Level = 60, Location = 208, Crossover = new(210), Weather = Overcast }, // Swablu in Frostpoint Field, Giant's Bed
+        new()     { Species = 034, Level = 65, Location = 208, Crossover = new(210), Weather = No_Sun_Sand }, // Nidoking in Frostpoint Field, Giant's Bed
+        new()     { Species = 030, Level = 63, Location = 208, Crossover = new(210), Weather = All_CT }, // Nidorina in Frostpoint Field (c), in the Giant's Bed
+        new()     { Species = 858, Level = 65, Location = 208, Crossover = new(210), Weather = Heavy_Fog }, // Hatterene in Frostpoint Field, Giant's Bed
+        new()     { Species = 437, Level = 65, Location = 208, Crossover = new(222), Weather = Normal | Overcast }, // Bronzong in Frostpoint Field (c), Giant's Foot
+        new()     { Species = 029, Level = 60, Location = 210, Weather = Normal | Stormy | Intense_Sun }, // Nidoran♀ in the Giant's Bed
+        new()     { Species = 832, Level = 63, Location = 210 }, // Dubwool in the Giant's Bed
+        new()     { Species = 142, Level = 65, Location = 210, Weather = All_CT }, // Aerodactyl in the Giant's Bed
+        new()     { Species = 133, Level = 60, Location = 210 }, // Eevee in the Giant's Bed
+        new()     { Species = 470, Level = 63, Location = 210 }, // Leafeon in the Giant's Bed
+        new()     { Species = 033, Level = 63, Location = 210, Weather = All_CT }, // Nidorino in the Giant's Bed
+        new()     { Species = 534, Level = 65, Location = 210 }, // Conkeldurr in the Giant's Bed
+        new()     { Species = 820, Level = 65, Location = 210, Weather = No_Sun_Sand }, // Greedent in the Giant's Bed
+        new()     { Species = 031, Level = 65, Location = 210, Weather = Normal | Overcast | Raining | Intense_Sun | Icy | Heavy_Fog }, // Nidoqueen in the Giant's Bed
+        new()     { Species = 862, Level = 65, Location = 210, Weather = Overcast | Raining }, // Obstagoon in the Giant's Bed
+        new()     { Species = 609, Level = 65, Location = 210, Weather = Overcast | Heavy_Fog }, // Chandelure in the Giant's Bed
+        new()     { Species = 752, Level = 65, Location = 210, Weather = Stormy }, // Araquanid in the Giant's Bed
+        new()     { Species = 134, Level = 63, Location = 210, Weather = Raining }, // Vaporeon in the Giant's Bed
+        new()     { Species = 596, Level = 63, Location = 210, Weather = Thunderstorm }, // Galvantula in the Giant's Bed
+        new()     { Species = 466, Level = 65, Location = 210, Weather = Thunderstorm }, // Electivire in the Giant's Bed
+        new()     { Species = 135, Level = 63, Location = 210, Weather = Thunderstorm }, // Jolteon in the Giant's Bed
+        new()     { Species = 125, Level = 63, Location = 210, Weather = Thunderstorm }, // Electabuzz in the Giant's Bed
+        new()     { Species = 467, Level = 63, Location = 210, Weather = Intense_Sun }, // Magmortar in the Giant's Bed
+        new()     { Species = 631, Level = 63, Location = 210, Weather = Intense_Sun }, // Heatmor in the Giant's Bed
+        new()     { Species = 632, Level = 63, Location = 210, Weather = Intense_Sun }, // Durant in the Giant's Bed
+        new()     { Species = 136, Level = 63, Location = 210, Weather = Intense_Sun }, // Flareon in the Giant's Bed
+        new()     { Species = 197, Level = 63, Location = 210, Weather = Overcast }, // Umbreon in the Giant's Bed
+        new()     { Species = 196, Level = 63, Location = 210, Weather = Snowing }, // Espeon in the Giant's Bed
+        new()     { Species = 359, Level = 65, Location = 210, Weather = Snowstorm }, // Absol in the Giant's Bed
+        new()     { Species = 471, Level = 63, Location = 210, Weather = Snowstorm }, // Glaceon in the Giant's Bed
+        new()     { Species = 700, Level = 63, Location = 210, Weather = Heavy_Fog }, // Sylveon in the Giant's Bed
+        new()     { Species = 036, Level = 63, Location = 210, Weather = Heavy_Fog }, // Clefable in the Giant's Bed
+        new()     { Species = 340, Level = 65, Location = 210, Weather = All_CT }, // Whiscash in the Giant's Bed
+        new()     { Species = 855, Level = 63, Location = 210, Crossover = new(212), Weather = Normal | Stormy | Intense_Sun | Snowstorm  | Heavy_Fog }, // Polteageist in the Giant's Bed, Old Cemetery
+        new()     { Species = 887, Level = 65, Location = 210, Crossover = new(212), Weather = Normal | Overcast | Stormy | Intense_Sun | Snowing }, // Dragapult in the Giant's Bed, Old Cemetery
+        new()     { Species = 478, Level = 65, Location = 210, Crossover = new(212, 214), Weather = Icy }, // Froslass in the Giant's Bed, Old Cemetery, Snowslide Slope
+        new()     { Species = 437, Level = 63, Location = 210, Crossover = new(214), Weather = All_CT }, // Bronzong in the Giant's Bed, Snowslide Slope (c)
+        new()     { Species = 362, Level = 65, Location = 210, Crossover = new(214), Weather = Icy }, // Glalie in the Giant's Bed, Snowslide Slope
+        new()     { Species = 334, Level = 65, Location = 210, Crossover = new(218, 222, 226, 230), Weather = Overcast }, // Altaria in the Giant's Bed, Path to the Peak, Giant's Foot, Frigid Sea, Ballimere Lake
+        new()     { Species = 344, Level = 65, Location = 210, Crossover = new(222), Weather = Overcast | Stormy | Intense_Sun | Icy | Heavy_Fog }, // Claydol in the Giant's Bed, Giant's Foot
+        new()     { Species = 531, Level = 62, Location = 210, Crossover = new(222, 230), Weather = All_CT }, // Audino in the Giant's Bed, Giant's Foot
+        new()     { Species = 130, Level = 67, Location = 210, Crossover = new(230), Weather = Normal | Overcast | Stormy | Intense_Sun | Icy }, // Gyarados in the Giant's Bed, Ballimere Lake
+        new()     { Species = 350, Level = 67, Location = 210, Crossover = new(230), Weather = Heavy_Fog }, // Milotic in the Giant's Bed, Ballimere Lake
         new()     { Species = 872, Level = 62, Location = 214, Weather = Normal | Overcast }, // Snom on Snowslide Slope
         new()     { Species = 698, Level = 62, Location = 214, Weather = Normal | Overcast | Stormy | Heavy_Fog }, // Amaura on Snowslide Slope
         new()     { Species = 621, Level = 65, Location = 214, Weather = Normal | Intense_Sun }, // Druddigon on Snowslide Slope
@@ -678,45 +628,32 @@ internal static class Encounters8
         new()     { Species = 467, Level = 67, Location = 214, Weather = Intense_Sun }, // Magmortar on Snowslide Slope
         new()     { Species = 362, Level = 67, Location = 214, Weather = Icy }, // Glalie on Snowslide Slope
         new()     { Species = 375, Level = 63, Location = 214, Crossover = new(216), Weather = Normal | Overcast | Intense_Sun | Icy | Heavy_Fog }, // Metang on Snowslide Slope, Tunnel to the Top (c)
-        new()     { Species = 615, Level = 65, Location = 214, Crossover = new(222), Weather = Icy }, // Cryogonal on Snowslide Slope, Giant’s Foot
+        new()     { Species = 615, Level = 65, Location = 214, Crossover = new(222), Weather = Icy }, // Cryogonal on Snowslide Slope, Giant's Foot
         new()     { Species = 614, Level = 67, Location = 214, Crossover = new(226, 228), Weather = Icy }, // Beartic on Snowslide Slope, Frigid Sea, Three-Point Pass
         new()     { Species = 126, Level = 65, Location = 214, Crossover = new(230), Weather = Intense_Sun }, // Magmar on Snowslide Slope, Ballimere Lake
         new()     { Species = 584, Level = 67, Location = 214, Weather = Icy }, // Vanilluxe on Snowslide Slope
-        new(SW  ) { Species = 555, Level = 67, Location = 214, Form = 02, Weather = Snowstorm }, // Darmanitan-2 on Snowslide Slope
         new()     { Species = 861, Level = 67, Location = 214, Weather = Heavy_Fog }, // Grimmsnarl on Snowslide Slope
-        new()     { Species = 359, Level = 67, Location = 214, Crossover = new(218, 222), Weather = Snowstorm }, // Absol on Snowslide Slope, Path to the Peak, Giant’s Foot
-        new()     { Species = 778, Level = 65, Location = 214, Crossover = new(222, 230), Weather = Heavy_Fog }, // Mimikyu on Snowslide Slope, Giant’s Foot, Ballimere Lake
+        new()     { Species = 359, Level = 67, Location = 214, Crossover = new(218, 222), Weather = Snowstorm }, // Absol on Snowslide Slope, Path to the Peak, Giant's Foot
+        new()     { Species = 778, Level = 65, Location = 214, Crossover = new(222, 230), Weather = Heavy_Fog }, // Mimikyu on Snowslide Slope, Giant's Foot, Ballimere Lake
         new()     { Species = 036, Level = 65, Location = 214, Weather = Heavy_Fog }, // Clefable on Snowslide Slope
         new()     { Species = 036, Level = 65, Location = 216, Weather = Overcast }, // Clefable in the Tunnel to the Top
         new()     { Species = 621, Level = 65, Location = 216, Weather = Overcast }, // Druddigon in the Tunnel to the Top
         new()     { Species = 478, Level = 65, Location = 216, Weather = Overcast }, // Froslass in the Tunnel to the Top
-        new(SW  ) { Species = 371, Level = 65, Location = 216, Weather = Overcast }, // Bagon in the Tunnel to the Top
-        new(  SH) { Species = 443, Level = 65, Location = 216, Weather = Overcast }, // Gible in the Tunnel to the Top
-        new(SW  ) { Species = 373, Level = 68, Location = 216, Weather = Overcast }, // Salamence in the Tunnel to the Top
-        new(  SH) { Species = 445, Level = 68, Location = 216, Weather = Overcast }, // Garchomp in the Tunnel to the Top
         new()     { Species = 703, Level = 65, Location = 216, Weather = Overcast }, // Carbink in the Tunnel to the Top
         new()     { Species = 041, Level = 63, Location = 216, Crossover = new(224), Weather = Overcast }, // Zubat in the Tunnel to the Top, Roaring-Sea Caves
         new()     { Species = 042, Level = 65, Location = 216, Weather = Normal | Overcast | Intense_Sun | Icy | Heavy_Fog }, // Golbat in the Tunnel to the Top
         new()     { Species = 873, Level = 65, Location = 218, Weather = Normal | Overcast | Intense_Sun | Icy | Heavy_Fog }, // Frosmoth on the Path to the Peak
-        new(SW  ) { Species = 373, Level = 68, Location = 218, Weather = Intense_Sun }, // Salamence on the Path to the Peak
-        new(  SH) { Species = 445, Level = 68, Location = 218, Weather = Intense_Sun }, // Garchomp on the Path to the Peak
         new()     { Species = 621, Level = 65, Location = 218 }, // Druddigon on the Path to the Peak
-        new()     { Species = 851, Level = 67, Location = 222, Weather = Normal | Intense_Sun }, // Centiskorch at the Giant’s Foot
-        new()     { Species = 879, Level = 67, Location = 222, Weather = Overcast | Stormy | Icy | Heavy_Fog }, // Copperajah at the Giant’s Foot
-        new()     { Species = 534, Level = 67, Location = 222 }, // Conkeldurr at the Giant’s Foot
-        new(SW  ) { Species = 138, Level = 63, Location = 222, Weather = All_CT }, // Omanyte at the Giant’s Foot
-        new(  SH) { Species = 140, Level = 63, Location = 222, Weather = All_CT }, // Kabuto at the Giant’s Foot
-        new()     { Species = 566, Level = 63, Location = 222, Weather = All_CT }, // Archen at the Giant’s Foot
-        new()     { Species = 126, Level = 65, Location = 222, Weather = Intense_Sun }, // Magmar at the Giant’s Foot
-        new()     { Species = 752, Level = 67, Location = 222, Crossover = new(230), Weather = Raining }, // Araquanid at Ballimere Lake, Giant’s Foot
-        new()     { Species = 125, Level = 65, Location = 222, Crossover = new(230), Weather = Thunderstorm }, // Electabuzz at the Giant’s Foot, Ballimere Lake
+        new()     { Species = 851, Level = 67, Location = 222, Weather = Normal | Intense_Sun }, // Centiskorch at the Giant's Foot
+        new()     { Species = 879, Level = 67, Location = 222, Weather = Overcast | Stormy | Icy | Heavy_Fog }, // Copperajah at the Giant's Foot
+        new()     { Species = 534, Level = 67, Location = 222 }, // Conkeldurr at the Giant's Foot
+        new()     { Species = 566, Level = 63, Location = 222, Weather = All_CT }, // Archen at the Giant's Foot
+        new()     { Species = 126, Level = 65, Location = 222, Weather = Intense_Sun }, // Magmar at the Giant's Foot
+        new()     { Species = 752, Level = 67, Location = 222, Crossover = new(230), Weather = Raining }, // Araquanid at Ballimere Lake, Giant's Foot
+        new()     { Species = 125, Level = 65, Location = 222, Crossover = new(230), Weather = Thunderstorm }, // Electabuzz at the Giant's Foot, Ballimere Lake
       //new()     { Species = 567, Level = 67, Location = -1 }, // Archeops
-        new(SW  ) { Species = 635, Level = 68, Location = 224, Weather = No_Sun_Sand }, // Hydreigon in Roaring-Sea Caves, weather from Frigid Sea
-        new(  SH) { Species = 248, Level = 68, Location = 224, Weather = No_Sun_Sand }, // Tyranitar in Roaring-Sea Caves, weather from Frigid Sea
         new()     { Species = 448, Level = 67, Location = 224, Weather = Overcast }, // Lucario in Roaring-Sea Caves
         new()     { Species = 042, Level = 65, Location = 224, Weather = Overcast }, // Golbat in the Roaring-Sea Caves
-        new(  SH) { Species = 141, Level = 68, Location = 224, Weather = Overcast }, // Kabutops in Roaring-Sea Caves
-        new(SW  ) { Species = 139, Level = 68, Location = 224, Weather = Overcast }, // Omastar in Roaring-Sea Caves
         new()     { Species = 363, Level = 63, Location = 226, Weather = No_Sun_Sand }, // Spheal at the Frigid Sea
         new()     { Species = 364, Level = 65, Location = 226, Weather = No_Sun_Sand }, // Sealeo at the Frigid Sea
         new()     { Species = 564, Level = 63, Location = 226, Weather = Normal | Overcast | Stormy | Heavy_Fog }, // Tirtouga at the Frigid Sea
@@ -724,7 +661,6 @@ internal static class Encounters8
         new()     { Species = 365, Level = 68, Location = 226, Weather = Normal | Overcast | Icy | Heavy_Fog }, // Walrein at the Frigid Sea
         new()     { Species = 565, Level = 67, Location = 226, Weather = Normal | Stormy | Intense_Sun }, // Carracosta at the Frigid Sea
         new()     { Species = 871, Level = 65, Location = 226, Weather = Thunderstorm }, // Pincurchin at the Frigid Sea
-        new(  SH) { Species = 875, Level = 65, Location = 226, Weather = No_Sun_Sand }, // Eiscue at the Frigid Sea
         new()     { Species = 623, Level = 65, Location = 226, Crossover = new(228), Weather = All_CT }, // Golurk at the Frigid Sea (c), Three-Point Pass
         new()     { Species = 467, Level = 68, Location = 226, Crossover = new(230), Weather = Intense_Sun }, // Magmortar at Frigid Sea (c), Ballimere Lake
         new()     { Species = 466, Level = 68, Location = 226, Crossover = new(228, 230), Weather = Thunderstorm }, // Electivire at the Frigid Sea, Three-Point Pass, Ballimere Lake
@@ -738,8 +674,6 @@ internal static class Encounters8
         new()     { Species = 547, Level = 65, Location = 230, Weather = Normal | Raining }, // Whimsicott at Ballimere Lake
         new()     { Species = 836, Level = 67, Location = 230, Weather = Normal | Stormy | Snowing | Heavy_Fog }, // Boltund at Ballimere Lake
         new()     { Species = 830, Level = 65, Location = 230, Weather = Raining | Intense_Sun }, // Eldegoss at Ballimere Lake
-        new(SW  ) { Species = 876, Level = 65, Location = 230, Weather = Normal | Heavy_Fog }, // Indeedee at Ballimere Lake
-        new(  SH) { Species = 876, Level = 65, Location = 230, Form = 01, Weather = Normal | Heavy_Fog }, // Indeedee-1 at Ballimere Lake
         new()     { Species = 696, Level = 63, Location = 230, Weather = All_CT }, // Tyrunt at Ballimere Lake
         new()     { Species = 213, Level = 65, Location = 230, Weather = Normal | Intense_Sun }, // Shuckle at Ballimere Lake
         new()     { Species = 820, Level = 68, Location = 230, Weather = All_Ballimere }, // Greedent at Ballimere Lake
@@ -762,48 +696,104 @@ internal static class Encounters8
         new()     { Species = 305, Level = 63, Location = 232, Weather = Overcast }, // Lairon in Lakeside Cave
         new()     { Species = 839, Level = 68, Location = 232, Weather = Overcast }, // Coalossal in Lakeside Cave
         new()     { Species = 820, Level = 68, Location = 234, Weather = All_Ballimere }, // Greedent at Dyna Tree Hill
-    };
+    ];
+
+    public static readonly EncounterStatic8[] StaticSW =
+    [
+        new(SW  ) { Species = 888, Level = 70, Location = 66, ScriptedNoMarks = true, Moves = new(533,014,442,242), Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3 }, // Zacian
+
+        new(SW  ) { Species = 275, Level = 34, Location = 124, Weather = Normal | Overcast | Stormy | Heavy_Fog }, // Shiftry in the Dappled Grove
+        new(SW  ) { Species = 784, Level = 60, Location = 146, Ability = OnlyFirst,  Weather = Normal | Intense_Sun | Icy | Sandstorm | Heavy_Fog }, // Kommo-o in Dusty Bowl
+        new(SW  ) { Species = 559, Level = 20, Location = 166, Weather = Overcast }, // Scraggy in the Soothing Wetlands
+        new(SW  ) { Species = 766, Level = 26, Location = 168 }, // Passimian in the Forest of Focus
+        new(SW  ) { Species = 127, Level = 26, Location = 168, Weather = Intense_Sun }, // Pinsir in the Forest of Focus
+        new(SW  ) { Species = 616, Level = 20, Location = 168, Weather = Stormy }, // Shelmet in the Forest of Focus
+        new(SW  ) { Species = 744, Level = 22, Location = 172, Crossover = new(174), Weather = Normal | Overcast }, // Rockruff on Challenge Road, Brawlers' Cave (c)
+        new(SW  ) { Species = 560, Level = 26, Location = 172, Crossover = new(174, 180), Weather = Stormy }, // Scrafty on Challenge Road, Brawlers' Cave (c), Training Lowlands
+        new(SW  ) { Species = 127, Level = 26, Location = 174, Weather = Intense_Sun }, // Pinsir on Challenge Road
+        new(SW  ) { Species = 782, Level = 22, Location = 174, Weather = Intense_Sun | Sandstorm | Heavy_Fog }, // Jangmo-o on Challenge Road
+        new(SW  ) { Species = 628, Level = 26, Location = 174, Weather = Overcast }, // Braviary on Challenge Road
+        new(SW  ) { Species = 127, Level = 28, Location = 180, Weather = Normal | Intense_Sun }, // Pinsir in the Training Lowlands
+        new(SW  ) { Species = 782, Level = 22, Location = 180, Weather = Sandstorm }, // Jangmo-o in Training Lowlands
+        new(SW  ) { Species = 628, Level = 42, Location = 184, Weather = Normal | Overcast | Raining | Sandstorm | Intense_Sun | Heavy_Fog }, // Braviary in the Potbottom Desert
+        new(SW  ) { Species = 576, Level = 65, Location = 204, Crossover = new(208), Weather = Heavy_Fog }, // Gothitelle on Slippery Slope, Frostpoint Field
+        new(SW  ) { Species = 874, Level = 63, Location = 210, Weather = All_CT }, // Stonjourner in the Giant's Bed
+        new(SW  ) { Species = 555, Level = 67, Location = 214, Form = 02, Weather = Snowstorm }, // Darmanitan-2 on Snowslide Slope
+        new(SW  ) { Species = 371, Level = 65, Location = 216, Weather = Overcast }, // Bagon in the Tunnel to the Top
+        new(SW  ) { Species = 373, Level = 68, Location = 216, Weather = Overcast }, // Salamence in the Tunnel to the Top
+        new(SW  ) { Species = 373, Level = 68, Location = 218, Weather = Intense_Sun }, // Salamence on the Path to the Peak
+        new(SW  ) { Species = 138, Level = 63, Location = 222, Weather = All_CT }, // Omanyte at the Giant's Foot
+        new(SW  ) { Species = 635, Level = 68, Location = 224, Weather = No_Sun_Sand }, // Hydreigon in Roaring-Sea Caves, weather from Frigid Sea
+        new(SW  ) { Species = 139, Level = 68, Location = 224, Weather = Overcast }, // Omastar in Roaring-Sea Caves
+        new(SW  ) { Species = 876, Level = 65, Location = 230, Weather = Normal | Heavy_Fog }, // Indeedee at Ballimere Lake
+    ];
+
+    public static readonly EncounterStatic8[] StaticSH =
+    [
+        new(  SH) { Species = 889, Level = 70, Location = 66, ScriptedNoMarks = true, Moves = new(163,242,442,334), Shiny = Never, Ability = OnlyFirst,  FlawlessIVCount = 3 }, // Zamazenta
+
+        new(  SH) { Species = 272, Level = 34, Location = 124, Weather = Normal | Overcast | Stormy | Heavy_Fog }, // Ludicolo in the Dappled Grove
+        new(  SH) { Species = 248, Level = 60, Location = 146, Weather = Normal | Intense_Sun | Icy | Sandstorm | Heavy_Fog }, // Tyranitar in Dusty Bowl
+        new(  SH) { Species = 453, Level = 20, Location = 166, Weather = Overcast }, // Croagunk in the Soothing Wetlands
+        new(  SH) { Species = 765, Level = 26, Location = 168 }, // Oranguru in the Forest of Focus
+        new(  SH) { Species = 214, Level = 26, Location = 168, Weather = Intense_Sun }, // Heracross in the Forest of Focus
+        new(  SH) { Species = 704, Level = 20, Location = 168, Weather = Stormy }, // Goomy in the Forest of Focus
+        new(  SH) { Species = 744, Level = 22, Location = 172, Crossover = new(174), Weather = Normal | Overcast | Intense_Sun | Heavy_Fog }, // Rockruff on Challenge Road, Brawlers' Cave (c)
+        new(  SH) { Species = 454, Level = 26, Location = 172, Crossover = new(174, 180), Weather = Stormy }, // Toxicroak on Challenge Road, Brawlers' Cave (c), Training Lowlands
+        new(  SH) { Species = 214, Level = 26, Location = 174, Weather = Intense_Sun }, // Heracross on Challenge Road
+        new(  SH) { Species = 630, Level = 26, Location = 174, Weather = Overcast }, // Mandibuzz on Challenge Road
+        new(  SH) { Species = 214, Level = 28, Location = 180, Weather = Normal | Intense_Sun }, // Heracross in the Training Lowlands
+        new(  SH) { Species = 630, Level = 42, Location = 184, Weather = Normal | Overcast | Raining | Sandstorm | Intense_Sun | Heavy_Fog }, // Mandibuzz in the Potbottom Desert
+        new(  SH) { Species = 579, Level = 65, Location = 204, Crossover = new(208), Weather = Heavy_Fog }, // Reuniclus on Slippery Slope, Frostpoint Field
+        new(  SH) { Species = 143, Level = 65, Location = 210, Weather = All_CT }, // Snorlax in the Giant's Bed
+        new(  SH) { Species = 078, Level = 67, Location = 212, Form = 01, Weather = Heavy_Fog }, // Rapidash-1 in the Old Cemetery
+        new(  SH) { Species = 443, Level = 65, Location = 216, Weather = Overcast }, // Gible in the Tunnel to the Top
+        new(  SH) { Species = 445, Level = 68, Location = 216, Weather = Overcast }, // Garchomp in the Tunnel to the Top
+        new(  SH) { Species = 445, Level = 68, Location = 218, Weather = Intense_Sun }, // Garchomp on the Path to the Peak
+        new(  SH) { Species = 140, Level = 63, Location = 222, Weather = All_CT }, // Kabuto at the Giant's Foot
+        new(  SH) { Species = 248, Level = 68, Location = 224, Weather = No_Sun_Sand }, // Tyranitar in Roaring-Sea Caves, weather from Frigid Sea
+        new(  SH) { Species = 141, Level = 68, Location = 224, Weather = Overcast }, // Kabutops in Roaring-Sea Caves
+        new(  SH) { Species = 875, Level = 65, Location = 226, Weather = No_Sun_Sand }, // Eiscue at the Frigid Sea
+        new(  SH) { Species = 876, Level = 65, Location = 230, Form = 01, Weather = Normal | Heavy_Fog }, // Indeedee-1 at Ballimere Lake
+    ];
 
     private const string tradeSWSH = "tradeswsh";
-    private static readonly string[][] TradeSWSH = Util.GetLanguageStrings10(tradeSWSH, "zh2");
-    private static readonly string[] TradeOT_R1 = { string.Empty, "チホコ", "Regina", "Régiona", "Regionalia", "Regine", string.Empty, "Tatiana", "지민", "易蒂", "易蒂" };
+    private static readonly string[][] TradeNames = Util.GetLanguageStrings10(tradeSWSH);
+    private static readonly string[] TradeOT_R1 = [string.Empty, "チホコ", "Regina", "Régiona", "Regionalia", "Regine", string.Empty, "Tatiana", "지민", "易蒂", "易蒂"];
     private static readonly IndividualValueSet TradeIVs = new(15, 15, 15, 15, 15, 15);
 
-    private static readonly EncounterTrade8[] TradeGift_Regular =
-    {
-        new(SWSH, 052,18,08,000,04,5) { Ability = OnlySecond, TID7 = 263455, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 0, Nature = Nature.Timid, Relearn = new(387)   }, // Meowth
-        new(SWSH, 819,10,01,044,01,2) { Ability = OnlyFirst,  TID7 = 648753, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 1, Gender = 0, Nature = Nature.Mild                              }, // Skwovet
-        new(SWSH, 546,23,11,000,09,5) { Ability = OnlyFirst,  TID7 = 101154, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 1, Gender = 1, Nature = Nature.Modest                            }, // Cottonee
-        new(SWSH, 175,25,02,010,10,6) { Ability = OnlySecond, TID7 = 109591, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 1, Gender = 0, Nature = Nature.Timid, Relearn = new(791)   }, // Togepi
-        new(SW  , 856,30,09,859,08,3) { Ability = OnlySecond, TID7 = 101101, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 1, Nature = Nature.Quiet                             }, // Hatenna
-        new(  SH, 859,30,43,000,07,6) { Ability = OnlyFirst,  TID7 = 256081, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 0, Nature = Nature.Brave, Relearn = new(252)   }, // Impidimp
-        new(SWSH, 562,35,16,310,15,5) { Ability = OnlyFirst,  TID7 = 102534, IVs = TradeIVs, DynamaxLevel = 2, OTGender = 1, Gender = 0, Nature = Nature.Bold, Relearn = new(261)    }, // Yamask
-        new(SW  , 538,37,17,129,20,7) { Ability = OnlySecond, TID7 = 768945, IVs = TradeIVs, DynamaxLevel = 2, OTGender = 0, Gender = 0, Nature = Nature.Adamant                           }, // Throh
-        new(  SH, 539,37,17,129,14,6) { Ability = OnlyFirst,  TID7 = 881426, IVs = TradeIVs, DynamaxLevel = 2, OTGender = 0, Gender = 0, Nature = Nature.Adamant                           }, // Sawk
-        new(SWSH, 122,40,56,000,12,4) { Ability = OnlyFirst,  TID7 = 891846, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 0, Nature = Nature.Calm                              }, // Mr. Mime
-        new(SWSH, 884,50,15,038,06,2) { Ability = OnlySecond, TID7 = 101141, IVs = TradeIVs, DynamaxLevel = 3, OTGender = 0, Gender = 0, Nature = Nature.Adamant, Relearn = new(400) }, // Duraludon
-    };
+    public static readonly EncounterTrade8[] TradeSWSH =
+    [
+        new(TradeNames, 00, SWSH, 052,18,08,000,04,5) { Ability = OnlySecond, ID32 = 263455, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 0, Nature = Nature.Timid, Relearn = new(387)   }, // Meowth
+        new(TradeNames, 01, SWSH, 819,10,01,044,01,2) { Ability = OnlyFirst,  ID32 = 648753, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 1, Gender = 0, Nature = Nature.Mild                              }, // Skwovet
+        new(TradeNames, 02, SWSH, 546,23,11,000,09,5) { Ability = OnlyFirst,  ID32 = 101154, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 1, Gender = 1, Nature = Nature.Modest                            }, // Cottonee
+        new(TradeNames, 03, SWSH, 175,25,02,010,10,6) { Ability = OnlySecond, ID32 = 109591, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 1, Gender = 0, Nature = Nature.Timid, Relearn = new(791)   }, // Togepi
+        new(TradeNames, 06, SWSH, 562,35,16,310,15,5) { Ability = OnlyFirst,  ID32 = 102534, IVs = TradeIVs, DynamaxLevel = 2, OTGender = 1, Gender = 0, Nature = Nature.Bold, Relearn = new(261)    }, // Yamask
+        new(TradeNames, 09, SWSH, 122,40,56,000,12,4) { Ability = OnlyFirst,  ID32 = 891846, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 0, Nature = Nature.Calm                              }, // Mr. Mime
+        new(TradeNames, 10, SWSH, 884,50,15,038,06,2) { Ability = OnlySecond, ID32 = 101141, IVs = TradeIVs, DynamaxLevel = 3, OTGender = 0, Gender = 0, Nature = Nature.Adamant, Relearn = new(400) }, // Duraludon
 
-    private static readonly EncounterTrade8[] TradeGift_R1 =
-    {
-        new(SWSH, 052,15,01,033,04,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(387)               }, // Meowth
-        new(SW  , 083,15,01,013,10,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(098)               }, // Farfetch’d
-        new(  SH, 222,15,01,069,12,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(457)               }, // Corsola
-        new(  SH, 077,15,01,047,06,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(234)               }, // Ponyta
-        new(SWSH, 122,15,01,005,04,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(252)               }, // Mr. Mime
-        new(SW  , 554,15,01,040,12,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(326)               }, // Darumaka
-        new(SWSH, 263,15,01,045,04,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(245)               }, // Zigzagoon
-        new(SWSH, 618,15,01,050,05,2, Random) { Ability = OnlyHidden, TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(281)               }, // Stunfisk
-        new(SWSH, 110,15,01,040,12,2, Random) { Ability = Any12H,     TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(220)               }, // Weezing
-        new(SWSH, 103,15,01,038,06,2, Random) {                       TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(246), Form = 1     }, // Exeggutor-1
-        new(SWSH, 105,15,01,038,06,2, Random) {                       TID7 = 101141, FlawlessIVCount = 3, DynamaxLevel = 5, OTGender = 1, IsNicknamed = false, Relearn = new(174), Form = 1     }, // Marowak-1
-    };
+        new(TradeOT_R1, SWSH, 052,15,01,033,04,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(387)               }, // Meowth
+        new(TradeOT_R1, SWSH, 122,15,01,005,04,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(252)               }, // Mr. Mime
+        new(TradeOT_R1, SWSH, 263,15,01,045,04,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(245)               }, // Zigzagoon
+        new(TradeOT_R1, SWSH, 618,15,01,050,05,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(281)               }, // Stunfisk
+        new(TradeOT_R1, SWSH, 110,15,01,040,12,2) { Ability = Any12H,     ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(220)               }, // Weezing
+        new(TradeOT_R1, SWSH, 103,15,01,038,06,2) { Ability = Any12,      ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(246), Form = 1     }, // Exeggutor-1
+        new(TradeOT_R1, SWSH, 105,15,01,038,06,2) { Ability = Any12,      ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(174), Form = 1     }, // Marowak-1
+    ];
 
-    internal static readonly EncounterTrade8[] TradeGift_SWSH = ArrayUtil.ConcatAll(TradeGift_Regular, TradeGift_R1);
+    internal static readonly EncounterTrade8[] TradeSW =
+    [
+        new(TradeNames, 04, SW  , 856,30,09,859,08,3) { Ability = OnlySecond, ID32 = 101101, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 1, Nature = Nature.Quiet                             }, // Hatenna
+        new(TradeNames, 07, SW  , 538,37,17,129,20,7) { Ability = OnlySecond, ID32 = 768945, IVs = TradeIVs, DynamaxLevel = 2, OTGender = 0, Gender = 0, Nature = Nature.Adamant                           }, // Throh
+        new(TradeOT_R1, SW  , 083,15,01,013,10,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(098)               }, // Farfetch’d
+        new(TradeOT_R1, SW  , 554,15,01,040,12,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(326)               }, // Darumaka
+    ];
 
-    internal static readonly EncounterStatic[] StaticSW = ArrayUtil.ConcatAll(Nest_SW, Nest_SH, Dist_SW, Dist_SH, DynAdv_SWSH, Crystal_SWSH,
-        GetEncounters(new EncounterStatic[][] { Encounter_SWSH_0, Encounter_SWSH_Strong0, Encounter_SWSH_Strong1, Encounter_SWSH_Strong2 }, SH));
-
-    internal static readonly EncounterStatic[] StaticSH = ArrayUtil.ConcatAll(Nest_SW, Nest_SH, Dist_SW, Dist_SH, DynAdv_SWSH, Crystal_SWSH,
-        GetEncounters(new EncounterStatic[][] { Encounter_SWSH_0, Encounter_SWSH_Strong0, Encounter_SWSH_Strong1, Encounter_SWSH_Strong2 }, SW));
+    internal static readonly EncounterTrade8[] TradeSH =
+    [
+        new(TradeNames, 05,   SH, 859,30,43,000,07,6) { Ability = OnlyFirst,  ID32 = 256081, IVs = TradeIVs, DynamaxLevel = 1, OTGender = 0, Gender = 0, Nature = Nature.Brave, Relearn = new(252)   }, // Impidimp
+        new(TradeNames, 08,   SH, 539,37,17,129,14,6) { Ability = OnlyFirst,  ID32 = 881426, IVs = TradeIVs, DynamaxLevel = 2, OTGender = 0, Gender = 0, Nature = Nature.Adamant                           }, // Sawk
+        new(TradeOT_R1,   SH, 222,15,01,069,12,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(457)               }, // Corsola
+        new(TradeOT_R1,   SH, 077,15,01,047,06,2) { Ability = OnlyHidden, ID32 = 101141, FlawlessIVCount = 3, IVs = default, DynamaxLevel = 5, OTGender = 1, Relearn = new(234)               }, // Ponyta
+    ];
 }

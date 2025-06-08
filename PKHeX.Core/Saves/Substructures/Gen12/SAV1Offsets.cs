@@ -20,8 +20,10 @@ internal sealed class SAV1Offsets
         PrinterBrightness = 0x2744,
         PCItems = 0x27E6,
         CurrentBoxIndex = 0x284C,
+        HallOfFameCount = 0x284E,
         Coin = 0x2850,
         ObjectSpawnFlags = 0x2852, // 2 bytes after Coin
+        EventWork = 0x289C,
         Starter = 0x29C3,
         EventFlag = 0x29F3,
         PlayTime = 0x2CED,
@@ -46,8 +48,10 @@ internal sealed class SAV1Offsets
         PrinterBrightness = 0x273A,
         PCItems = 0x27DC,
         CurrentBoxIndex = 0x2842,
+        HallOfFameCount = 0x2844,
         Coin = 0x2846,
         ObjectSpawnFlags = 0x2848, // 2 bytes after Coin
+        EventWork = 0x2892,
         Starter = 0x29B9,
         EventFlag = 0x29E9,
         PlayTime = 0x2CA0,
@@ -75,9 +79,11 @@ internal sealed class SAV1Offsets
     public int ObjectSpawnFlags { get; private init; }
     public int Starter { get; private init; }
     public int EventFlag { get; private init; }
+    public int EventWork { get; private init; }
     public int PlayTime { get; private init; }
     public int Daycare { get; private init; }
     public int Party { get; private init; }
     public int CurrentBox { get; private init; }
     public int ChecksumOfs { get; private init; }
+    public int HallOfFameCount { get; private init; }
 }

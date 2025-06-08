@@ -7,7 +7,7 @@ namespace PKHeX.Core;
 /// Pokédex structure used for Brilliant Diamond &amp; Shining Pearl.
 /// </summary>
 /// <remarks>size 0x30B8, struct_name ZUKAN_WORK</remarks>
-public sealed class Zukan8b : ZukanBase<SAV8BS>
+public sealed class Zukan8b(SAV8BS sav, Memory<byte> dex) : ZukanBase<SAV8BS>(sav, dex)
 {
     /* Structure Notes:
         u32 [493] state: None/HeardOf/Seen/Captured
@@ -133,8 +133,6 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
 
     private static PersonalTable8BDSP Personal => PersonalTable.BDSP;
 
-    public Zukan8b(SAV8BS sav, int dex) : base(sav, dex) { }
-
     public ZukanState8b GetState(ushort species)
     {
         if (species > Legal.MaxSpeciesID_4)
@@ -142,7 +140,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
 
         var index = species - 1;
         var offset = OFS_STATE + (sizeof(int) * index);
-        return (ZukanState8b)ReadInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset));
+        return (ZukanState8b)ReadInt32LittleEndian(Data[offset..]);
     }
 
     public void SetState(ushort species, ZukanState8b state)
@@ -152,7 +150,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
 
         var index = species - 1;
         var offset = OFS_STATE + (sizeof(int) * index);
-        WriteInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset), (int)state);
+        WriteInt32LittleEndian(Data[offset..], (int)state);
     }
 
     private bool GetBoolean(int index, int baseOffset)
@@ -161,7 +159,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
             throw new ArgumentOutOfRangeException(nameof(index));
 
         var offset = baseOffset + (ALIGN_BOOLARRAY * index);
-        return ReadUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset)) == 1;
+        return ReadUInt32LittleEndian(Data[offset..]) == 1;
     }
 
     private void SetBoolean(int index, int baseOffset, bool value)
@@ -170,7 +168,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
             throw new ArgumentOutOfRangeException(nameof(index));
 
         var offset = baseOffset + (ALIGN_BOOLARRAY * index);
-        WriteUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset), value ? 1u : 0u);
+        WriteUInt32LittleEndian(Data[offset..], value ? 1u : 0u);
     }
 
     public void GetGenderFlags(ushort species, out bool m, out bool f, out bool ms, out bool fs)
@@ -199,7 +197,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
 
         var index = species - 1;
         var offset = OFS_LANGUAGE + (sizeof(int) * index);
-        var current = ReadInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset));
+        var current = ReadInt32LittleEndian(Data[offset..]);
         return (current & (1 << languageBit)) != 0;
     }
 
@@ -213,10 +211,10 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
 
         var index = species - 1;
         var offset = OFS_LANGUAGE + (sizeof(int) * index);
-        var current = ReadInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset));
+        var current = ReadInt32LittleEndian(Data[offset..]);
         var mask = (1 << languageBit);
         var update = value ? current | mask : current & ~(mask);
-        WriteInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset), update);
+        WriteInt32LittleEndian(Data[offset..], update);
     }
 
     public void SetLanguageFlags(ushort species, int value)
@@ -226,7 +224,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
 
         var index = species - 1;
         var offset = OFS_LANGUAGE + (sizeof(int) * index);
-        WriteInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset), value);
+        WriteInt32LittleEndian(Data[offset..], value);
     }
 
     private static int GetLanguageBit(int language)
@@ -240,14 +238,14 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
 
     public bool HasRegionalDex
     {
-        get => ReadUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + OFS_FLAG_REGIONAL)) == 1;
-        set => WriteUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + OFS_FLAG_REGIONAL), value ? 1u : 0u);
+        get => ReadUInt32LittleEndian(Data[OFS_FLAG_REGIONAL..]) == 1;
+        set => WriteUInt32LittleEndian(Data[OFS_FLAG_REGIONAL..], value ? 1u : 0u);
     }
 
     public bool HasNationalDex
     {
-        get => ReadUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + OFS_FLAG_NATIONAL)) == 1;
-        set => WriteUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + OFS_FLAG_NATIONAL), value ? 1u : 0u);
+        get => ReadUInt32LittleEndian(Data[OFS_FLAG_NATIONAL..]) == 1;
+        set => WriteUInt32LittleEndian(Data[OFS_FLAG_NATIONAL..], value ? 1u : 0u);
     }
 
     public bool GetHasFormFlag(ushort species, byte form, bool shiny)
@@ -259,7 +257,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
         var baseOffset = GetFormOffset(species);
         var sizeShift = shiny ? GetFormSize(species) : 0;
         var offset = baseOffset + sizeShift + (ALIGN_BOOLARRAY * form);
-        return ReadUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset)) == 1;
+        return ReadUInt32LittleEndian(Data[offset..]) == 1;
     }
 
     public void SetHasFormFlag(ushort species, byte form, bool shiny, bool value)
@@ -271,7 +269,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
         var baseOffset = GetFormOffset(species);
         var sizeShift = shiny ? GetFormSize(species) : 0;
         var offset = baseOffset + sizeShift + (ALIGN_BOOLARRAY * form);
-        WriteUInt32LittleEndian(SAV.Data.AsSpan(PokeDex + offset), value ? 1u : 0u);
+        WriteUInt32LittleEndian(Data[offset..], value ? 1u : 0u);
     }
 
     public static int GetFormCount(ushort species) => species switch
@@ -350,7 +348,7 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
             SAV.ZukanExtra.SetDex(originalState, pk.EncryptionConstant, pk.Gender, shiny);
     }
 
-    private void SetGenderFlag(ushort species, int gender, bool shiny)
+    private void SetGenderFlag(ushort species, byte gender, bool shiny)
     {
         switch (gender)
         {
@@ -363,6 +361,8 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
         }
     }
 
+    private bool GetGenderFlagMale(ushort species, bool shiny) => GetBoolean(species - 1, shiny ? OFS_MALESHINY : OFS_MALE);
+    private bool GetGenderFlagFemale(ushort species, bool shiny) => GetBoolean(species - 1, shiny ? OFS_FEMALESHINY : OFS_FEMALE);
     private void SetGenderFlagMale(ushort species, bool shiny) => SetBoolean(species - 1, shiny ? OFS_MALESHINY : OFS_MALE, true);
     private void SetGenderFlagFemale(ushort species, bool shiny) => SetBoolean(species - 1, shiny ? OFS_FEMALESHINY : OFS_FEMALE, true);
 
@@ -385,14 +385,16 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
     public override void SeenAll(bool shinyToo = false)
     {
         var pt = Personal;
-        for (ushort i = 1; i <= Legal.MaxSpeciesID_4; i++)
+        for (ushort species = 1; species <= Legal.MaxSpeciesID_4; species++)
         {
-            if (!GetSeen(i))
-                SetState(i, ZukanState8b.Seen);
-            var pi = pt[i];
+            if (!GetSeen(species))
+                SetState(species, ZukanState8b.Seen);
+            var pi = pt[species];
             var m = !pi.OnlyFemale;
             var f = !pi.OnlyMale;
-            SetGenderFlags(i, m, f, m && shinyToo, f && shinyToo);
+            var ms = m && (shinyToo || GetGenderFlagMale(species, true));
+            var fs = f && (shinyToo || GetGenderFlagFemale(species, true));
+            SetGenderFlags(species, m, f, ms, fs);
         }
     }
 
@@ -428,7 +430,9 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
                 var pi = pt[species];
                 var m = !pi.OnlyFemale;
                 var f = !pi.OnlyMale;
-                SetGenderFlags(species, m, f, m && shinyToo, f && shinyToo);
+                var ms = m && (shinyToo || GetGenderFlagMale(species, true));
+                var fs = f && (shinyToo || GetGenderFlagFemale(species, true));
+                SetGenderFlags(species, m, f, ms, fs);
             }
             else
             {
@@ -445,7 +449,9 @@ public sealed class Zukan8b : ZukanBase<SAV8BS>
         var pi = pt[species];
         var m = !pi.OnlyFemale;
         var f = !pi.OnlyMale;
-        SetGenderFlags(species, m, f, m && shinyToo, f && shinyToo);
+        var ms = m && (shinyToo || GetGenderFlagMale(species, true));
+        var fs = f && (shinyToo || GetGenderFlagFemale(species, true));
+        SetGenderFlags(species, m, f, ms, fs);
 
         var formCount = GetFormCount(species);
         if (formCount is not 0)

@@ -1,4 +1,3 @@
-//#define VERIFY_GEN
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -13,47 +12,16 @@ namespace PKHeX.Core;
 public static class EncounterMovesetGenerator
 {
     /// <summary>
-    /// Order in which <see cref="IEncounterable"/> objects are yielded from the <see cref="GenerateVersionEncounters"/> generator.
+    /// Order in which <see cref="IEncounterable"/> objects are yielded from the <see cref="GenerateVersionEncounters(PKM,ReadOnlyMemory{ushort},GameVersion)"/> method.
     /// </summary>
-    // ReSharper disable once AutoPropertyCanBeMadeGetOnly.Global
-    public static IReadOnlyCollection<EncounterTypeGroup> PriorityList { get; set; } = PriorityList = (EncounterTypeGroup[])Enum.GetValues(typeof(EncounterTypeGroup));
+    public static IReadOnlyCollection<EncounterTypeGroup> PriorityList { get; set; } = GetAllGroups();
 
     /// <summary>
     /// Resets the <see cref="PriorityList"/> to the default values.
     /// </summary>
-    public static void ResetFilters() => PriorityList = (EncounterTypeGroup[])Enum.GetValues(typeof(EncounterTypeGroup));
+    public static void ResetFilters() => PriorityList = GetAllGroups();
 
-    /// <summary>
-    /// Gets possible <see cref="PKM"/> objects that allow all moves requested to be learned.
-    /// </summary>
-    /// <param name="pk">Rough Pokémon data which contains the requested species, gender, and form.</param>
-    /// <param name="info">Trainer information of the receiver.</param>
-    /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
-    /// <param name="versions">Any specific version(s) to iterate for. If left blank, all will be checked.</param>
-    /// <returns>A consumable <see cref="PKM"/> list of possible results.</returns>
-    /// <remarks>When updating, update the sister <see cref="GenerateEncounters(PKM,ITrainerInfo,ushort[],GameVersion[])"/> method.</remarks>
-    public static IEnumerable<PKM> GeneratePKMs(PKM pk, ITrainerInfo info, ushort[] moves, params GameVersion[] versions)
-    {
-        if (!IsSane(pk, moves))
-            yield break;
-
-        OptimizeCriteria(pk, info);
-        var vers = versions.Length >= 1 ? versions : GameUtil.GetVersionsWithinRange(pk, pk.Format);
-        foreach (var ver in vers)
-        {
-            var encounters = GenerateVersionEncounters(pk, moves, ver);
-            foreach (var enc in encounters)
-            {
-                var result = enc.ConvertToPKM(info);
-#if VERIFY_GEN
-                    var la = new LegalityAnalysis(result);
-                    if (!la.Valid)
-                        throw new Exception("Legality analysis of generated Pokémon is invalid");
-#endif
-                yield return result;
-            }
-        }
-    }
+    private static EncounterTypeGroup[] GetAllGroups() => Enum.GetValues<EncounterTypeGroup>();
 
     /// <summary>
     /// Gets possible <see cref="IEncounterable"/> objects that allow all moves requested to be learned.
@@ -63,46 +31,32 @@ public static class EncounterMovesetGenerator
     /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
     /// <param name="versions">Any specific version(s) to iterate for. If left blank, all will be checked.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible results.</returns>
-    /// <remarks>When updating, update the sister <see cref="GeneratePKMs(PKM,ITrainerInfo,ushort[],GameVersion[])"/> method.</remarks>
-    public static IEnumerable<IEncounterable> GenerateEncounters(PKM pk, ITrainerInfo info, ushort[] moves, params GameVersion[] versions)
+    public static IEnumerable<IEncounterable> GenerateEncounters(PKM pk, ITrainerInfo info, ReadOnlyMemory<ushort> moves, params GameVersion[] versions)
     {
-        if (!IsSane(pk, moves))
+        if (!IsSane(pk, moves.Span))
             yield break;
 
         OptimizeCriteria(pk, info);
         var vers = versions.Length >= 1 ? versions : GameUtil.GetVersionsWithinRange(pk, pk.Format);
-        foreach (var ver in vers)
+        foreach (var version in vers)
         {
-            var encounters = GenerateVersionEncounters(pk, moves, ver);
+            var encounters = GenerateVersionEncounters(pk, moves, version);
             foreach (var enc in encounters)
                 yield return enc;
         }
     }
 
     /// <summary>
-    /// Adapts the input <see cref="pk"/> so that it may match as many encounters as possible (indications of trades to other game pairs, etc).
+    /// Adapts the input <see cref="pk"/> so that it may match as many encounters as possible (indications of trades to other game pairs, etc.).
     /// </summary>
     /// <param name="pk">Rough Pokémon data which contains the requested species, gender, and form.</param>
     /// <param name="info">Trainer information of the receiver.</param>
-    public static void OptimizeCriteria(PKM pk, ITrainerID16 info)
+    public static void OptimizeCriteria(PKM pk, ITrainerID32ReadOnly info)
     {
-        pk.TID16 = info.TID16; // Necessary for Gen2 Headbutt encounters.
-        var htTrash = pk.HT_Trash;
+        pk.ID32 = info.ID32; // Necessary for Gen2 Headbutt encounters and Honey Tree encounters
+        var htTrash = pk.HandlingTrainerTrash;
         if (htTrash.Length != 0)
             htTrash[0] = 1; // Fake Trash to indicate trading.
-    }
-
-    /// <summary>
-    /// Gets possible <see cref="PKM"/> objects that allow all moves requested to be learned within a specific generation.
-    /// </summary>
-    /// <param name="pk">Rough Pokémon data which contains the requested species, gender, and form.</param>
-    /// <param name="info">Trainer information of the receiver.</param>
-    /// <param name="generation">Specific generation to iterate versions for.</param>
-    /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
-    public static IEnumerable<PKM> GeneratePKMs(PKM pk, ITrainerInfo info, int generation, ushort[] moves)
-    {
-        var vers = GameUtil.GetVersionsInGeneration(generation, pk.Version);
-        return GeneratePKMs(pk, info, moves, vers);
     }
 
     /// <summary>
@@ -112,7 +66,7 @@ public static class EncounterMovesetGenerator
     /// <param name="generation">Specific generation to iterate versions for.</param>
     /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    public static IEnumerable<IEncounterable> GenerateEncounter(PKM pk, int generation, ushort[] moves)
+    public static IEnumerable<IEncounterable> GenerateEncounter(PKM pk, byte generation, ReadOnlyMemory<ushort> moves)
     {
         var vers = GameUtil.GetVersionsInGeneration(generation, pk.Version);
         return GenerateEncounters(pk, moves, vers);
@@ -125,12 +79,12 @@ public static class EncounterMovesetGenerator
     /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
     /// <param name="versions">Any specific version(s) to iterate for. If left blank, all will be checked.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    public static IEnumerable<IEncounterable> GenerateEncounters(PKM pk, ushort[] moves, params GameVersion[] versions)
+    public static IEnumerable<IEncounterable> GenerateEncounters(PKM pk, ReadOnlyMemory<ushort> moves, params GameVersion[] versions)
     {
-        if (!IsSane(pk, moves))
+        if (!IsSane(pk, moves.Span))
             yield break;
 
-        if (versions.Length > 0)
+        if (versions.Length != 0)
         {
             foreach (var enc in GenerateEncounters(pk, moves, (IReadOnlyList<GameVersion>)versions))
                 yield return enc;
@@ -138,9 +92,9 @@ public static class EncounterMovesetGenerator
         }
 
         var vers = GameUtil.GetVersionsWithinRange(pk, pk.Format);
-        foreach (var ver in vers)
+        foreach (var version in vers)
         {
-            foreach (var enc in GenerateVersionEncounters(pk, moves, ver))
+            foreach (var enc in GenerateVersionEncounters(pk, moves, version))
                 yield return enc;
         }
     }
@@ -152,14 +106,14 @@ public static class EncounterMovesetGenerator
     /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
     /// <param name="vers">Any specific version(s) to iterate for. If left blank, all will be checked.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    public static IEnumerable<IEncounterable> GenerateEncounters(PKM pk, ushort[] moves, IReadOnlyList<GameVersion> vers)
+    public static IEnumerable<IEncounterable> GenerateEncounters(PKM pk, ReadOnlyMemory<ushort> moves, IReadOnlyList<GameVersion> vers)
     {
-        if (!IsSane(pk, moves))
+        if (!IsSane(pk, moves.Span))
             yield break;
 
-        foreach (var ver in vers)
+        foreach (var version in vers)
         {
-            foreach (var enc in GenerateVersionEncounters(pk, moves, ver))
+            foreach (var enc in GenerateVersionEncounters(pk, moves, version))
                 yield return enc;
         }
     }
@@ -171,18 +125,39 @@ public static class EncounterMovesetGenerator
     /// <param name="moves">Moves that the resulting <see cref="IEncounterable"/> must be able to learn.</param>
     /// <param name="version">Specific version to iterate for.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    private static IEnumerable<IEncounterable> GenerateVersionEncounters(PKM pk, ushort[] moves, GameVersion version)
+    private static IEnumerable<IEncounterable> GenerateVersionEncounters(PKM pk, ReadOnlyMemory<ushort> moves, GameVersion version)
     {
-        pk.Version = (int)version;
+        pk.Version = version;
+        if (version is GameVersion.GO)
+            return GenerateVersionEncountersGO(pk, moves);
+        return GenerateVersionEncounters(pk, moves, version, version.GetGeneration(), version.GetContext());
+    }
 
-        var context = pk.Context;
-        if (context is EntityContext.Gen2 && version is GameVersion.RD or GameVersion.GN or GameVersion.BU or GameVersion.YW)
-            context = EntityContext.Gen1; // try excluding baby pokemon from our evolution chain, for move learning purposes.
-        var et = EvolutionTree.GetEvolutionTree(context);
-        var chain = et.GetValidPreEvolutions(pk, levelMax: 100, skipChecks: true);
+    private static IEnumerable<IEncounterable> GenerateVersionEncountersGO(PKM pk, ReadOnlyMemory<ushort> moves)
+    {
+        // GO Encounters can be from Gen7b or Gen8+; try again with Gen8+ if we still need to iterate.
+        var gen7b = GenerateVersionEncounters(pk, moves, GameVersion.GO, 7, EntityContext.Gen7b);
+        foreach (var enc in gen7b)
+            yield return enc;
 
-        var needs = GetNeededMoves(pk, moves, version);
-        var generator = EncounterGenerator.GetGenerator(version);
+        // GO Encounters can be from Gen7b or Gen8+; try again with Gen8+ if we still need to iterate.
+        if (pk.Context is EntityContext.Gen7b)
+            yield break;
+
+        var gen8 = GenerateVersionEncounters(pk, moves, GameVersion.GO, 8, EntityContext.Gen8);
+        foreach (var enc in gen8)
+            yield return enc;
+    }
+
+    private static IEnumerable<IEncounterable> GenerateVersionEncounters(PKM pk, ReadOnlyMemory<ushort> moves, GameVersion version, byte generation, EntityContext context)
+    {
+        var origin = new EvolutionOrigin(pk.Species, version, generation, 1, 100, OriginOptions.EncounterTemplate);
+        var chain = EvolutionChain.GetOriginChain(pk, origin);
+        if (chain.Length == 0)
+            yield break;
+
+        ReadOnlyMemory<ushort> needs = GetNeededMoves(pk, moves.Span, version, generation, context);
+        var generator = EncounterGenerator.GetGenerator(version, generation);
 
         foreach (var type in PriorityList)
         {
@@ -194,7 +169,7 @@ public static class EncounterMovesetGenerator
     private static bool IsSane(PKM pk, ReadOnlySpan<ushort> moves)
     {
         var species = pk.Species;
-        if ((uint)(species - 1) >= pk.MaxSpeciesID) // can enter this method after failing to set a species ID that cannot exist in the format
+        if (species - 1u >= pk.MaxSpeciesID) // can enter this method after failing to set a species ID that cannot exist in the format
             return false;
         if (AnyMoveOutOfRange(moves, pk.MaxMoveID))
             return false;
@@ -224,27 +199,34 @@ public static class EncounterMovesetGenerator
         return true;
     }
 
-    private static ushort[] GetNeededMoves(PKM pk, ReadOnlySpan<ushort> moves, GameVersion ver)
+    private readonly record struct NeededEncounter(EntityContext Context, byte Generation, GameVersion Version)
+        : IEncounterTemplate
+    {
+        public bool IsEgg => false;
+        public byte LevelMin => 0;
+        public byte LevelMax => 0;
+
+        public ushort Species => 0;
+        public byte Form => 0;
+        public bool IsShiny => false;
+        public ushort Location => 0;
+        public ushort EggLocation => 0;
+        public AbilityPermission Ability => 0;
+        public Ball FixedBall => 0;
+        public Shiny Shiny => 0;
+    }
+
+    private static ushort[] GetNeededMoves(PKM pk, ReadOnlySpan<ushort> moves, GameVersion version, byte generation, EntityContext context)
     {
         if (pk.Species == (int)Species.Smeargle)
-            return Array.Empty<ushort>();
-
-        // Roughly determine the generation the PKM is originating from
-        int origin = pk.Generation;
-        if (origin < 0)
-            origin = ver.GetGeneration();
-
-        // Temporarily replace the Version for VC1 transfers, so that they can have VC2 moves if needed.
-        bool vcBump = origin == 1 && pk.Format >= 7;
-        if (vcBump)
-            pk.Version = (int)GameVersion.C;
+            return [];
 
         var length = pk.MaxMoveID + 1;
         var rent = ArrayPool<bool>.Shared.Rent(length);
         var permitted = rent.AsSpan(0, length);
-        var enc = new EvolutionOrigin(0, (byte)ver, (byte)origin, 1, 100, true);
-        var history = EvolutionChain.GetEvolutionChainsSearch(pk, enc);
-        var e = EncounterInvalid.Default with { Generation = origin };
+        var enc = new EvolutionOrigin(pk.Species, version, generation, 1, 100, OriginOptions.EncounterTemplate);
+        var history = EvolutionChain.GetEvolutionChainsSearch(pk, enc, context, 0);
+        var e = new NeededEncounter(context, generation, version); // default empty
         LearnPossible.Get(pk, e, history, permitted);
 
         int ctr = 0; // count of moves that can be learned
@@ -260,15 +242,12 @@ public static class EncounterMovesetGenerator
         permitted.Clear();
         ArrayPool<bool>.Shared.Return(rent);
 
-        if (vcBump)
-            pk.Version = (int)ver;
-
         if (ctr == 0)
-            return Array.Empty<ushort>();
+            return [];
         return result[..ctr].ToArray();
     }
 
-    private static IEnumerable<IEncounterable> GetPossibleOfType(PKM pk, ushort[] needs, GameVersion version, EncounterTypeGroup type, EvoCriteria[] chain, IEncounterGenerator generator)
+    private static IEnumerable<IEncounterable> GetPossibleOfType(PKM pk, ReadOnlyMemory<ushort> needs, GameVersion version, EncounterTypeGroup type, EvoCriteria[] chain, IEncounterGenerator generator)
         => type switch
     {
         Egg => GetEggs(pk, needs, chain, version, generator),
@@ -286,17 +265,17 @@ public static class EncounterMovesetGenerator
     /// <param name="needs">Moves which cannot be taught by the player.</param>
     /// <param name="chain">Origin possible evolution chain</param>
     /// <param name="version">Specific version to iterate for. Necessary for retrieving possible Egg Moves.</param>
-    /// <param name="generator"></param>
+    /// <param name="generator">Encounter generator to use.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    private static IEnumerable<IEncounterable> GetEggs(PKM pk, ushort[] needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
+    private static IEnumerable<IEncounterable> GetEggs(PKM pk, ReadOnlyMemory<ushort> needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
     {
-        if (!Breeding.CanGameGenerateEggs(version))
+        if (!generator.CanGenerateEggs)
             yield break; // no eggs from these games
 
         var eggs = generator.GetPossible(pk, chain, version, Egg);
         foreach (var egg in eggs)
         {
-            if (needs.Length == 0 || HasAllNeededMovesEgg(needs, egg))
+            if (needs.Length == 0 || HasAllNeededMovesEgg(needs.Span, (IEncounterEgg)egg))
                 yield return egg;
         }
     }
@@ -310,7 +289,7 @@ public static class EncounterMovesetGenerator
     /// <param name="version">Specific version to iterate for.</param>
     /// <param name="generator">Generator</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    private static IEnumerable<IEncounterable> GetGifts(PKM pk, ushort[] needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
+    private static IEnumerable<IEncounterable> GetGifts(PKM pk, ReadOnlyMemory<ushort> needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
     {
         var context = pk.Context;
         var gifts = generator.GetPossible(pk, chain, version, Mystery);
@@ -318,7 +297,7 @@ public static class EncounterMovesetGenerator
         {
             if (!IsSane(chain, enc, context))
                 continue;
-            if (needs.Length == 0 || GetHasAllNeededMoves(needs, enc))
+            if (needs.Length == 0 || GetHasAllNeededMoves(needs.Span, enc))
                 yield return enc;
         }
     }
@@ -330,9 +309,9 @@ public static class EncounterMovesetGenerator
     /// <param name="needs">Moves which cannot be taught by the player.</param>
     /// <param name="chain">Origin possible evolution chain</param>
     /// <param name="version">Specific version to iterate for.</param>
-    /// <param name="generator"></param>
+    /// <param name="generator">Encounter generator to use.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    private static IEnumerable<IEncounterable> GetStatic(PKM pk, ushort[] needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
+    private static IEnumerable<IEncounterable> GetStatic(PKM pk, ReadOnlyMemory<ushort> needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
     {
         var context = pk.Context;
         var encounters = generator.GetPossible(pk, chain, version, Static);
@@ -340,7 +319,7 @@ public static class EncounterMovesetGenerator
         {
             if (!IsSane(chain, enc, context))
                 continue;
-            if (needs.Length == 0 || GetHasAllNeededMovesConsiderGen2(needs, enc))
+            if (needs.Length == 0 || GetHasAllNeededMovesConsiderGen2(needs.Span, enc))
                 yield return enc;
         }
     }
@@ -352,9 +331,9 @@ public static class EncounterMovesetGenerator
     /// <param name="needs">Moves which cannot be taught by the player.</param>
     /// <param name="chain">Origin possible evolution chain</param>
     /// <param name="version">Specific version to iterate for.</param>
-    /// <param name="generator"></param>
+    /// <param name="generator">Encounter generator to use.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    private static IEnumerable<IEncounterable> GetTrades(PKM pk, ushort[] needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
+    private static IEnumerable<IEncounterable> GetTrades(PKM pk, ReadOnlyMemory<ushort> needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
     {
         var context = pk.Context;
         var trades = generator.GetPossible(pk, chain, version, Trade);
@@ -362,7 +341,7 @@ public static class EncounterMovesetGenerator
         {
             if (!IsSane(chain, enc, context))
                 continue;
-            if (needs.Length == 0 || GetHasAllNeededMovesConsiderGen2(needs, enc))
+            if (needs.Length == 0 || GetHasAllNeededMovesConsiderGen2(needs.Span, enc))
                 yield return enc;
         }
     }
@@ -374,9 +353,9 @@ public static class EncounterMovesetGenerator
     /// <param name="needs">Moves which cannot be taught by the player.</param>
     /// <param name="chain">Origin possible evolution chain</param>
     /// <param name="version">Origin version</param>
-    /// <param name="generator"></param>
+    /// <param name="generator">Encounter generator to use.</param>
     /// <returns>A consumable <see cref="IEncounterable"/> list of possible encounters.</returns>
-    private static IEnumerable<IEncounterable> GetSlots(PKM pk, ushort[] needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
+    private static IEnumerable<IEncounterable> GetSlots(PKM pk, ReadOnlyMemory<ushort> needs, EvoCriteria[] chain, GameVersion version, IEncounterGenerator generator)
     {
         var context = pk.Context;
         var slots = generator.GetPossible(pk, chain, version, Slot);
@@ -384,7 +363,7 @@ public static class EncounterMovesetGenerator
         {
             if (!IsSane(chain, slot, context))
                 continue;
-            if (needs.Length == 0 || HasAllNeededMovesSlot(needs, slot))
+            if (needs.Length == 0 || HasAllNeededMovesSlot(needs.Span, slot))
                 yield return slot;
         }
     }
@@ -400,7 +379,7 @@ public static class EncounterMovesetGenerator
                 return true;
             if (FormInfo.IsFormChangeable(enc.Species, enc.Form, evo.Form, enc.Context, current))
                 return true;
-            if (enc is IEncounterFormRandom { IsRandomUnspecificForm: true })
+            if (enc is IEncounterFormRandom { IsRandomUnspecificForm: true } or { Species: (ushort)Species.Unown })
                 return true;
             if (enc is EncounterStatic7 {IsTotem: true} && evo.Form == 0 && current.Generation() > 7) // totems get form wiped
                 return true;
@@ -435,13 +414,13 @@ public static class EncounterMovesetGenerator
         return Moveset.BitOverlap(moves, needs);
     }
 
-    private static int GetMoveMaskEgg(ReadOnlySpan<ushort> needs, IEncounterTemplate egg)
+    private static int GetMoveMaskEgg(ReadOnlySpan<ushort> needs, IEncounterEgg egg)
     {
-        var source = GameData.GetLearnSource(egg.Version);
+        var source = egg.Learn;
         var eggMoves = source.GetEggMoves(egg.Species, egg.Form);
         int flags = Moveset.BitOverlap(eggMoves, needs);
         var vt = needs.IndexOf((ushort)Move.VoltTackle);
-        if (vt != -1 && egg is EncounterEgg { CanHaveVoltTackle: true })
+        if (vt != -1 && egg.CanHaveVoltTackle)
             flags |= 1 << vt;
         else if (egg.Generation <= 2)
             flags |= GetMoveMaskGen2(needs, egg);
@@ -461,7 +440,7 @@ public static class EncounterMovesetGenerator
         return false;
     }
 
-    private static bool HasAllNeededMovesEgg(ReadOnlySpan<ushort> needs, IEncounterTemplate egg)
+    private static bool HasAllNeededMovesEgg(ReadOnlySpan<ushort> needs, IEncounterEgg egg)
     {
         int flags = GetMoveMaskEgg(needs, egg);
         return flags == (1 << needs.Length) - 1;

@@ -6,6 +6,9 @@
 1601	s	La bola del Totodile de Elm ha desaparecido 
 1602	s	La bola del Chikorita de Elm ha desaparecido 
 1784	r	Sudowoodo Capturado
+1760	r	Electrode (top corners) disappeared from Hideout B2F
+1761	r	Electrode (middle corners) disappeared from Hideout B2F
+1762	r	Electrode (bottom corners) disappeared from Hideout B2F
 0079	g	Eevee Recibido
 1867	*	Las Bestias Legendarias desaparecieron de la Torre Incendiada
 0190	*	Kurt puede ver la GS Ball
@@ -78,7 +81,9 @@
 0084	s	Togepi Eclosionado
 0085	s	Mostrado Togepi a Elm
 0086	s	Recibida Piedra Eterna de Elm
-0046	s	UUnown aparecido en Ruinas Alfa
+1193	t	Defeated Blackbelt Kiyo (Can receive Tyrogue)
+0097	g	Received Tyrogue
+0046	s	Unown aparecido en Ruinas Alfa
 0098	s	Conocida Frieda
 0099	s	Recibida Flecha Venenosa de Frieda
 0100	s	Conocida Tuscany
@@ -137,7 +142,7 @@
 0661	t	Preguntado Bird Keeper Vance por su Número
 0663	t	Preguntado Fisher Wilton for por su Número
 0665	t	Preguntado Blackbelt Kenji por su Número
-0667	t	Preguntado Hiker Parry for por su Número
+0667	t	Preguntado Hiker Parry por su Número
 0669	t	Preguntado Picnicker Erin por su Número
 0828	t	Buena ofreció Número Telefónico una vez
 0670	t	Buena ofreció Número Telefónico (2da vez)

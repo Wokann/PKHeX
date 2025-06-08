@@ -8,7 +8,7 @@ namespace PKHeX.Core;
 public static class MoveApplicator
 {
     /// <summary>
-    /// Sets the individual PP Up count values depending if a Move is present in the move's slot or not.
+    /// Sets the individual PP Up count values depending on if a Move is present in the move's slot or not.
     /// </summary>
     /// <param name="pk">Pokémon to modify.</param>
     /// <param name="moves"><see cref="PKM.Moves"/> to use.</param>
@@ -29,7 +29,7 @@ public static class MoveApplicator
     }
 
     /// <summary>
-    /// Sets the individual PP Up count values depending if a Move is present in the move slot or not.
+    /// Sets the individual PP Up count values depending on if a Move is present in the move slot or not.
     /// </summary>
     /// <param name="pk">Pokémon to modify.</param>
     public static void SetMaximumPPUps(this PKM pk)
@@ -64,8 +64,6 @@ public static class MoveApplicator
         pk.SetMoves(moves);
         if (maxPP && Legal.IsPPUpAvailable(pk))
             pk.SetMaximumPPUps(moves);
-        else
-            pk.SetMaximumPPCurrent(moves);
         pk.FixMoves();
     }
 
@@ -94,22 +92,4 @@ public static class MoveApplicator
         pk.Move3_PP = moves.Move3 == 0 ? 0 : pk.GetMovePP(moves.Move3, pk.Move3_PPUps);
         pk.Move4_PP = moves.Move4 == 0 ? 0 : pk.GetMovePP(moves.Move4, pk.Move4_PPUps);
     }
-
-    /// <summary>
-    /// Updates the individual PP count values for each move slot based on the maximum possible value.
-    /// </summary>
-    /// <param name="pk">Pokémon to modify.</param>
-    public static void SetMaximumPPCurrent(this PKM pk)
-    {
-        Span<ushort> moves = stackalloc ushort[4];
-        pk.GetMoves(moves);
-        pk.SetMaximumPPCurrent(moves);
-    }
-
-    /// <summary>
-    /// Refreshes the Move PP for the desired move.
-    /// </summary>
-    /// <param name="pk">Pokémon to modify.</param>
-    /// <param name="index">Move PP to refresh.</param>
-    public static void SetSuggestedMovePP(this PKM pk, int index) => pk.HealPPIndex(index);
 }

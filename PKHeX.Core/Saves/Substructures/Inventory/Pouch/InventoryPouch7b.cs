@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -6,14 +7,13 @@ namespace PKHeX.Core;
 /// <summary>
 /// Inventory Pouch used by <see cref="GameVersion.GG"/>
 /// </summary>
-public sealed class InventoryPouch7b : InventoryPouch
+public sealed class InventoryPouch7b(InventoryType type, IItemStorage info, int maxCount, int offset, [ConstantExpected] int size)
+    : InventoryPouch(type, info, maxCount, offset, size)
 {
     public bool SetNew { get; set; }
-    private int[] OriginalItems = Array.Empty<int>();
+    private int[] OriginalItems = [];
 
     public override InventoryItem7b GetEmpty(int itemID = 0, int count = 0) => new() { Index = itemID, Count = count };
-
-    public InventoryPouch7b(InventoryType type, IItemStorage info, int maxCount, int offset, int size) : base(type, info, maxCount, offset, size) { }
 
     public override void GetPouch(ReadOnlySpan<byte> data)
     {
@@ -31,8 +31,7 @@ public sealed class InventoryPouch7b : InventoryPouch
 
     public override void SetPouch(Span<byte> data)
     {
-        if (Items.Length != PouchDataSize)
-            throw new ArgumentException("Item array length does not match original pouch size.");
+        ArgumentOutOfRangeException.ThrowIfNotEqual(Items.Length, PouchDataSize);
 
         var span = data[Offset..];
         var items = (InventoryItem7b[])Items;
@@ -63,7 +62,7 @@ public sealed class InventoryPouch7b : InventoryPouch
             // mixed regular battle items & mega stones
             case InventoryType.BattleItems when item > 100:
             // mixed regular items & key items
-            case InventoryType.Items when ItemStorage7GG.Pouch_Regular_GG_Key.Contains((ushort)item):
+            case InventoryType.Items when ItemStorage7GG.Key.Contains((ushort)item):
                 return Math.Min(1, requestVal);
 
             default:

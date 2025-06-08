@@ -4,53 +4,65 @@ using static PKHeX.Core.LegalityCheckStrings;
 namespace PKHeX.Core;
 
 /// <summary>
-/// Verifies the <see cref="PKM.OT_Name"/>.
+/// Verifies the <see cref="PKM.OriginalTrainerName"/>.
 /// </summary>
 public sealed class TrainerNameVerifier : Verifier
 {
     protected override CheckIdentifier Identifier => CheckIdentifier.Trainer;
 
     private static readonly string[] SuspiciousOTNames =
-    {
+    [
         "PKHeX",
         "ＰＫＨｅＸ",
-    };
+    ];
 
     public override void Verify(LegalityAnalysis data)
     {
         var pk = data.Entity;
-        var enc = data.EncounterMatch;
+        var enc = data.EncounterOriginal;
         if (!IsPlayerOriginalTrainer(enc))
             return; // already verified
 
-        var ot = pk.OT_Name;
-        if (ot.Length == 0)
+        Span<char> trainer = stackalloc char[pk.TrashCharCountTrainer];
+        int len = pk.LoadString(pk.OriginalTrainerTrash, trainer);
+        if (len == 0)
+        {
             data.AddLine(GetInvalid(LOTShort));
+            return;
+        }
+        trainer = trainer[..len];
+        if (trainer.Contains('\uffff') && pk is { Format: 4 })
+        {
+            data.AddLine(GetInvalid("Trainer Name: Unknown Character"));
+            return;
+        }
 
-        if (IsOTNameSuspicious(ot))
+        if (IsOTNameSuspicious(trainer))
         {
             data.AddLine(Get(LOTSuspicious, Severity.Fishy));
         }
 
         if (pk.VC)
         {
-            VerifyOTG1(data);
+            VerifyOTGB(data);
         }
-        else if (ot.Length > Legal.GetMaxLengthOT(data.Info.Generation, (LanguageID)pk.Language))
+        else if (trainer.Length > Legal.GetMaxLengthOT(enc.Generation, (LanguageID)pk.Language))
         {
-            if (!IsEdgeCaseLength(pk, data.EncounterOriginal, ot))
+            if (!IsEdgeCaseLength(pk, enc, trainer))
                 data.AddLine(Get(LOTLong, Severity.Invalid));
         }
 
-        if (ParseSettings.CheckWordFilter)
+        if (ParseSettings.Settings.WordFilter.IsEnabled(pk.Format))
         {
-            if (WordFilter.IsFiltered(ot, out var badPattern))
-                data.AddLine(GetInvalid($"Wordfilter: {badPattern}"));
-            if (ContainsTooManyNumbers(ot, data.Info.Generation))
-                data.AddLine(GetInvalid("Wordfilter: Too many numbers."));
+            if (WordFilter.IsFiltered(trainer, out var badPattern, pk.Context, enc.Context))
+                data.AddLine(GetInvalid($"Word Filter: {badPattern}"));
+            if (ContainsTooManyNumbers(trainer, enc.Generation))
+                data.AddLine(GetInvalid("Word Filter: Too many numbers."));
 
-            if (WordFilter.IsFiltered(pk.HT_Name, out badPattern))
-                data.AddLine(GetInvalid($"Wordfilter: {badPattern}"));
+            Span<char> ht = stackalloc char[pk.TrashCharCountTrainer];
+            int nameLen = pk.LoadString(pk.HandlingTrainerTrash, ht);
+            if (WordFilter.IsFiltered(ht[..nameLen], out badPattern, pk.Context)) // HT context is always the current context
+                data.AddLine(GetInvalid($"Word Filter: {badPattern}"));
         }
     }
 
@@ -59,17 +71,17 @@ public sealed class TrainerNameVerifier : Verifier
     /// </summary>
     internal static bool IsPlayerOriginalTrainer(IEncounterable enc) => enc switch
     {
-        EncounterTrade { HasTrainerName: true } => false,
+        IFixedTrainer { IsFixedTrainer: true } => false,
         MysteryGift { IsEgg: false } => false,
         EncounterStatic5N => false,
         _ => true,
     };
 
-    public static bool IsEdgeCaseLength(PKM pk, IEncounterTemplate e, string ot)
+    public static bool IsEdgeCaseLength(PKM pk, IEncounterTemplate e, ReadOnlySpan<char> ot)
     {
-        if (e.EggEncounter)
+        if (e.IsEgg)
         {
-            if (e is WC3 wc3 && pk.IsEgg && wc3.OT_Name == ot)
+            if (e is EncounterGift3 wc3 && pk.IsEgg && ot.SequenceEqual(wc3.OriginalTrainerName))
                 return true; // Fixed OT Mystery Gift Egg
             bool eggEdge = pk.IsEgg ? pk.IsTradedEgg || pk.Format == 3 : pk.WasTradedEgg;
             if (!eggEdge)
@@ -78,20 +90,31 @@ public sealed class TrainerNameVerifier : Verifier
             return ot.Length <= len;
         }
 
-        if (e is EncounterTrade { HasTrainerName: true })
+        if (e is IFixedTrainer { IsFixedTrainer: true })
             return true; // already verified
-
-        if (e is MysteryGift mg && mg.OT_Name.Length == ot.Length)
-            return true; // Mattle Ho-Oh
         return false;
     }
 
-    public void VerifyOTG1(LegalityAnalysis data)
+    public void VerifyOTGB(LegalityAnalysis data)
     {
         var pk = data.Entity;
-        string tr = pk.OT_Name;
+        var enc = data.EncounterOriginal;
+        if (pk.OriginalTrainerGender == 1)
+        {
+            // Transferring from RBY->Gen7 won't have OT Gender in PK1, nor will PK1 originated encounters.
+            // GSC Trades already checked for OT Gender matching.
+            if (pk is { Format: > 2, VC1: true } || enc is { Generation: 1 } or EncounterGift2 { IsEgg: false })
+                data.AddLine(GetInvalid(LG1OTGender));
+        }
 
-        if (tr.Length == 0)
+        if (enc is IFixedTrainer { IsFixedTrainer: true })
+            return; // already verified
+
+        Span<char> trainer = stackalloc char[pk.TrashCharCountTrainer];
+        int len = pk.LoadString(pk.OriginalTrainerTrash, trainer);
+        trainer = trainer[..len];
+
+        if (trainer.Length == 0)
         {
             if (pk is SK2 {TID16: 0, IsRental: true})
             {
@@ -103,50 +126,56 @@ public sealed class TrainerNameVerifier : Verifier
                 return;
             }
         }
-
-        VerifyG1OTWithinBounds(data, tr);
-
-        if (pk.OT_Gender == 1)
-        {
-            if (pk is ICaughtData2 {CaughtData:0} or { Format: > 2, VC1: true } || data is {EncounterOriginal: {Generation:1} or EncounterStatic2E {IsGift:true}})
-                data.AddLine(GetInvalid(LG1OTGender));
-        }
+        VerifyGBOTWithinBounds(data, trainer);
     }
 
-    private void VerifyG1OTWithinBounds(LegalityAnalysis data, ReadOnlySpan<char> str)
+    private void VerifyGBOTWithinBounds(LegalityAnalysis data, ReadOnlySpan<char> str)
     {
-        if (StringConverter12.GetIsG1English(str))
+        var pk = data.Entity;
+
+        // Filtered OT names use unavailable characters and can be too long
+        if (pk.Format >= 7)
         {
-            if (str.Length > 7 && data.EncounterOriginal is not EncounterTradeGB) // OT already verified; GER shuckle has 8 chars
-                data.AddLine(GetInvalid(LOTLong));
+            // Check if it was profanity filtered.
+            var filtered = StringConverter12Transporter.GetFilteredOT(pk.Language, pk.Version);
+            if (str.SequenceEqual(filtered))
+                return;
         }
-        else if (StringConverter12.GetIsG1Japanese(str))
+
+        if (pk.Japanese)
         {
             if (str.Length > 5)
                 data.AddLine(GetInvalid(LOTLong));
+            if (!StringConverter1.GetIsJapanese(str))
+                data.AddLine(GetInvalid(LG1CharOT));
         }
-        else if (data.Entity.Korean && StringConverter2KOR.GetIsG2Korean(str))
+        else if (pk.Korean)
         {
             if (str.Length > 5)
                 data.AddLine(GetInvalid(LOTLong));
+            if (!StringConverter2KOR.GetIsKorean(str))
+                data.AddLine(GetInvalid(LG1CharOT));
         }
-        else if (data.EncounterOriginal is not EncounterTrade2) // OT already verified; SPA Shuckle/Voltorb transferred from French can yield 2 inaccessible chars
+        else
         {
-            data.AddLine(GetInvalid(LG1CharOT));
+            if (str.Length > 7)
+                data.AddLine(GetInvalid(LOTLong));
+            if (!StringConverter1.GetIsEnglish(str))
+                data.AddLine(GetInvalid(LG1CharOT));
         }
     }
 
-    private static bool IsOTNameSuspicious(string name)
+    private static bool IsOTNameSuspicious(ReadOnlySpan<char> name)
     {
         foreach (var s in SuspiciousOTNames)
         {
-            if (s.StartsWith(name, StringComparison.InvariantCultureIgnoreCase))
+            if (name.StartsWith(s, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
         return false;
     }
 
-    public static bool ContainsTooManyNumbers(string str, int originalGeneration)
+    public static bool ContainsTooManyNumbers(ReadOnlySpan<char> str, byte originalGeneration)
     {
         if (originalGeneration <= 3)
             return false; // no limit from these generations
@@ -157,19 +186,12 @@ public sealed class TrainerNameVerifier : Verifier
         return count > max;
     }
 
-    private static int GetNumberCount(string str)
+    private static int GetNumberCount(ReadOnlySpan<char> str)
     {
-        static bool IsNumber(char c)
-        {
-            if ('０' <= c)
-                return c <= '９';
-            return (uint)(c - '0') <= 9;
-        }
-
         int ctr = 0;
         foreach (var c in str)
         {
-            if (IsNumber(c))
+            if (char.IsNumber(c))
                 ++ctr;
         }
         return ctr;

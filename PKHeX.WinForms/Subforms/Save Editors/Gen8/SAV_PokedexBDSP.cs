@@ -12,7 +12,7 @@ public partial class SAV_PokedexBDSP : Form
     private readonly SAV8BS SAV;
     private readonly Zukan8b Zukan;
 
-    public SAV_PokedexBDSP(SaveFile sav)
+    public SAV_PokedexBDSP(SAV8BS sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
@@ -26,7 +26,7 @@ public partial class SAV_PokedexBDSP : Form
 
         // Fill List
         CB_Species.InitializeBinding();
-        CB_Species.DataSource = new BindingSource(GameInfo.FilteredSources.Species.Skip(1).ToList(), null);
+        CB_Species.DataSource = new BindingSource(GameInfo.FilteredSources.Species.Skip(1).ToList(), string.Empty);
 
         for (int i = 1; i < SAV.MaxSpeciesID + 1; i++)
             LB_Species.Items.Add($"{i:000} - {GameInfo.Strings.specieslist[i]}");
@@ -182,6 +182,7 @@ public partial class SAV_PokedexBDSP : Form
             Zukan.CompleteDex(ModifierKeys == Keys.Control);
 
         GetEntry();
+        System.Media.SystemSounds.Asterisk.Play();
     }
 
     private void ModifyAllForms(object sender, EventArgs e)

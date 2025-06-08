@@ -18,7 +18,7 @@ public static class MoveBreed
     /// <param name="moves">Moves the egg supposedly originated with</param>
     /// <param name="origins">Output buffer indicating the origin of each index within <see cref="moves"/></param>
     /// <returns>True if the moves are ordered correctly, without missing moves.</returns>
-    public static bool Validate(int generation, ushort species, byte form, GameVersion version, ReadOnlySpan<ushort> moves, Span<byte> origins) => generation switch
+    public static bool Validate(byte generation, ushort species, byte form, GameVersion version, ReadOnlySpan<ushort> moves, Span<byte> origins) => generation switch
     {
         2 => MoveBreed2.Validate(species, version, moves, origins),
         3 => MoveBreed3.Validate(species, version, moves, origins),
@@ -31,7 +31,7 @@ public static class MoveBreed
     /// Gets the expected moves the egg should come with, using an input of requested <see cref="moves"/> that are requested to be in the output.
     /// </summary>
     /// <param name="moves">Moves requested to be in the expected moves result</param>
-    /// <param name="enc">Encounter detail interface wrapper; should always be <see cref="EncounterEgg"/>.</param>
+    /// <param name="enc">Encounter detail interface wrapper; should always be <see cref="IEncounterEgg"/> or <see cref="EncounterInvalid"/>.</param>
     /// <param name="result">Result moves that are valid</param>
     /// <remarks>Validates the requested moves first prior to trying a more expensive computation.</remarks>
     /// <returns>True if the <see cref="result"/> is valid using the input <see cref="moves"/>. If not valid, the <see cref="result"/> will be base egg moves, probably valid.</returns>
@@ -53,13 +53,13 @@ public static class MoveBreed
     /// <remarks>Uses inputs calculated from <see cref="Validate"/>. Don't call this directly unless already parsed the input as invalid.</remarks>
     /// <returns>Expected moves for the encounter</returns>
     /// <inheritdoc cref="Validate"/>
-    public static bool GetExpectedMoves(int generation, ushort species, byte form, GameVersion version, ReadOnlySpan<ushort> moves, Span<byte> origins, Span<ushort> result)
+    public static bool GetExpectedMoves(byte generation, ushort species, byte form, GameVersion version, ReadOnlySpan<ushort> moves, Span<byte> origins, Span<ushort> result)
     {
         // Try rearranging the order of the moves.
         // Group and order moves by their possible origin flags.
         Span<MoveOrder> expected = stackalloc MoveOrder[moves.Length];
         GetSortedMoveOrder(generation, moves, origins, expected);
-        // Don't mutate the expected list any more.
+        // Don't mutate the expected list anymore.
 
         // Temp buffer for the validation origin flags, unused in current scope but used inside the called method.
         Span<byte> temp = stackalloc byte[moves.Length];
@@ -94,7 +94,7 @@ public static class MoveBreed
         return false;
     }
 
-    private static void GetSortedMoveOrder(int generation, ReadOnlySpan<ushort> moves, Span<byte> origins, Span<MoveOrder> expected)
+    private static void GetSortedMoveOrder(byte generation, ReadOnlySpan<ushort> moves, Span<byte> origins, Span<MoveOrder> expected)
     {
         if (generation == 2)
         {
@@ -181,8 +181,7 @@ public static class MoveBreed
         for (var i = 0; i < notBaseCount; i++)
             result[ctr++] = notBase[i];
         // Then clear the remainder
-        for (int i = ctr; i < result.Length; i++)
-            result[i] = 0;
+        result[ctr..].Clear();
     }
 
     /// <summary>

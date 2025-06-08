@@ -62,6 +62,15 @@ public static class XDRNG
     private const uint  Add9  = unchecked((Add8 * Mult) + Add);   // 0xA8D2826B
     private const uint rAdd9  = unchecked((rAdd8 * rMult) + rAdd);// 0x46C51ED9
 
+    private const uint rMult10 = unchecked(rMult9 * rMult);        // 0xC6169599
+    private const uint rAdd10  = unchecked((rAdd9 * rMult) + rAdd);// 0x3E86BD4E
+
+    private const uint rMult11 = unchecked(rMult10 * rMult);
+    private const uint rAdd11  = unchecked((rAdd10 * rMult) + rAdd);
+
+    private const uint rMult12 = unchecked(rMult11 * rMult);
+    private const uint rAdd12  = unchecked((rAdd11 * rMult) + rAdd);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next (uint seed) => (seed * Mult ) + Add ;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next2(uint seed) => (seed * Mult2) + Add2;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next3(uint seed) => (seed * Mult3) + Add3;
@@ -81,6 +90,67 @@ public static class XDRNG
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev7(uint seed) => (seed * rMult7) + rAdd7;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev8(uint seed) => (seed * rMult8) + rAdd8;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev9(uint seed) => (seed * rMult9) + rAdd9;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev10(uint seed) => (seed * rMult10) + rAdd10;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev11(uint seed) => (seed * rMult11) + rAdd11;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev12(uint seed) => (seed * rMult12) + rAdd12;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next1000(uint seed) => 0xDD867B21 * seed + 0xD252C5A8;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev1000(uint seed) => 0x251CC8E1 * seed + 0x94750758;
+
+    /// <summary>
+    /// Gets the upper 16 bits of the next RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to advance one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Next16(ref uint seed)
+    {
+        seed = Next(seed);
+        return seed >> 16;
+    }
+
+    /// <summary>
+    /// Gets the upper 5 bits of the next RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to advance one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Next5(ref uint seed)
+    {
+        seed = Next(seed);
+        return seed >> 27;
+    }
+
+    /// <summary>
+    /// Gets the upper 0x7FFF bits of the next RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to advance one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Next15(ref uint seed)
+    {
+        seed = Next(seed);
+        return (seed >> 16) & 0x7FFF;
+    }
+
+    /// <summary>
+    /// Gets the upper 16 bits of the previous RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to reverse one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Prev16(ref uint seed)
+    {
+        seed = Prev(seed);
+        return seed >> 16;
+    }
+
+    /// <summary>
+    /// Gets the upper 16 bits of the previous RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to reverse one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Prev15(ref uint seed)
+    {
+        seed = Prev(seed);
+        return (seed >> 16) & 0x7FFF;
+    }
 
     /// <summary>
     /// Advances the RNG seed to the next state value a specified amount of times.
@@ -114,35 +184,17 @@ public static class XDRNG
     /// Generates an IV for each RNG call using the top 5 bits of frame seeds.
     /// </summary>
     /// <param name="seed">RNG seed</param>
-    /// <param name="IVs">Expected IVs</param>
     /// <returns>True if all match.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static bool GetSequentialIVsUInt32(uint seed, ReadOnlySpan<uint> IVs)
+    public static uint GetSequentialIV32(uint seed)
     {
-        foreach (var iv in IVs)
+        uint result = 0;
+        for (int i = 0; i < 6; i++)
         {
-            seed = Next(seed);
-            var expect = seed >> 27;
-            if (iv != expect)
-                return false;
+            var value = Next5(ref seed); // extract top 5 bits
+            result |= value << (i * 5);
         }
-        return true;
-    }
-
-    /// <summary>
-    /// Generates an IV for each RNG call using the top 5 bits of frame seeds.
-    /// </summary>
-    /// <param name="seed">RNG seed</param>
-    /// <param name="ivs">Buffer to store generated values</param>
-    /// <returns>Array of 6 IVs as <see cref="int"/>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void GetSequentialIVsInt32(uint seed, Span<int> ivs)
-    {
-        for (int i = 0; i < ivs.Length; i++)
-        {
-            seed = Next(seed);
-            ivs[i] = (int)(seed >> 27);
-        }
+        return result;
     }
 
     // By abusing the innate properties of a LCG, we can calculate the seed from a known result.
@@ -151,6 +203,7 @@ public static class XDRNG
     // Instead of using yield and iterators, we calculate all results in a tight loop and return the count found.
     public const int MaxCountSeedsPID = 2;
     public const int MaxCountSeedsIV = 6;
+    public const int MaxCountSeedsChannel = 12;
 
     // Euclidean division constants
     private const uint Sub = Add - 0xFFFF;
@@ -231,5 +284,128 @@ public static class XDRNG
             }
         }
         return ctr;
+    }
+
+    /// <summary>
+    /// Finds all the origin seeds for 6 successive rand() calls generating IVs (highest 5 bits of result).
+    /// </summary>
+    /// <inheritdoc cref="GetSeeds(Span{uint}, uint, uint, uint, uint, uint, uint)"/>
+    public static int GetSeedsChannel(Span<uint> result, uint hp, uint atk, uint def, uint spa, uint spd, uint spe)
+    {
+        // Mult(j) = Mult^j
+        // Add(j) = Add * (Mult^0 + Mult^1 + ... + Mult^(j-1))
+        // Using j = 3 and XDRNG gives Mult = 0x45c82be5 and Add = 0xd2f65b55
+        const uint mult = Mult3; // Modified mult (3 advances)
+        const uint sub = 0xcaf65b56; // Modified add - 0x7ffffff
+        const ulong b = 0x22e415e_ea37d41a; // (Modified mult + 1) * 0x7ffffff
+
+        const ulong prime = 3;
+        const ulong add = 0x3_0000_0000; // prime * 0x1_0000_0000
+        const uint rmax = 0x__1800_0000; // prime * 0x__0800_0000
+        const ulong skip = 0x661D29; // prime * 2^32 % mult
+
+        uint first = hp << 27;
+        uint t = (((spe << 27) - mult * first) - sub);
+        uint kmax = (uint)((b - t) >> 32);
+        ulong x = (t * prime) % mult;
+
+        int ctr = 0;
+        for (ulong k = 0; k <= kmax;)
+        {
+            var r = (x + skip * k) % mult;
+            var m = r % prime;
+            if (m != 0)
+            {
+                m = m == 1 ? 2u : 1u;
+                r += m * skip;
+                k += (byte)m;
+            }
+
+            var tmp = k << 32 | t;
+            while (r < rmax && k <= kmax)
+            {
+                uint seed = first | (uint)(tmp / mult); // hp
+                if (Next5(ref seed) == atk)
+                {
+                    if (Next5(ref seed) == def)
+                    {
+                        _ = Next5(ref seed); // spe
+                        if (Next5(ref seed) == spa)
+                        {
+                            if (Next5(ref seed) == spd)
+                                result[ctr++] = Prev12(seed); // unroll to origin
+                        }
+                    }
+                }
+
+                r += prime * skip;
+                k += prime;
+                tmp += add;
+            }
+
+            // Rounding up without using floats
+            k += ((mult - r) + skip - 1) / skip;
+        }
+
+        return ctr;
+    }
+
+    /// <summary>
+    /// Multiplication constants for jumping 2^(index) frames forward.
+    /// </summary>
+    private static ReadOnlySpan<uint> JumpMult =>
+	[
+        0x000343FD, 0xA9FC6809, 0xDDFF5051, 0xF490B9A1, 0x43BA1741, 0xD290BE81, 0x82E3BD01, 0xBF507A01,
+        0xF8C4F401, 0x7A19E801, 0x1673D001, 0xB5E7A001, 0x8FCF4001, 0xAF9E8001, 0x9F3D0001, 0x3E7A0001,
+        0x7CF40001, 0xF9E80001, 0xF3D00001, 0xE7A00001, 0xCF400001, 0x9E800001, 0x3D000001, 0x7A000001,
+        0xF4000001, 0xE8000001, 0xD0000001, 0xA0000001, 0x40000001, 0x80000001, 0x00000001, 0x00000001,
+    ];
+
+    /// <summary>
+    /// Addition constants for jumping 2^(index) frames forward.
+    /// </summary>
+    private static ReadOnlySpan<uint> JumpAdd =>
+	[
+        0x00269EC3, 0x1E278E7A, 0x098520C4, 0x7E1DBEC8, 0x3E314290, 0x824E1920, 0x844E8240, 0xFD864480,
+        0xDFB18900, 0xD9F71200, 0x5E3E2400, 0x65BC4800, 0x70789000, 0x74F12000, 0x39E24000, 0xB3C48000,
+        0x67890000, 0xCF120000, 0x9E240000, 0x3C480000, 0x78900000, 0xF1200000, 0xE2400000, 0xC4800000,
+        0x89000000, 0x12000000, 0x24000000, 0x48000000, 0x90000000, 0x20000000, 0x40000000, 0x80000000,
+    ];
+
+    /// <summary>
+    /// Computes the amount of advances (distance) between two seeds.
+    /// </summary>
+    /// <param name="start">Initial seed</param>
+    /// <param name="end">Final seed</param>
+    /// <returns>Count of advances from <see cref="start"/> to arrive at <see cref="end"/>.</returns>
+    /// <remarks>
+    /// To compute the distance, we abuse the fact that a given state bit at index `i` has a periodicity of `2^i`.
+    /// If the bit is present in the state, we must include that bit in our distance result.
+    /// The algorithmic complexity is O(log(n)) for finding n advancements.
+    /// We store a precomputed table of multiply &amp; addition constants (skip 2^n) to avoid computing them on the fly.
+    /// </remarks>
+    public static uint GetDistance(in uint start, in uint end)
+    {
+        int i = 0;
+        uint bit = 1u;
+
+        uint distance = 0u;
+        uint seed = start;
+
+        // Instead of doing a for loop which always does 32 iterations, check to see if we end up at the end seed.
+        // If we do, we can return after [0..31] jumps.
+        // Due to the inputs, we normally have low distance, so normally this won't take more than a few loops.
+        while (seed != end)
+        {
+            // 50:50 odds of this being true.
+            if (((seed ^ end) & bit) != 0)
+            {
+                seed = (seed * JumpMult[i]) + JumpAdd[i];
+                distance |= bit;
+            }
+            i++;
+            bit <<= 1;
+        }
+        return distance;
     }
 }

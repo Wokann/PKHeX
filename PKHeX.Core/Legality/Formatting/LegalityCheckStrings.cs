@@ -57,8 +57,10 @@ public static class LegalityCheckStrings
 
     public static string L_XOT { get; set; } = "OT";
     public static string L_XHT { get; set; } = "HT";
+    public static string L_XNickname { get; set; } = "Nickname";
     public static string L_XKorean { get; set; } = "Korean";
     public static string L_XKoreanNon { get; set; } = "Non-Korean";
+    public static string L_XLocation { get; set; } = "Location";
     public static string L_XEnigmaBerry_0 { get; set; } = "{0} Berry";
     public static string L_XMatches0_1 { get; set; } = "Matches: {0} {1}";
     public static string L_XWurmpleEvo_0 { get; set; } = "Wurmple Evolution: {0}";
@@ -99,6 +101,8 @@ public static class LegalityCheckStrings
     public static string LContestSheenTooLow_0 { get; set; } = "Contest Stat Sheen should be >= {0}.";
     public static string LContestSheenTooHigh_0 { get; set; } = "Contest Stat Sheen should be <= {0}.";
 
+    public static string LDateOutsideConsoleWindow { get; set; } = "Local Date is outside of console's local time window.";
+    public static string LDateTimeClockInvalid { get; set; } = "Local Time is not a valid timestamp.";
     public static string LDateOutsideDistributionWindow { get; set; } = "Met Date is outside of distribution window.";
 
     public static string LEggContest { get; set; } = "Cannot increase Contest Stats of an Egg.";
@@ -366,6 +370,7 @@ public static class LegalityCheckStrings
     public static string LMoveNincada { get; set; } = "Only one Ninjask move allowed.";
     public static string LMoveNincadaEvo { get; set; } = "Learned by evolving Nincada into Ninjask.";
     public static string LMoveNincadaEvoF_0 { get; set; } = "Learned by evolving Nincada into Ninjask in Generation {0}.";
+    public static string LMovePPExpectHealed_0 { get; set; } = "Move {0} PP is below the amount expected.";
     public static string LMovePPTooHigh_0 { get; set; } = "Move {0} PP is above the amount allowed.";
     public static string LMovePPUpsTooHigh_0 { get; set; } = "Move {0} PP Ups is above the amount allowed.";
     public static string LMoveSourceShared { get; set; } = "Shared Non-Relearn Move.";
@@ -433,7 +438,7 @@ public static class LegalityCheckStrings
     public static string LPIDGenderMismatch { get; set; } = "PID-Gender mismatch.";
     public static string LPIDNatureMatch { get; set; } = "Nature matches PID.";
     public static string LPIDNatureMismatch { get; set; } = "PID-Nature mismatch.";
-    public static string LPIDTypeMismatch { get; set; } = "Encounter Type PID mismatch.";
+    public static string LPIDTypeMismatch { get; set; } = "PID+ correlation does not match what was expected for the Encounter's type.";
     public static string LPIDZero { get; set; } = "PID is not set.";
 
     public static string LPokerusDaysTooHigh_0 { get; set; } = "Pokérus Days Remaining value is too high; expected <= {0}.";
@@ -461,6 +466,9 @@ public static class LegalityCheckStrings
     public static string LStatNobleInvalid { get; set; } = "Noble Flag mismatch.";
     public static string LStatAlphaInvalid { get; set; } = "Alpha Flag mismatch.";
 
+    public static string LStoredSourceEgg { get; set; } = "Egg must be in Box or Party.";
+    public static string LStoredSourceInvalid_0 { get; set; } = "Invalid Stored Source: {0}";
+
     public static string LSuperComplete { get; set; } = "Super Training complete flag mismatch.";
     public static string LSuperDistro { get; set; } = "Distribution Super Training missions are not released.";
     public static string LSuperEgg { get; set; } = "Can't Super Train an Egg.";
@@ -474,15 +482,19 @@ public static class LegalityCheckStrings
 
     public static string LTradeNotAvailable { get; set; } = "Encounter cannot be traded to the active trainer.";
 
+    public static string LTrainerIDNoSeed { get; set; } = "Trainer ID is not obtainable from any RNG seed.";
+
     public static string LTransferBad { get; set; } = "Incorrectly transferred from previous generation.";
 
     public static string LTransferCurrentHandlerInvalid { get; set; } = "Invalid Current handler value, trainer details for save file expected another value.";
     public static string LTransferEgg { get; set; } = "Can't transfer Eggs between Generations.";
     public static string LTransferEggLocationTransporter { get; set; } = "Invalid Met Location, expected Poké Transfer.";
     public static string LTransferEggMetLevel { get; set; } = "Invalid Met Level for transfer.";
+    public static string LTransferEggVersion { get; set; } = "Can't transfer Eggs to this game.";
     public static string LTransferFlagIllegal { get; set; } = "Flagged as illegal by the game (glitch abuse).";
-    public static string LTransferHTFlagRequired { get; set; } = "Current handler cannot be past gen OT for transferred specimen.";
+    public static string LTransferHTFlagRequired { get; set; } = "Current handler cannot be the OT.";
     public static string LTransferHTMismatchName { get; set; } = "Handling trainer does not match the expected trainer name.";
+    public static string LTransferHTMismatchGender { get; set; } = "Handling trainer does not match the expected trainer gender.";
     public static string LTransferHTMismatchLanguage { get; set; } = "Handling trainer does not match the expected trainer language.";
     public static string LTransferMet { get; set; } = "Invalid Met Location, expected Poké Transfer or Crown.";
     public static string LTransferNotPossible { get; set; } = "Unable to transfer into current format from origin format.";
@@ -498,6 +510,14 @@ public static class LegalityCheckStrings
     public static string LTransferPIDECXor { get; set; } = "Encryption Constant matches shinyxored PID.";
     public static string LTransferTrackerMissing { get; set; } = "Pokémon HOME Transfer Tracker is missing.";
     public static string LTransferTrackerShouldBeZero { get; set; } = "Pokémon HOME Transfer Tracker should be 0.";
+
+    public static string LTrashBytesExpected_0 { get; set; } = "Expected Trash Bytes: {0}";
+    public static string LTrashBytesExpected { get; set; } = "Expected Trash Bytes.";
+    public static string LTrashBytesMismatchInitial { get; set; } = "Expected initial trash bytes to match the encounter.";
+    public static string LTrashBytesMissingTerminator { get; set; } = "Final terminator missing.";
+    public static string LTrashBytesShouldBeEmpty { get; set; } = "Trash Bytes should be cleared.";
+    public static string LTrashBytesUnexpected { get; set; } = "Unexpected Trash Bytes.";
+
     #endregion
 
 }

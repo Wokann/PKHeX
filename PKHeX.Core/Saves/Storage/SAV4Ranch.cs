@@ -13,7 +13,6 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
     protected override int SIZE_STORED => PokeCrypto.SIZE_4RSTORED;
     protected override int SIZE_PARTY => PokeCrypto.SIZE_4RSTORED;
     public int MaxToyID => (int) ((SaveRevision == 0) ? RanchToyType.Poke_Ball : RanchToyType.Water);
-
     public int SaveRevision => Version == GameVersion.DP ? 0 : 1;
     public string SaveRevisionString => Version == GameVersion.DP ? "-DP" : "-Pt";
 
@@ -26,12 +25,12 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
     private readonly int TrainerMiiCountOffset;
     private readonly int PokemonCountOffset;
 
-    public override int SlotCount => RanchLevel.GetSlotCount(CurrentRanchLevelIndex);
+    public override int SlotCount => RanchLevel.GetSlotCount(CurrentRanchLevel);
     public override int BoxCount => (int)Math.Ceiling((decimal)SlotCount / SlotsPerBox);
     public int MiiCount { get; }
     public int TrainerMiiCount { get; }
-    public int MaxToyCount => RanchLevel.GetMaxToyCount(CurrentRanchLevelIndex);
-    public int MaxMiiCount => RanchLevel.GetMaxMiiCount(CurrentRanchLevelIndex);
+    public int MaxToyCount => RanchLevel.GetMaxToyCount(CurrentRanchLevel);
+    public int MaxMiiCount => RanchLevel.GetMaxMiiCount(CurrentRanchLevel);
 
     private readonly RanchToy BlankToy = new(new byte[RanchToy.SIZE]);
 
@@ -42,13 +41,15 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
     public override string Extension => ".bin";
 
     protected override RK4 GetPKM(byte[] data) => new(data);
-    public override StorageSlotSource GetSlotFlags(int index) => index >= SlotCount ? StorageSlotSource.Locked : StorageSlotSource.None;
-    protected override bool IsSlotSwapProtected(int box, int slot) => IsSlotOverwriteProtected(box, slot);
+    public override StorageSlotSource GetBoxSlotFlags(int index) => index >= SlotCount ? StorageSlotSource.Locked : StorageSlotSource.None;
+    protected override bool IsSlotSwapProtected(int box, int slot) => IsBoxSlotOverwriteProtected(box, slot);
     public override bool IsPKMPresent(ReadOnlySpan<byte> data) => EntityDetection.IsPresentSAV4Ranch(data);
 
+    private readonly GameVersion _version;
+    public override GameVersion Version { get => _version; set { } }
     public SAV4Ranch(byte[] data) : base(data, typeof(RK4), 0)
     {
-        Version = Data.Length == SaveUtil.SIZE_G4RANCH_PLAT ? GameVersion.Pt : GameVersion.DP;
+        _version = Data.Length == SaveUtil.SIZE_G4RANCH_PLAT ? GameVersion.Pt : GameVersion.DP;
 
         OT = GetString(Data.AsSpan(0x770, 0x12));
 
@@ -56,7 +57,7 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
         // Block 00, Offset = Metadata object
         // Block 01, Offset = Mii Data Array object
         // Block 02, Offset = Mii Link Data Array object
-        // Block 03, Offset = Pokemon Data Array object
+        // Block 03, Offset = Pokémon Data Array object
         // Block 04, Offset = reserved object
 
         // Unpack the binary a little:
@@ -83,8 +84,8 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
 
     private const int ToyBaseOffset = 0x227B;
 
-    public byte CurrentRanchLevelIndex { get => Data[0x5A]; set => Data[0x5A] = value; }
-    public byte PlannedRanchLevelIndex { get => Data[0x5B]; set => Data[0x5B] = value; } // tomorrow's level
+    public int CurrentRanchLevel { get => Data[0x5A] + 1; set => Data[0x5A] = (byte)(value - 1); }
+    public int PlannedRanchLevel { get => Data[0x5B] + 1; set => Data[0x5B] = (byte)(value - 1); } // tomorrow's level
 
     public uint SecondsSince2000 { get => ReadUInt32BigEndian(Data.AsSpan(0x5C)); set => WriteUInt32BigEndian(Data.AsSpan(0x5C), value); }
     public uint TotalSeconds { get => ReadUInt32BigEndian(Data.AsSpan(0x60)); set => WriteUInt32BigEndian(Data.AsSpan(0x60), value); }
@@ -92,18 +93,16 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
 
     public RanchToy GetRanchToy(int index)
     {
-        if ((uint)index >= MaxToyCount)
-            throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)MaxToyCount);
 
         int toyOffset = ToyBaseOffset + (RanchToy.SIZE * index);
-        var data = Data.Slice(toyOffset, RanchToy.SIZE);
+        var data = Data.AsSpan(toyOffset, RanchToy.SIZE).ToArray();
         return new RanchToy(data);
     }
 
     public void SetRanchToy(RanchToy toy, int index)
     {
-        if ((uint)index >= MaxToyCount)
-            throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)MaxToyCount);
         if (((int)toy.ToyType) > MaxToyID) // Ranch will throw "Corrupt Save" error if ToyId is > expected.
             toy = BlankToy;
 
@@ -113,18 +112,16 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
 
     public RanchMii GetRanchMii(int index)
     {
-        if ((uint)index >= MiiCount)
-            throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)MiiCount);
 
         int offset = MiiDataOffset + (RanchMii.SIZE * index);
-        var data = Data.Slice(offset, RanchMii.SIZE);
+        var data = Data.AsSpan(offset, RanchMii.SIZE).ToArray();
         return new RanchMii(data);
     }
 
     public void SetRanchMii(RanchMii trainer, int index)
     {
-        if ((uint)index >= MiiCount)
-            throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)MiiCount);
 
         int offset = MiiDataOffset + (RanchMii.SIZE * index);
         SetData(Data.AsSpan(offset), trainer.Data);
@@ -132,18 +129,16 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
 
     public RanchTrainerMii GetRanchTrainerMii(int index)
     {
-        if ((uint)index >= TrainerMiiCount)
-            throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)TrainerMiiCount);
 
         int offset = TrainerMiiDataOffset + (RanchTrainerMii.SIZE * index);
-        var data = Data.Slice(offset, RanchTrainerMii.SIZE);
+        var data = Data.AsSpan(offset, RanchTrainerMii.SIZE).ToArray();
         return new RanchTrainerMii(data);
     }
 
     public void SetRanchTrainerMii(RanchTrainerMii mii, int index)
     {
-        if ((uint)index >= TrainerMiiCount)
-            throw new ArgumentOutOfRangeException(nameof(index));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)TrainerMiiCount);
 
         int offset = TrainerMiiDataOffset + (RanchTrainerMii.SIZE * index);
         SetData(Data.AsSpan(offset), mii.Data);
@@ -155,7 +150,8 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
     {
         var data = Data.AsSpan();
         var slotCount = GetOccupiedSlotCount();
-        UpdateMetadata(slotCount * SIZE_STORED);
+        int pkStart = PokemonCountOffset + 4;
+        UpdateMetadata(pkStart + (slotCount * SIZE_STORED));
 
         // 20 byte SHA checksum at the top of the file, which covers all data that follows.
         var hash = data[..sha1HashSize];
@@ -179,7 +175,7 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
 
     protected override byte[] DecryptPKM(byte[] data)
     {
-        var pokeData = PokeCrypto.DecryptArray45(data.Slice(0, PokeCrypto.SIZE_4STORED));
+        var pokeData = PokeCrypto.DecryptArray45(data.AsSpan(0, PokeCrypto.SIZE_4STORED));
         var ranchData = data.AsSpan(PokeCrypto.SIZE_4STORED, 0x1C);
         var finalData = new byte[SIZE_STORED];
 
@@ -192,9 +188,9 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
     {
         RK4 rk = (RK4)this.GetCompatiblePKM(pk);
         rk.OwnershipType = type;
-        rk.HT_TID = htTID;
-        rk.HT_SID = htSID;
-        rk.HT_Name = htName;
+        rk.HandlingTrainerTID = htTID;
+        rk.HandlingTrainerSID = htSID;
+        rk.HandlingTrainerName = htName;
 
         WriteBoxSlot(rk, data);
     }
@@ -209,7 +205,7 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
 
         bool isBlank = pk.Data.SequenceEqual(BlankPKM.Data);
         if (!isBlank && rk4.OwnershipType == RanchOwnershipType.None)
-            rk4.OwnershipType = RanchOwnershipType.Hayley; // Pokemon without an Ownership type get erased when the save is loaded. Hayley is considered 'default'.
+            rk4.OwnershipType = RanchOwnershipType.Hayley; // Pokémon without an Ownership type get erased when the save is loaded. Hayley is considered 'default'.
 
         base.WriteBoxSlot(rk4, data);
     }
@@ -254,10 +250,10 @@ public sealed class SAV4Ranch : BulkStorage, ISaveFileRevision
         set { var time = PlayedSpan; PlayedSpan = time - TimeSpan.FromSeconds(time.Seconds) + TimeSpan.FromSeconds(value); }
     }
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter4GC.GetStringUnicode(data);
-
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter4GC.GetStringUnicode(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter4GC.LoadStringUnicode(data, destBuffer);
     public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
-    {
-        return StringConverter4GC.SetStringUnicode(value, destBuffer, maxLength, option);
-    }
+        => StringConverter4GC.SetStringUnicode(value, destBuffer, maxLength, option);
 }

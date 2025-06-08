@@ -11,6 +11,7 @@ public partial class TechRecordEditor : Form
 {
     private readonly ITechRecord Record;
     private readonly PKM Entity;
+    private readonly LegalityAnalysis Legality;
 
     private const int ColumnHasFlag = 0;
     private const int ColumnIndex = 1;
@@ -20,41 +21,50 @@ public partial class TechRecordEditor : Form
 
     public TechRecordEditor(ITechRecord techRecord, PKM pk)
     {
-        Record = techRecord;
-        Entity = pk;
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
-        PopulateRecords(pk.Context);
+
+        Record = techRecord;
+        Entity = pk;
+        Legality = new LegalityAnalysis(pk);
+
+        Span<ushort> currentMoves = stackalloc ushort[4];
+        pk.GetMoves(currentMoves);
+        PopulateRecords(pk.Context, currentMoves);
         LoadRecords();
     }
 
-    private void PopulateRecords(EntityContext context)
+    private void PopulateRecords(EntityContext context, ReadOnlySpan<ushort> currentMoves)
     {
         var names = GameInfo.Strings.Move;
         var indexes = Record.Permit.RecordPermitIndexes;
         // Add the records to the datagrid.
         dgv.Rows.Add(indexes.Length);
+        var evos = Legality.Info.EvoChainsAllGens.Get(context);
         for (int i = 0; i < indexes.Length; i++)
         {
             var move = indexes[i];
             var type = MoveInfo.GetType(move, context);
-            var isValid = Record.Permit.IsRecordPermitted(i);
-            var row = dgv.Rows[i];
+            var cells = dgv.Rows[i].Cells;
+            var cell = cells[ColumnHasFlag];
+
+            bool isValid = Record.Permit.IsRecordPermitted(i);
             if (isValid)
-            {
-                var cell = row.Cells[ColumnHasFlag];
-                cell.Style.BackColor = cell.Style.SelectionBackColor = Color.LightGreen;
-            }
+                SetStyleColor(cell, Color.LightGreen);
+            else if (Record.IsRecordPermitted(evos, i))
+                SetStyleColor(cell, Color.Yellow);
             else
-            {
-                var cell = row.Cells[ColumnHasFlag];
-                cell.Style.SelectionBackColor = Color.Red;
-            }
-            row.Cells[ColumnIndex].Value = i.ToString("000");
-            row.Cells[ColumnTypeIcon].Value = TypeSpriteUtil.GetTypeSpriteIcon(type);
-            row.Cells[ColumnType].Value = type.ToString("00") + (isValid ? 0 : 1) + names[move]; // type -> valid -> name sorting
-            row.Cells[ColumnName].Value = names[move];
+                SetStyleColor(cell, Color.LightCoral);
+            if (currentMoves.Contains(move))
+                cells[ColumnName].Style.BackColor = Color.LightBlue;
+
+            cells[ColumnIndex].Value = i.ToString("000");
+            cells[ColumnTypeIcon].Value = TypeSpriteUtil.GetTypeSpriteIconSmall(type);
+            cells[ColumnType].Value = type.ToString("00") + (isValid ? 0 : 1) + names[move]; // type -> valid -> name sorting
+            cells[ColumnName].Value = names[move];
         }
+
+        static void SetStyleColor(DataGridViewCell cell, Color color) => cell.Style.BackColor = cell.Style.SelectionBackColor = color;
     }
 
     private void B_Cancel_Click(object sender, EventArgs e) => Close();
@@ -83,29 +93,21 @@ public partial class TechRecordEditor : Form
         {
             var row = dgv.Rows[i];
             var index = int.Parse(row.Cells[ColumnIndex].Value?.ToString() ?? "");
-            Record.SetMoveRecordFlag(index, (bool)row.Cells[ColumnHasFlag].Value);
+            Record.SetMoveRecordFlag(index, (bool)row.Cells[ColumnHasFlag].Value!);
         }
     }
 
     private void B_All_Click(object sender, EventArgs e)
     {
-        if (ModifierKeys == Keys.Shift)
+        Save();
+        var option = ModifierKeys switch
         {
-            Record.ClearRecordFlags();
-            Record.SetRecordFlags(true, Record.Permit.RecordCountUsed);
-        }
-        else if (ModifierKeys == Keys.Control)
-        {
-            Save();
-            Span<ushort> moves = stackalloc ushort[4];
-            Entity.GetMoves(moves);
-            Record.SetRecordFlags(moves);
-        }
-        else
-        {
-            Record.ClearRecordFlags();
-            Record.SetRecordFlags();
-        }
+            Keys.Alt => TechnicalRecordApplicatorOption.None,
+            Keys.Shift => TechnicalRecordApplicatorOption.ForceAll,
+            Keys.Control => TechnicalRecordApplicatorOption.LegalCurrent,
+            _ => TechnicalRecordApplicatorOption.LegalAll,
+        };
+        Record.SetRecordFlags(Entity, option);
         Close();
     }
 
@@ -124,7 +126,7 @@ public partial class TechRecordEditor : Form
 
         // Toggle the checkbox of cell 0
         var cell = row.Cells[ColumnHasFlag];
-        cell.Value = !(bool)cell.Value;
+        cell.Value = !(bool)cell.Value!;
     }
 
     private void PressKeyCell(object sender, KeyEventArgs e)
@@ -133,12 +135,12 @@ public partial class TechRecordEditor : Form
             return;
 
         var row = dgv.CurrentRow;
-        if (row == null)
+        if (row is null)
             return;
 
         // Toggle the checkbox of cell 0
         var cell = row.Cells[ColumnHasFlag];
-        cell.Value = !(bool)cell.Value;
+        cell.Value = !(bool)cell.Value!;
     }
 
     private void SortColumn(object sender, DataGridViewCellMouseEventArgs e)

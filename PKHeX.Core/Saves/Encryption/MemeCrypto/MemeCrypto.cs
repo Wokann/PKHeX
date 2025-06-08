@@ -8,7 +8,7 @@ namespace PKHeX.Core;
 /// MemeCrypto V1 - The Original Series
 /// </summary>
 /// <remarks>
-/// A variant of <see cref="SaveFile"/> encryption and obfuscation used in <see cref="GameVersion.Gen7"/>.
+/// A variant of <see cref="SaveFile"/> encryption and obfuscation used in <see cref="EntityContext.Gen7"/>.
 /// <br> The save file stores a dedicated block to contain a hash of the savedata, computed when the block is zeroed. </br>
 /// <br> This signing logic is reused for other authentication; refer to <see cref="MemeKeyIndex"/>. </br>
 /// <br> The save file first computes a SHA256 Hash over the block checksum region.
@@ -20,8 +20,7 @@ public static class MemeCrypto
 
     public static bool VerifyMemePOKE(ReadOnlySpan<byte> input, out byte[] output)
     {
-        if (input.Length < MemeKey.SignatureLength)
-            throw new ArgumentException("Invalid POKE buffer!");
+        ArgumentOutOfRangeException.ThrowIfLessThan(input.Length, MemeKey.SignatureLength);
         var memeLen = input.Length - 8;
         var memeIndex = MemeKeyIndex.PokedexAndSaveFile;
         for (var i = input.Length - 8; i >= 0; i--)
@@ -47,18 +46,18 @@ public static class MemeCrypto
                 return true;
         }
 
-        output = Array.Empty<byte>();
+        output = [];
         return false;
     }
 
     public static bool VerifyMemeData(ReadOnlySpan<byte> input, out byte[] output)
     {
-        foreach (MemeKeyIndex keyIndex in Enum.GetValues(typeof(MemeKeyIndex)))
+        foreach (MemeKeyIndex keyIndex in Enum.GetValues<MemeKeyIndex>())
         {
             if (VerifyMemeData(input, out output, keyIndex))
                 return true;
         }
-        output = Array.Empty<byte>();
+        output = [];
         return false;
     }
 
@@ -66,7 +65,7 @@ public static class MemeCrypto
     {
         if (input.Length < MemeKey.SignatureLength)
         {
-            output = Array.Empty<byte>();
+            output = [];
             return false;
         }
         var key = new MemeKey(keyIndex);
@@ -84,7 +83,7 @@ public static class MemeCrypto
         if (DecryptCompare(output, sigBuffer, key))
             return true;
 
-        output = Array.Empty<byte>();
+        output = [];
         return false;
     }
 
@@ -98,20 +97,6 @@ public static class MemeCrypto
         return hash[..8].SequenceEqual(output[^8..]);
     }
 
-    public static bool VerifyMemeData(ReadOnlySpan<byte> input, out byte[] output, int offset, int length, MemeKeyIndex keyIndex)
-    {
-        var data = input.Slice(offset, length);
-        if (VerifyMemeData(data, out output, keyIndex))
-        {
-            var newOutput = input.ToArray();
-            output.CopyTo(newOutput, offset);
-            output = newOutput;
-            return true;
-        }
-        output = Array.Empty<byte>();
-        return false;
-    }
-
     public static byte[] SignMemeData(ReadOnlySpan<byte> input, MemeKeyIndex keyIndex = MemeKeyIndex.PokedexAndSaveFile)
     {
         var output = input.ToArray();
@@ -122,8 +107,7 @@ public static class MemeCrypto
     private static void SignMemeDataInPlace(Span<byte> data, MemeKeyIndex keyIndex = MemeKeyIndex.PokedexAndSaveFile)
     {
         // Validate Input
-        if (data.Length < MemeKey.SignatureLength)
-            throw new ArgumentException("Cannot sign a buffer less than 0x60 bytes in size!");
+        ArgumentOutOfRangeException.ThrowIfLessThan(data.Length, MemeKey.SignatureLength);
         var key = new MemeKey(keyIndex);
         if (!key.CanResign)
             throw new ArgumentException("Cannot sign with the specified key!");

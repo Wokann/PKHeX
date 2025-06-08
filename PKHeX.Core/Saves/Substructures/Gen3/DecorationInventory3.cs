@@ -1,14 +1,14 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace PKHeX.Core;
 
-[StructLayout(LayoutKind.Sequential)]
 public readonly ref struct DecorationInventory3
 {
     public const int SIZE = 150;
     private readonly Span<byte> Data;
 
+    // ReSharper disable once ConvertToPrimaryConstructor
     public DecorationInventory3(Span<byte> data) => Data = data;
 
     public Span<Decoration3> Desk     => MemoryMarshal.Cast<byte, Decoration3>(Data[..10]);

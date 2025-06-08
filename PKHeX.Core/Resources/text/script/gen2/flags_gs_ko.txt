@@ -2,10 +2,13 @@
 0027	*	Starter is Cyndaquil
 0028	*	Starter is Totodile
 0029	*	Starter is Chikorita
-1600	s	Cyndaquil ball at Elm's disappeared
-1601	s	Totodile ball at Elm's disappeared
-1602	s	Chikorita ball at Elm's disappeared
+1600	s	Cyndaquil ball at Elm's Lab disappeared
+1601	s	Totodile ball at Elm's Lab disappeared
+1602	s	Chikorita ball at Elm's Lab disappeared
 1784	r	꼬지모 잡음
+1760	r	Electrode (top corners) disappeared from Hideout B2F
+1761	r	Electrode (middle corners) disappeared from Hideout B2F
+1762	r	Electrode (bottom corners) disappeared from Hideout B2F
 0079	g	이브이 잡음
 1867	*	Legendary Beasts Disappeared from Burned Tower
 0672	*	SOLVED_HO_OH_PUZZLE
@@ -73,6 +76,8 @@
 0084	s	Togepi Hatched
 0085	s	Showed Togepi to Elm
 0086	s	Received Everstone from Elm
+1193	t	Defeated Blackbelt Kiyo (Can receive Tyrogue)
+0097	g	Received Tyrogue
 0046	s	Unown appeared in Ruins of Alph
 0098	s	Met Frieda
 0099	s	Received Poison Barb from Frieda
@@ -88,10 +93,13 @@
 0109	s	Received Spell Tag from Santos
 0110	s	Met to Monica
 0111	s	Received Sharp Beak from Monica
-0205	s	Restored power to Kanto/Magnet Train useable
+0205	s	Restored power to Kanto/Magnet Train usable
 0607	t	Asked Schoolboy Jack for Number once
+0608	t	Can Rematch Schoolboy Jack
 0609	t	Asked Pokéfan Beverly for Number once
+0610	t	Can Rematch Pokéfan Beverly
 0611	t	Asked Sailor Huey for Number once
+0612	t	Can Rematch Sailor Huey
 0619	t	Asked Cooltrainer Gaven for Number once
 0620	t	Can Rematch Cooltrainer Gaven
 0621	t	Asked Cooltrainer Beth for Number once

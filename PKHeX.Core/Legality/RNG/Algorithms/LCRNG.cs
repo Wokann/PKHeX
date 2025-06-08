@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 
 namespace PKHeX.Core;
@@ -61,13 +62,15 @@ public static class LCRNG
     private const uint  Add9  = unchecked((Add8 * Mult) + Add);   // 0xFC3351DB
     private const uint rAdd9  = unchecked((rAdd8 * rMult) + rAdd);// 0x3CFD9579
 
+    /// <summary> Used to pre-size a result array for the maximum number of seeds that may be returned when searching for seeds via PID. </summary>
     public const int MaxCountSeedsPID = 3;
+    /// <summary> Used to pre-size a result array for the maximum number of seeds that may be returned when searching for seeds via IVs. </summary>
     public const int MaxCountSeedsIV = 6;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next (uint seed) => (seed * Mult ) + Add ;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next2(uint seed) => (seed * Mult2) + Add2;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next3(uint seed) => (seed * Mult3) + Add3;
-    [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next4(uint seed) => (seed * Mult4) + Add5;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next4(uint seed) => (seed * Mult4) + Add4;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next5(uint seed) => (seed * Mult5) + Add5;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next6(uint seed) => (seed * Mult6) + Add6;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Next7(uint seed) => (seed * Mult7) + Add7;
@@ -83,6 +86,39 @@ public static class LCRNG
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev7(uint seed) => (seed * rMult7) + rAdd7;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev8(uint seed) => (seed * rMult8) + rAdd8;
     [MethodImpl(MethodImplOptions.AggressiveInlining)] public static uint Prev9(uint seed) => (seed * rMult9) + rAdd9;
+
+    /// <summary>
+    /// Gets the upper 16 bits of the next RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to advance one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Next16(ref uint seed)
+    {
+        seed = Next(seed);
+        return seed >> 16;
+    }
+
+    /// <summary>
+    /// Gets the upper 0x7FFF bits of the next RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to advance one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Next15(ref uint seed)
+    {
+        seed = Next(seed);
+        return (seed >> 16) & 0x7FFF;
+    }
+
+    /// <summary>
+    /// Gets the upper 16 bits of the previous RNG seed.
+    /// </summary>
+    /// <param name="seed">Seed to reverse one step.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static uint Prev16(ref uint seed)
+    {
+        seed = Prev(seed);
+        return seed >> 16;
+    }
 
     /// <summary>
     /// Advances the RNG seed to the next state value a specified amount of times.
@@ -109,5 +145,64 @@ public static class LCRNG
         for (int i = 0; i < frames; i++)
             seed = Prev(seed);
         return seed;
+    }
+
+    /// <summary>
+    /// Multiplication constants for jumping 2^(index) frames forward.
+    /// </summary>
+    private static ReadOnlySpan<uint> JumpMult =>
+	[
+        0x41C64E6D, 0xC2A29A69, 0xEE067F11, 0xCFDDDF21, 0x5F748241, 0x8B2E1481, 0x76006901, 0x1711D201,
+        0xBE67A401, 0xDDDF4801, 0x3FFE9001, 0x90FD2001, 0x65FA4001, 0xDBF48001, 0xF7E90001, 0xEFD20001,
+        0xDFA40001, 0xBF480001, 0x7E900001, 0xFD200001, 0xFA400001, 0xF4800001, 0xE9000001, 0xD2000001,
+        0xA4000001, 0x48000001, 0x90000001, 0x20000001, 0x40000001, 0x80000001, 0x00000001, 0x00000001,
+    ];
+
+    /// <summary>
+    /// Addition constants for jumping 2^(index) frames forward.
+    /// </summary>
+    private static ReadOnlySpan<uint> JumpAdd =>
+	[
+        0x00006073, 0xE97E7B6A, 0x31B0DDE4, 0x67DBB608, 0xCBA72510, 0x1D29AE20, 0xBA84EC40, 0x79F01880,
+        0x08793100, 0x6B566200, 0x803CC400, 0xA6B98800, 0xE6731000, 0x30E62000, 0xF1CC4000, 0x23988000,
+        0x47310000, 0x8E620000, 0x1CC40000, 0x39880000, 0x73100000, 0xE6200000, 0xCC400000, 0x98800000,
+        0x31000000, 0x62000000, 0xC4000000, 0x88000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000,
+    ];
+
+    /// <summary>
+    /// Computes the amount of advances (distance) between two seeds.
+    /// </summary>
+    /// <param name="start">Initial seed</param>
+    /// <param name="end">Final seed</param>
+    /// <returns>Count of advances from <see cref="start"/> to arrive at <see cref="end"/>.</returns>
+    /// <remarks>
+    /// To compute the distance, we abuse the fact that a given state bit at index `i` has a periodicity of `2^i`.
+    /// If the bit is present in the state, we must include that bit in our distance result.
+    /// The algorithmic complexity is O(log(n)) for finding n advancements.
+    /// We store a precomputed table of multiply &amp; addition constants (skip 2^n) to avoid computing them on the fly.
+    /// </remarks>
+    public static uint GetDistance(in uint start, in uint end)
+    {
+        int i = 0;
+        uint bit = 1u;
+
+        uint distance = 0u;
+        uint seed = start;
+
+        // Instead of doing a for loop which always does 32 iterations, check to see if we end up at the end seed.
+        // If we do, we can return after [0..31] jumps.
+        // Due to the inputs, we normally have low distance, so normally this won't take more than a few loops.
+        while (seed != end)
+        {
+            // 50:50 odds of this being true.
+            if (((seed ^ end) & bit) != 0)
+            {
+                seed = (seed * JumpMult[i]) + JumpAdd[i];
+                distance |= bit;
+            }
+            i++;
+            bit <<= 1;
+        }
+        return distance;
     }
 }

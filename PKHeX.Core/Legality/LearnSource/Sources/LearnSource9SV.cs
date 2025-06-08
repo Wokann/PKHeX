@@ -8,13 +8,13 @@ namespace PKHeX.Core;
 /// <summary>
 /// Exposes information about how moves are learned in <see cref="SV"/>.
 /// </summary>
-public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, IReminderSource
+public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, IReminderSource, IHomeSource
 {
     public static readonly LearnSource9SV Instance = new();
     private static readonly PersonalTable9SV Personal = PersonalTable.SV;
-    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_sv.pkl"), "sv"));
-    private static readonly ushort[][] EggMoves = EggMoves9.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("eggmove_sv.pkl"), "sv"));
-    private static readonly ushort[][] Reminder = EggMoves9.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("reminder_sv.pkl"), "sv"));
+    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_sv.pkl"), "sv"u8));
+    private static readonly ushort[][] EggMoves = EggMoves9.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("eggmove_sv.pkl"), "sv"u8));
+    private static readonly ushort[][] Reminder = EggMoves9.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("reminder_sv.pkl"), "sv"u8));
     private const int MaxSpecies = Legal.MaxSpeciesID_9;
     private const LearnEnvironment Game = SV;
 
@@ -35,14 +35,14 @@ public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, 
         if (index >= EggMoves.Length)
             return false;
         var moves = EggMoves[index].AsSpan();
-        return moves.IndexOf(move) != -1;
+        return moves.Contains(move);
     }
 
     public ReadOnlySpan<ushort> GetEggMoves(ushort species, byte form)
     {
         var index = Personal.GetFormIndex(species, form);
         if (index >= EggMoves.Length)
-            return ReadOnlySpan<ushort>.Empty;
+            return [];
         return EggMoves[index];
     }
 
@@ -52,14 +52,14 @@ public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, 
         if (index >= Reminder.Length)
             return false;
         var moves = Reminder[index].AsSpan();
-        return moves.IndexOf(move) != -1;
+        return moves.Contains(move);
     }
 
     public ReadOnlySpan<ushort> GetReminderMoves(ushort species, byte form)
     {
         var index = Personal.GetFormIndex(species, form);
         if (index >= Reminder.Length)
-            return ReadOnlySpan<ushort>.Empty;
+            return [];
         return Reminder[index];
     }
 
@@ -68,9 +68,8 @@ public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, 
         if (types.HasFlag(MoveSourceType.LevelUp))
         {
             var learn = GetLearnset(evo.Species, evo.Form);
-            var level = learn.GetLevelLearnMove(move);
-            if (level != -1 && level <= evo.LevelMax)
-                return new(LevelUp, Game, (byte)level);
+            if (learn.TryGetLevelLearnMove(move, out var level) && level <= evo.LevelMax)
+                return new(LevelUp, Game, level);
         }
 
         if (types.HasFlag(MoveSourceType.SharedEggMove) && GetIsSharedEggMove(pi, move))
@@ -82,8 +81,19 @@ public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, 
         if (types.HasFlag(MoveSourceType.SpecialTutor) && GetIsReminderMove(evo.Species, evo.Form, move))
             return new(Tutor, Game);
 
-        if (types.HasFlag(MoveSourceType.EnhancedTutor) && GetIsEnhancedTutor(evo, pk, move))
+        if (types.HasFlag(MoveSourceType.EnhancedTutor) && GetIsEnhancedTutor(evo, pk, move, option))
             return new(Tutor, Game);
+
+        // In 2.0.1, the following moves are no longer learned via Level Up.
+        // Since they could have been learned via Level Up prior to 2.0.1, we need to check for them.
+        // This is double-checked outside of this method -- this is a silly workaround.
+        if (types.HasFlag(MoveSourceType.LevelUp))
+        {
+            if (move == (int)Move.BugBite && evo is { Species: (int)Species.Larvesta, Form: 0, LevelMax: >= 28 })
+                return new(LevelUp, Game, 28);
+            if (move == (int)Move.Spite   && evo is { Species: (int)Species.Zorua   , Form: 1, LevelMax: >= 24 })
+                return new(LevelUp, Game, 28);
+        }
 
         return default;
     }
@@ -95,17 +105,33 @@ public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, 
             return false;
         if (!info.GetIsLearnTM(index))
             return false;
-        if (pk is not ITechRecord tr)
-            return true;
-        if (tr.GetMoveRecordFlag(index))
-            return true;
-        if (option != LearnOption.Current && !pk.SV && pk.IsOriginalMovesetDeleted())
-            return true;
+
+        if (pk is PK9 pk9)
+        {
+            if (pk9.GetMoveRecordFlag(index))
+                return true;
+            if (!option.IsFlagCheckRequired())
+                return true;
+        }
+        else
+        {
+            if (option != LearnOption.Current)
+                return true;
+        }
         return false;
     }
 
-    private static bool GetIsEnhancedTutor(EvoCriteria evo, ISpeciesForm current, ushort move) => evo.Species switch
+    private static bool GetIsEnhancedTutor<T1, T2>(T1 evo, T2 current, ushort move, LearnOption option)
+        where T1 : ISpeciesForm
+        where T2 : ISpeciesForm
+        => evo.Species switch
     {
+        (int)Species.Necrozma => move switch
+        {
+            (int)Move.SunsteelStrike => option.IsPast() || current.Form == 1, // Sun w/ Solgaleo
+            (int)Move.MoongeistBeam => option.IsPast() || current.Form == 2, // Moon w/ Lunala
+            _ => false,
+        },
         (int)Species.Rotom => move switch
         {
             (int)Move.Overheat => current.Form == 1,
@@ -122,10 +148,10 @@ public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, 
     {
         var baseSpecies = pi.HatchSpecies;
         var baseForm = pi.HatchFormIndexEverstone;
-        return GetEggMoves(baseSpecies, baseForm).IndexOf(move) != -1;
+        return GetEggMoves(baseSpecies, baseForm).Contains(move);
     }
 
-    public void GetAllMoves(Span<bool> result, PKM pk, EvoCriteria evo, MoveSourceType types = MoveSourceType.All)
+    public void GetAllMoves(Span<bool> result, PKM _, EvoCriteria evo, MoveSourceType types = MoveSourceType.All)
     {
         if (!TryGetPersonal(evo.Species, evo.Form, out var pi))
             return;
@@ -160,8 +186,37 @@ public sealed class LearnSource9SV : ILearnSource<PersonalInfo9SV>, IEggSource, 
         if (types.HasFlag(MoveSourceType.EnhancedTutor))
         {
             var species = evo.Species;
-            if (species is (int)Species.Rotom && pk.Form is not 0)
+            if (species is (int)Species.Rotom && evo.Form is not 0)
                 result[MoveTutor.GetRotomFormMove(evo.Form)] = true;
+            else if (species is (int)Species.Necrozma && evo.Form is 1) // Sun
+                result[(int)Move.SunsteelStrike] = true;
+            else if (species is (int)Species.Necrozma && evo.Form is 2) // Moon
+                result[(int)Move.MoongeistBeam] = true;
         }
+    }
+
+    public LearnEnvironment Environment => Game;
+
+    public MoveLearnInfo GetCanLearnHOME(PKM pk, EvoCriteria evo, ushort move, MoveSourceType types = MoveSourceType.All)
+    {
+        var pi = Personal[evo.Species, evo.Form];
+
+        if (types.HasFlag(MoveSourceType.LevelUp))
+        {
+            var learn = GetLearnset(evo.Species, evo.Form);
+            if (learn.TryGetLevelLearnMove(move, out var level))
+                return new(LevelUp, Game, level);
+        }
+
+        if (types.HasFlag(MoveSourceType.SharedEggMove) && GetIsSharedEggMove(pi, move))
+            return new(Shared, Game);
+
+        if (types.HasFlag(MoveSourceType.Machine) && GetIsTM(pi, pk, move, LearnOption.HOME))
+            return new(TMHM, Game);
+
+        if (types.HasFlag(MoveSourceType.SpecialTutor) && GetIsReminderMove(evo.Species, evo.Form, move))
+            return new(Tutor, Game);
+
+        return default;
     }
 }

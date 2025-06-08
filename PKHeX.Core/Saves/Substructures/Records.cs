@@ -25,23 +25,23 @@ public static class Records
         return MaxByType[maxes[recordID]];
     }
 
-    public static int GetOffset(int baseOfs, int recordID) => recordID switch
+    public static int GetOffset(int recordID) => recordID switch
     {
-        < LargeRecordCount => baseOfs + (recordID * sizeof(int)),
-        < Count => baseOfs + (LargeRecordCount * sizeof(int)) + ((recordID - LargeRecordCount) * sizeof(ushort)),
+        < LargeRecordCount => (recordID * sizeof(int)),
+        < Count => (LargeRecordCount * sizeof(int)) + ((recordID - LargeRecordCount) * sizeof(ushort)),
         _ => -1,
     };
 
-    private static ReadOnlySpan<int> MaxByType => new[] {999_999_999, 9_999_999, 999_999, 99_999, 65535, 9_999, 999, 7};
+    private static ReadOnlySpan<int> MaxByType => [999_999_999, 9_999_999, 999_999, 99_999, 65535, 9_999, 999, 7];
 
-    public static ReadOnlySpan<byte> DailyPairs_6 => new byte[] {29, 30, 110, 111, 112, 113, 114, 115, 116, 117};
-    public static ReadOnlySpan<byte> DailyPairs_7 => new byte[] {22, 23, 110, 111, 112, 113, 114, 115, 116, 117};
+    public static ReadOnlySpan<byte> DailyPairs_6 => [29, 30, 110, 111, 112, 113, 114, 115, 116, 117];
+    public static ReadOnlySpan<byte> DailyPairs_7 => [22, 23, 110, 111, 112, 113, 114, 115, 116, 117];
 
     /// <summary>
     /// Festa pairs; if updating the lower index record, update the Festa Mission record if currently active?
     /// </summary>
-    public static ReadOnlySpan<byte> FestaPairs_7 => new byte[]
-    {
+    public static ReadOnlySpan<byte> FestaPairs_7 =>
+    [
         175, 6,
         176, 33,
         177, 8,
@@ -51,11 +51,150 @@ public static class Records
         183, 7,
         184, 159,
         185, 9,
-    };
+    ];
 }
 
 public static class RecordLists
 {
+    public static readonly Dictionary<int, string> RecordList_5 = new()
+    {
+        {000, "Steps Taken"},
+        {001, "Times Saved"},
+        {002, "Storyline Completed Time"},
+        {003, "Times Bicycled"},
+        {004, "Total Battles"},
+        {005, "Wild Pokémon Battles"},
+        {006, "Trainer Battles"},
+        {007, "Pokemon Caught"},
+        {008, "Times fished"},
+        {009, "Eggs Hatched"},
+        {010, "Pokémon Evolved"},
+        {011, "Times Healed at Pokémon Centers"},
+        {012, "Link Trades"},
+        {013, "Link Battles"},
+        {014, "Link Battle Wins"},
+        {015, "Link Battle Losses"},
+        {016, "WiFi Trades"},
+        {017, "WiFi Battles"},
+        {018, "WiFi Battle Wins"},
+        {019, "WiFi Battle Losses"},
+        {020, "Times Shopped"},
+        {021, "Money Spent"},
+        {022, "TVs Watched"},
+        {023, "Pokemon deposited in Daycare"},
+        {024, "Pokemon Defeated"},
+        {025, "EXP Earned (highest)"},
+        {026, "EXP Earned (today)"},
+        {027, "GTS Used"},
+        {028, "Mail Sent"},
+        {029, "Nicknames Given"},
+        {030, "Premier Balls earned"},
+        {031, "Nimbasa Stadium Battles"},
+        {032, "BP Earned"},
+        {033, "BP Spent"},
+        {034, "???"},
+        {035, "IR Trades"},
+
+        {036, "IR Battles"},
+        {037, "IR Wins"},
+        {038, "IR Losses"},
+        {039, "???"},
+        {040, "???"},
+        {041, "Times used Fly"},
+        {042, "Trash Cans Checked"},
+        {043, "Hidden Items Found"},
+        {044, "Pass Powers Used"},
+        {045, "Pokemon Caught in Entralink"},
+        {046, "Super Effective Moves Used"},
+        {047, "Times Challenged Battle Subway"},
+        {048, "Tower/Treehollow Trainers Defeated"},
+        {049, "Balloon Game Tottal Points"},
+        {050, "Highest Box Office Gross"},
+        {051, "Total Box Office Gross"},
+
+        {052, "???"},
+        {053, "???"},
+        {054, "???"},
+        {055, "???"},
+        {056, "???"},
+        {057, "???"},
+        {058, "???"},
+        {059, "???"},
+        {060, "???"},
+        {061, "???"},
+        {062, "???"},
+        {063, "???"},
+        {064, "???"},
+        {065, "???"},
+        {066, "???"},
+        {067, "???"},
+        {068, "???"},
+        {069, "???"},
+        {070, "???"},
+
+        {071, "Champion Beaten"},
+        {072, "Healed with Mom"},
+        {073, "Used Splash"},
+        {074, "Used Struggle"},
+        {075, "Noneffective move used on you"},
+        {076, "Own Pokemon Attacked"},
+        {077, "Own Pokemon Fainted"},
+        {078, "Failed to Run"},
+        {079, "Pokemon Fled"},
+        {080, "Failed Fishing"},
+        {081, "Pokemon defeated (highest)"},
+        {082, "Pokemon defeated (today)"},
+        {083, "Trainers defeated (highest)"},
+        {084, "Trainers defeated (today)"},
+        {085, "Pokemon evolved (highest)"},
+        {086, "Pokemon evolved (today)"},
+        {087, "Fossils Restored"},
+        {088, "Spin Trade"},
+
+        {089, "???"},
+        {090, "???"},
+        {091, "???"},
+        {092, "???"},
+        {093, "???"},
+        {094, "???"},
+        {095, "???"},
+        {096, "???"},
+        {097, "???"},
+        {098, "???"},
+        {099, "???"},
+        {100, "???"},
+        {101, "???"},
+        {102, "???"},
+        {103, "???"},
+        {104, "???"},
+        {105, "???"},
+        {106, "???"},
+        {107, "???"},
+        {108, "???"},
+        {109, "???"},
+
+        {110, "Disturbed Tile Encounters"},
+        {111, "Feeling Check"},
+        {112, "Musicals Participated In"},
+        {113, "Musicals Won"},
+        {114, "Musicals with Friends"},
+        {115, "Musicals with Friends Won"},
+        {116, "Musical Fame Score"},
+        {117, "Pokemon Tucked In"},
+        {118, "Poketransfer Minigame Played"},
+        {119, "Battle Institute Attempts"},
+        {120, "???"},
+        {121, "Battle Institute Max Rank reached"},
+        {122, "Battle Test High Score"},
+        {123, "Vending Machines Used"},
+        {124, "Rode Royal Unova"},
+        {125, "Passers-by Guided"},
+        {126, "Shops Created"},
+        {127, "Xtransciever minigames Played"},
+        {128, "Souvenirs Collected"},
+        {129, "Movie Shoots"},
+    };
+
     public static readonly Dictionary<int, string> RecordList_6 = new()
     {
         {000, "Steps Taken"},
@@ -200,7 +339,7 @@ public static class RecordLists
         {144, "Last Tip at Frieser Furfrou"},
 
         {145, "Photos Taken"},
-        {146, "Sky Wild Battles (?)"},
+        {146, "Times used Fly"},
         {147, "Battle Maison Streak: Singles"},
         {148, "Battle Maison Streak: Doubles"},
         {149, "Battle Maison Streak: Triples"},
@@ -219,14 +358,14 @@ public static class RecordLists
         {161, "Roller Skate Count: 360 right"},
         {162, "Roller Skate Count: 360 left"},
         {163, "Roller Skate Count: Flips"},
-        {164, "Roller Skate Count: Grind"},
-        {165, "Roller Skate Count: Combos"},
+        {164, "Roller Skate Count: Cosmic Flips"},
+        {165, "Roller Skate Count: Grind"},
+        {166, "Roller Skate Count: Combos"},
 
-        {166, "Fishing Chains"},
-        {167, "Secret Base Battles in your base"},
-        {168, "Secret Base Battles in another base"},
-        {169, "Contest Spectacular Photos taken"},
-        {170, "Times used Fly"},
+        {167, "Fishing Chains"},
+        {168, "Secret Base Battles in your base"},
+        {169, "Secret Base Battles in another base"},
+        {170, "Contest Spectacular Photos taken"},
         {171, "Times used Soaring in the Sky"},
         {172, "Times used Dive"},
         {173, "Times used Sky Holes"},
@@ -234,7 +373,7 @@ public static class RecordLists
         {175, "Times used Escape Rope"},
         {176, "Times used Dowsing Machine"},
         {177, "Trainer's Eye Rematches"},
-        {178, "FUREAI Interest ???"}, // similar to USUM idb
+        {178, "FUREAI Interest ???"}, // similar to US/UM idb
 
         {179, "Shiny Pokemon Encountered"},
         {180, "Trick House Clears"},
@@ -314,7 +453,7 @@ public static class RecordLists
         {067, "Berry Piles (not full) Collected"},
         {068, "Berry Piles (full) Collected"},
         {069, "Items Reeled In"},
-        // USUM
+        // US/UM
         {070, "Roto Lotos"},
 
         {072, "Stickers Collected"},
@@ -411,7 +550,7 @@ public static class RecordLists
         {186, "Get BP at the Battle Tree!"},
         {187, "Catch a lot of Pokémon!"},
 
-        // USUM
+        // US/UM
         {188, "Ultra Wormhole Travels"},
         {189, "Mantine Surf Plays"},
         {190, "Photo Club Photos saved"},

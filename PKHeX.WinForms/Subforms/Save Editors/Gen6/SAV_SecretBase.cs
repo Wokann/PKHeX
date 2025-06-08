@@ -20,7 +20,7 @@ public partial class SAV_SecretBase : Form
 
     private bool loading = true;
 
-    public SAV_SecretBase(SaveFile sav)
+    public SAV_SecretBase(SAV6AO sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
@@ -48,10 +48,10 @@ public partial class SAV_SecretBase : Form
         CB_Form.InitializeBinding();
 
         var filtered = GameInfo.FilteredSources;
-        CB_Ball.DataSource = new BindingSource(filtered.Balls, null);
-        CB_HeldItem.DataSource = new BindingSource(filtered.Items, null);
-        CB_Species.DataSource = new BindingSource(filtered.Species, null);
-        CB_Nature.DataSource = new BindingSource(filtered.Natures, null);
+        CB_Ball.DataSource = new BindingSource(filtered.Balls, string.Empty);
+        CB_HeldItem.DataSource = new BindingSource(filtered.Items, string.Empty);
+        CB_Species.DataSource = new BindingSource(filtered.Species, string.Empty);
+        CB_Nature.DataSource = new BindingSource(filtered.Natures, string.Empty);
 
         CB_Move1.InitializeBinding();
         CB_Move2.InitializeBinding();
@@ -59,10 +59,10 @@ public partial class SAV_SecretBase : Form
         CB_Move4.InitializeBinding();
 
         var moves = filtered.Moves;
-        CB_Move1.DataSource = new BindingSource(moves, null);
-        CB_Move2.DataSource = new BindingSource(moves, null);
-        CB_Move3.DataSource = new BindingSource(moves, null);
-        CB_Move4.DataSource = new BindingSource(moves, null);
+        CB_Move1.DataSource = new BindingSource(moves, string.Empty);
+        CB_Move2.DataSource = new BindingSource(moves, string.Empty);
+        CB_Move3.DataSource = new BindingSource(moves, string.Empty);
+        CB_Move4.DataSource = new BindingSource(moves, string.Empty);
     }
 
     private void ReloadSecretBaseList()
@@ -115,7 +115,7 @@ public partial class SAV_SecretBase : Form
         PG_Base.SelectedObject = bdata;
 
         var pIndex = (int)NUD_FObject.Value;
-        LoadPlacement(bdata, bdata.GetPlacement(pIndex), pIndex);
+        LoadPlacement(bdata.GetPlacement(pIndex), pIndex);
         if (bdata is SecretBase6Other o)
             LoadOtherData(o);
         else
@@ -126,25 +126,25 @@ public partial class SAV_SecretBase : Form
 
     private void SaveCurrent(SecretBase6 bdata)
     {
-        SavePlacement(bdata, (int)NUD_FObject.Value);
+        SavePlacement((int)NUD_FObject.Value);
         if (bdata is SecretBase6Other o)
             SaveOtherData(o);
     }
 
-    private void LoadPlacement(SecretBase6 bdata, SecretBase6GoodPlacement p, int index)
+    private void LoadPlacement(SecretBase6GoodPlacement p, int index)
     {
-        SavePlacement(bdata, index);
+        SavePlacement(index);
         CurrentPlacement = p;
         CurrentPlacementIndex = index;
 
-        static decimal Clamp(NumericUpDown nud, decimal value) => Math.Min(nud.Maximum, Math.Max(nud.Minimum, value));
         NUD_FObjType.Value = Clamp(NUD_FObjType, p.Good);
         NUD_FX.Value = Clamp(NUD_FX, p.X);
         NUD_FY.Value = Clamp(NUD_FY, p.Y);
         NUD_FRot.Value = Clamp(NUD_FRot, p.Rotation);
+        static decimal Clamp(NumericUpDown nud, decimal value) => Math.Clamp(value, nud.Minimum, nud.Maximum);
     }
 
-    private void SavePlacement(SecretBase6 bdata, int index)
+    private void SavePlacement(int index)
     {
         var p = CurrentPlacement;
         if (p is null || index < 0)
@@ -154,8 +154,6 @@ public partial class SAV_SecretBase : Form
         p.X = (ushort)NUD_FX.Value;
         p.Y = (ushort)NUD_FY.Value;
         p.Rotation = (byte)NUD_FRot.Value;
-
-        bdata.SetPlacement(index, p);
     }
 
     private void SaveOtherData(SecretBase6Other full)
@@ -189,15 +187,15 @@ public partial class SAV_SecretBase : Form
         pk.HeldItem = WinFormsUtil.GetIndex(CB_HeldItem);
         pk.Ability = WinFormsUtil.GetIndex(CB_Ability);
         pk.AbilityNumber = CB_Ability.SelectedIndex << 1;
-        pk.Nature = WinFormsUtil.GetIndex(CB_Nature);
+        pk.Nature = (Nature)WinFormsUtil.GetIndex(CB_Nature);
         pk.Gender = EntityGender.GetFromString(Label_Gender.Text);
         pk.Form = (byte)CB_Form.SelectedIndex;
-        pk.EV_HP = Math.Min(Convert.ToInt32(TB_HPEV.Text), 252);
-        pk.EV_ATK = Math.Min(Convert.ToInt32(TB_ATKEV.Text), 252);
-        pk.EV_DEF = Math.Min(Convert.ToInt32(TB_DEFEV.Text), 252);
-        pk.EV_SPA = Math.Min(Convert.ToInt32(TB_SPAEV.Text), 252);
-        pk.EV_SPD = Math.Min(Convert.ToInt32(TB_SPDEV.Text), 252);
-        pk.EV_SPE = Math.Min(Convert.ToInt32(TB_SPEEV.Text), 252);
+        pk.EV_HP  = Math.Clamp(Convert.ToInt32(TB_HPEV.Text) , 0, EffortValues.Max252);
+        pk.EV_ATK = Math.Clamp(Convert.ToInt32(TB_ATKEV.Text), 0, EffortValues.Max252);
+        pk.EV_DEF = Math.Clamp(Convert.ToInt32(TB_DEFEV.Text), 0, EffortValues.Max252);
+        pk.EV_SPA = Math.Clamp(Convert.ToInt32(TB_SPAEV.Text), 0, EffortValues.Max252);
+        pk.EV_SPD = Math.Clamp(Convert.ToInt32(TB_SPDEV.Text), 0, EffortValues.Max252);
+        pk.EV_SPE = Math.Clamp(Convert.ToInt32(TB_SPEEV.Text), 0, EffortValues.Max252);
         pk.Move1 = (ushort)WinFormsUtil.GetIndex(CB_Move1);
         pk.Move2 = (ushort)WinFormsUtil.GetIndex(CB_Move2);
         pk.Move3 = (ushort)WinFormsUtil.GetIndex(CB_Move3);
@@ -206,7 +204,7 @@ public partial class SAV_SecretBase : Form
         pk.Move2_PPUps = CB_PPu2.SelectedIndex;
         pk.Move3_PPUps = CB_PPu3.SelectedIndex;
         pk.Move4_PPUps = CB_PPu4.SelectedIndex;
-        pk.IV_HP = Convert.ToByte(TB_HPIV.Text) & 0x1F;
+        pk.IV_HP  = Convert.ToByte(TB_HPIV.Text)  & 0x1F;
         pk.IV_ATK = Convert.ToByte(TB_ATKIV.Text) & 0x1F;
         pk.IV_DEF = Convert.ToByte(TB_DEFIV.Text) & 0x1F;
         pk.IV_SPA = Convert.ToByte(TB_SPAIV.Text) & 0x1F;
@@ -214,7 +212,7 @@ public partial class SAV_SecretBase : Form
         pk.IV_SPE = Convert.ToByte(TB_SPEIV.Text) & 0x1F;
         pk.IsShiny = CHK_Shiny.Checked;
         pk.CurrentFriendship = Convert.ToByte(TB_Friendship.Text);
-        pk.Ball = WinFormsUtil.GetIndex(CB_Ball);
+        pk.Ball = (byte)WinFormsUtil.GetIndex(CB_Ball);
         pk.CurrentLevel = Convert.ToByte(TB_Level.Text);
     }
 
@@ -229,8 +227,8 @@ public partial class SAV_SecretBase : Form
         CB_HeldItem.SelectedValue = pk.HeldItem;
         CB_Form.SelectedIndex = pk.Form;
 
-        CB_Nature.SelectedValue = pk.Nature;
-        CB_Ball.SelectedValue = pk.Ball;
+        CB_Nature.SelectedValue = (int)pk.Nature;
+        CB_Ball.SelectedValue = (int)pk.Ball;
 
         TB_HPIV.Text = pk.IV_HP.ToString();
         TB_ATKIV.Text = pk.IV_ATK.ToString();
@@ -272,7 +270,7 @@ public partial class SAV_SecretBase : Form
             return;
 
         var bdata = CurrentBase;
-        if (bdata != null)
+        if (bdata is not null)
             SaveCurrent(bdata);
 
         ResetLoadNew();
@@ -286,9 +284,9 @@ public partial class SAV_SecretBase : Form
         if (bdata is null)
             return;
 
-        SavePlacement(bdata, CurrentPlacementIndex);
+        SavePlacement(CurrentPlacementIndex);
         var pIndex = (int)NUD_FObject.Value;
-        LoadPlacement(bdata, bdata.GetPlacement(pIndex), pIndex);
+        LoadPlacement(bdata.GetPlacement(pIndex), pIndex);
     }
 
     private void ChangeIndexPKM(object sender, EventArgs e)
@@ -323,7 +321,7 @@ public partial class SAV_SecretBase : Form
     {
         var abilities = PersonalTable.AO.GetFormEntry(species, form);
         var list = GameInfo.FilteredSources.GetAbilityList(abilities);
-        CB_Ability.DataSource = new BindingSource(list, null);
+        CB_Ability.DataSource = new BindingSource(list, string.Empty);
         CB_Ability.SelectedIndex = abilityIndex < 3 ? abilityIndex : 0;
     }
 
@@ -334,7 +332,7 @@ public partial class SAV_SecretBase : Form
         CB_Form.Enabled = CB_Form.Visible = hasForms;
 
         var list = FormConverter.GetFormList(species, GameInfo.Strings.types, GameInfo.Strings.forms, Main.GenderSymbols, SAV.Context);
-        CB_Form.DataSource = new BindingSource(list, null);
+        CB_Form.DataSource = new BindingSource(list, string.Empty);
     }
 
     private void UpdateSpecies(object sender, EventArgs e)
@@ -345,9 +343,10 @@ public partial class SAV_SecretBase : Form
         var species = WinFormsUtil.GetIndex(CB_Species);
 
         // Set a sane gender
-        var gender = SAV.Personal[species].RandomGender();
-        if (gender == -1)
-            gender = EntityGender.GetFromString(Label_Gender.Text);
+        var pi = SAV.Personal[species];
+        var gender = pi.IsDualGender
+            ? EntityGender.GetFromString(Label_Gender.Text)
+            : pi.FixedGender();
         SetGenderLabel(gender);
 
         SetAbilityList();
@@ -366,15 +365,15 @@ public partial class SAV_SecretBase : Form
     {
         var species = WinFormsUtil.GetIndex(CB_Species);
         var pi = SAV.Personal[species];
-        int gender;
+        byte gender;
         if (pi.IsDualGender) // dual gender
-            gender = (EntityGender.GetFromString(Label_Gender.Text) ^ 1) & 1;
+            gender = (byte)((EntityGender.GetFromString(Label_Gender.Text) ^ 1) & 1);
         else
             gender = pi.FixedGender();
         Label_Gender.Text = Main.GenderSymbols[gender];
     }
 
-    private void SetGenderLabel(int gender)
+    private void SetGenderLabel(byte gender)
     {
         var symbols = Main.GenderSymbols;
         if ((uint)gender >= symbols.Count)
@@ -418,13 +417,14 @@ public partial class SAV_SecretBase : Form
         var tr = sb.TrainerName;
         if (string.IsNullOrWhiteSpace(tr))
             tr = "Trainer";
-        using var sfd = new SaveFileDialog { Filter = "Secret Base Data|*.sb6", FileName = $"{sb.BaseLocation:D2} - {Util.CleanFileName(tr)}.sb6" };
+        using var sfd = new SaveFileDialog();
+        sfd.Filter = "Secret Base Data|*.sb6";
+        sfd.FileName = $"{sb.BaseLocation:D2} - {Util.CleanFileName(tr)}.sb6";
         if (sfd.ShowDialog() != DialogResult.OK)
             return;
 
         var path = sfd.FileName;
-        var data = sb.Write();
-        File.WriteAllBytes(path, data);
+        File.WriteAllBytes(path, sb.Data);
     }
     #endregion
 
@@ -466,7 +466,7 @@ public partial class SAV_SecretBase : Form
         SAV.Records.SetRecord(080, (int)flags);
 
         var bdata = CurrentBase;
-        if (bdata != null)
+        if (bdata is not null)
             SaveCurrent(bdata);
 
         Origin.CopyChangesFrom(SAV);

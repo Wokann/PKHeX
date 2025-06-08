@@ -12,24 +12,26 @@ public partial class BallBrowser : Form
 {
     public BallBrowser() => InitializeComponent();
 
-    public int BallChoice { get; private set; } = -1;
+    public bool WasBallChosen { get; private set; }
+    public byte BallChoice { get; private set; }
 
     public void LoadBalls(PKM pk)
     {
-        var legal = BallApplicator.GetLegalBalls(pk);
-        LoadBalls(legal, pk.MaxBallID + 1);
+        Span<Ball> valid = stackalloc Ball[BallApplicator.MaxBallSpanAlloc];
+        var legal = BallApplicator.GetLegalBalls(valid, pk);
+        LoadBalls(valid[..legal], pk.MaxBallID);
     }
 
-    private void LoadBalls(IEnumerable<Ball> legal, int max)
+    private void LoadBalls(ReadOnlySpan<Ball> legal, int max)
     {
-        Span<bool> flags = stackalloc bool[max];
+        Span<bool> flags = stackalloc bool[BallApplicator.MaxBallSpanAlloc];
         foreach (var ball in legal)
             flags[(int)ball] = true;
 
         int countLegal = 0;
-        List<PictureBox> controls = new();
+        List<PictureBox> controls = [];
         var names = GameInfo.BallDataSource;
-        for (int ballID = 1; ballID < flags.Length; ballID++)
+        for (byte ballID = 1; ballID <= max; ballID++)
         {
             var name = GetBallName(ballID, names);
             var pb = GetBallView(ballID, name, flags[ballID]);
@@ -52,7 +54,7 @@ public partial class BallBrowser : Form
         }
     }
 
-    private static string GetBallName(int ballID, IEnumerable<ComboItem> names)
+    private static string GetBallName(byte ballID, IEnumerable<ComboItem> names)
     {
         foreach (var x in names)
         {
@@ -62,7 +64,7 @@ public partial class BallBrowser : Form
         throw new ArgumentOutOfRangeException(nameof(ballID));
     }
 
-    private PictureBox GetBallView(int ballID, string name, bool valid)
+    private SelectablePictureBox GetBallView(byte ballID, string name, bool valid)
     {
         var img = SpriteUtil.GetBallSprite(ballID);
         var pb = new SelectablePictureBox
@@ -87,9 +89,10 @@ public partial class BallBrowser : Form
         return pb;
     }
 
-    private void SelectBall(int b)
+    private void SelectBall(byte b)
     {
         BallChoice = b;
+        WasBallChosen = true;
         Close();
     }
 }

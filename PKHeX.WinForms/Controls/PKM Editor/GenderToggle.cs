@@ -14,9 +14,9 @@ public partial class GenderToggle : UserControl, IGenderToggle
     private string? InitialAccessible;
     public static int FocusBorderDeflate { get; set; }
 
-    public int Gender
+    public byte Gender
     {
-        get => Value;
+        get => (byte)Value;
         set => Value = SetGender(value);
     }
 
@@ -53,11 +53,11 @@ public partial class GenderToggle : UserControl, IGenderToggle
     }
 
     private static readonly Image[] GenderImages =
-    {
+    [
         gender_0,
         gender_1,
         gender_2,
-    };
+    ];
 
     private int SetGender(int value)
     {
@@ -111,18 +111,18 @@ public partial class GenderToggle : UserControl, IGenderToggle
 public interface IGenderToggle
 {
     /// <summary>
-    /// Enables use of the built in click action.
+    /// Enables use of the built-in click action.
     /// </summary>
     bool AllowClick { get; set; }
 
     /// <summary>
     /// Get or set the value the control displays.
     /// </summary>
-    int Gender { get; set; }
+    byte Gender { get; set; }
 
     /// <summary>
     /// Manually flips the gender state if possible.
     /// </summary>
-    /// <returns>True if can toggle, and the resulting value.</returns>
+    /// <returns>True if the gender was toggled, and the current Gender value after the operation.</returns>
     (bool CanToggle, int Value) ToggleGender();
 }

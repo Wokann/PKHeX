@@ -1,28 +1,27 @@
 using static PKHeX.Core.EncounterUtil;
 using static PKHeX.Core.Shiny;
-using static PKHeX.Core.GameVersion;
 using static PKHeX.Core.EncounterStatic8aCorrelation;
 
 namespace PKHeX.Core;
 
 internal static class Encounters8a
 {
-    internal static readonly EncounterArea8a[] SlotsLA = EncounterArea8a.GetAreas(Get("la", "la"), PLA);
+    internal static readonly EncounterArea8a[] SlotsLA = EncounterArea8a.GetAreas(Get("la", "la"u8));
 
     private const byte M = 127; // Middle Height/Weight
     private const byte A = 255; // Max Height/Weight for Alphas
     private const byte U = 128; // Middle Height - Unown
 
     internal static readonly EncounterStatic8a[] StaticLA =
-    {
+    [
         // Gifts
-        new(722,000,05,M,M) { Location = 006,                      Gift = true, Method = Fixed, Ball = (int)Ball.LAPoke   }, // Rowlet
-        new(155,000,05,M,M) { Location = 006,                      Gift = true, Method = Fixed, Ball = (int)Ball.LAPoke   }, // Cyndaquil
-        new(501,000,05,M,M) { Location = 006,                      Gift = true, Method = Fixed, Ball = (int)Ball.LAPoke   }, // Oshawott
-        new(037,001,40,M,M) { Location = 088,                      Gift = true, Method = Fixed, Ball = (int)Ball.LAPoke   }, // Vulpix-1
-        new(483,000,65,M,M) { Location = 109, FlawlessIVCount = 3, Gift = true, Method = Fixed, Ball = (int)Ball.LAOrigin }, // Dialga
-        new(484,000,65,M,M) { Location = 109, FlawlessIVCount = 3, Gift = true, Method = Fixed, Ball = (int)Ball.LAOrigin }, // Palkia
-        new(493,000,75,M,M) { Location = 109, FlawlessIVCount = 3, Gift = true, Method = Fixed, Ball = (int)Ball.LAPoke, FatefulEncounter = true }, // Arceus
+        new(722,000,05,M,M) { Location = 006,                      FixedBall = Ball.LAPoke,   Method = Fixed }, // Rowlet
+        new(155,000,05,M,M) { Location = 006,                      FixedBall = Ball.LAPoke,   Method = Fixed }, // Cyndaquil
+        new(501,000,05,M,M) { Location = 006,                      FixedBall = Ball.LAPoke,   Method = Fixed }, // Oshawott
+        new(037,001,40,M,M) { Location = 088,                      FixedBall = Ball.LAPoke,   Method = Fixed }, // Vulpix-1
+        new(483,000,65,M,M) { Location = 109, FlawlessIVCount = 3, FixedBall = Ball.LAOrigin, Method = Fixed }, // Dialga
+        new(484,000,65,M,M) { Location = 109, FlawlessIVCount = 3, FixedBall = Ball.LAOrigin, Method = Fixed }, // Palkia
+        new(493,000,75,M,M) { Location = 109, FlawlessIVCount = 3, FixedBall = Ball.LAPoke,   Method = Fixed, FatefulEncounter = true }, // Arceus
 
         // Static Encounters - Scripted Table Slots
         new(480,000,70,M,M) { Location = 111, FlawlessIVCount = 3, Moves = new(129,326,832,095) }, // Uxie
@@ -38,14 +37,9 @@ internal static class Encounters8a
 
         new(077,000,15    ) { Location = 014, Shiny = Always}, // Ponyta*
         new(442,000,60,M,M) { Location = 043, FlawlessIVCount = 3 }, // Spiritomb
-        new(570,001,27    ) { Location = 027 }, // Zorua
-        new(570,001,28    ) { Location = 027 }, // Zorua
-        new(570,001,29    ) { Location = 027 }, // Zorua
+        new(570,001,27    ) { Location = 027, LevelMax = 29 }, // Zorua
 
-        new(489,000,33    ) { Location = 064, FatefulEncounter = true,                      Moves = new(145,352,151,428) }, // Phione
-        new(489,000,34    ) { Location = 064, FatefulEncounter = true,                      Moves = new(145,352,151,428) }, // Phione
-        new(489,000,35    ) { Location = 064, FatefulEncounter = true,                      Moves = new(145,352,151,428) }, // Phione
-        new(489,000,36    ) { Location = 064, FatefulEncounter = true,                      Moves = new(145,352,151,428) }, // Phione
+        new(489,000,33    ) { Location = 064, FatefulEncounter = true, LevelMax = 36, Moves = new(145,352,151,428) }, // Phione
         new(490,000,50,M,M) { Location = 064, FlawlessIVCount = 3, FatefulEncounter = true, Moves = new(352,428,585,145) }, // Manaphy
         new(491,000,70,M,M) { Location = 010, FlawlessIVCount = 3, FatefulEncounter = true, Moves = new(506,399,094,464) }, // Darkrai
         new(492,000,70,M,M) { Location = 026, FlawlessIVCount = 3, FatefulEncounter = true, Moves = new(403,412,414,465) }, // Shaymin
@@ -81,16 +75,20 @@ internal static class Encounters8a
         new(201,027,25,U) { Location = 006, Method = Fixed }, // Unown ?
 
         // Future updates will handle crossovers better.
+        new(201,002,25,U) { Location = 010, Method = Fixed }, // Unown C (Coronet Highlands)
+        new(201,006,25,U) { Location = 007, Method = Fixed }, // Unown G (Obsidian Fieldlands)
+        new(201,013,25,U) { Location = 129, Method = Fixed }, // Unown N (Sand's Reach)
+        new(201,014,25,U) { Location = 011, Method = Fixed }, // Unown O (Alabaster Icelands)
         new(201,017,25,U) { Location = 009, Method = Fixed }, // Unown R (Cobalt Coastlands)
+        new(201,023,25,U) { Location = 007, Method = Fixed }, // Unown X (Obsidian Fieldlands)
         new(201,026,25,U) { Location = 099, Method = Fixed }, // Unown ! (Arena’s Approach)
         new(201,026,25,U) { Location = 141, Method = Fixed }, // Unown ! (Icepeak Arena)
-        new(201,023,25,U) { Location = 007, Method = Fixed }, // Unown X
-        new(201,024,25,U) { Location = 097, Method = Fixed }, // Unown Y
-        new(201,006,25,U) { Location = 007, Method = Fixed }, // Unown G
 
-        new(642,000,70,M,M) { Location = 059, FlawlessIVCount = 3,                 Moves = new(326,242,087,847) }, // Thundurus (Lunker’s Lair)
-        new(642,000,70,M,M) { Location = 129, FlawlessIVCount = 3,                 Moves = new(326,242,087,847) }, // Thundurus (Sand’s Reach)
-        new(488,000,70,M,M) { Location = 010, FlawlessIVCount = 3,                 Moves = new(427,094,585,849) }, // Cresselia (Coronet Highlands)
+        new(642,000,70,M,M) { Location = 059, FlawlessIVCount = 3,                          Moves = new(326,242,087,847) }, // Thundurus (Lunker’s Lair)
+        new(642,000,70,M,M) { Location = 129, FlawlessIVCount = 3,                          Moves = new(326,242,087,847) }, // Thundurus (Sand’s Reach)
+        new(905,000,70,M,M) { Location = 008, FlawlessIVCount = 3,                          Moves = new(326,242,585,831) }, // Enamorus (Crimson Mirelands)
+        new(905,000,70,M,M) { Location = 039, FlawlessIVCount = 3,                          Moves = new(326,242,585,831) }, // Enamorus (Bolderoll Slope)
+        new(488,000,70,M,M) { Location = 010, FlawlessIVCount = 3,                          Moves = new(427,094,585,849) }, // Cresselia (Coronet Highlands)
         new(491,000,70,M,M) { Location = 074, FlawlessIVCount = 3, FatefulEncounter = true, Moves = new(506,399,094,464) }, // Darkrai (Lonely Spring)
 
         // Static Encounters
@@ -112,5 +110,5 @@ internal static class Encounters8a
         new(571,001,58,M,M) { Location = 111, Method = Fixed, IsAlpha = true,                                  Moves = new(555,421,841,417) }, // zoroark01: Zoroark-1
         new(706,001,58,M,M) { Location = 104, Method = Fixed, IsAlpha = true,                                  Moves = new(231,406,842,056) }, // numelgon01: Goodra-1
         new(904,000,58,M,M) { Location = 105, Method = Fixed, IsAlpha = true,                                  Moves = new(301,398,401,038) }, // harysen01: Overqwil
-    };
+    ];
 }

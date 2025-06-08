@@ -28,17 +28,12 @@ internal static class BatchModifications
         var pk = info.Entity;
         if (pk is ITechRecord t)
         {
-            t.ClearRecordFlags();
-            if (IsAll(propValue))
-            {
-                t.SetRecordFlags(); // all
-            }
-            else if (!IsNone(propValue))
-            {
-                Span<ushort> moves = stackalloc ushort[4];
-                pk.GetMoves(moves);
-                t.SetRecordFlags(moves); // whatever fit the current moves
-            }
+            if (IsNone(propValue))
+                t.SetRecordFlags(pk, TechnicalRecordApplicatorOption.None);
+            else if (IsAll(propValue))
+                t.SetRecordFlags(pk, TechnicalRecordApplicatorOption.LegalAll, info.Legality);
+            else
+                t.SetRecordFlags(pk, TechnicalRecordApplicatorOption.LegalCurrent, info.Legality);
         }
 
         pk.SetRelearnMoves(info.Legality);
@@ -53,7 +48,7 @@ internal static class BatchModifications
     {
         var pk = info.Entity;
         if (pk is not IMoveShop8Mastery t)
-            return ModifyResult.Invalid;
+            return ModifyResult.Skipped;
 
         t.ClearMoveShopFlags();
         if (IsNone(propValue))
@@ -63,9 +58,14 @@ internal static class BatchModifications
         if (e is IMasteryInitialMoveShop8 enc)
             enc.SetInitialMastery(pk);
         if (IsAll(propValue))
+        {
+            t.SetPurchasedFlagsAll();
             t.SetMoveShopFlagsAll(pk);
+        }
         else
+        {
             t.SetMoveShopFlags(pk);
+        }
         return ModifyResult.Modified;
     }
 
@@ -89,16 +89,20 @@ internal static class BatchModifications
     {
         var pk = info.Entity;
         var encounter = EncounterSuggestion.GetSuggestedMetInfo(pk);
-        if (encounter == null)
+        if (encounter is null)
             return ModifyResult.Error;
 
-        int level = encounter.LevelMin;
-        int location = encounter.Location;
-        int minimumLevel = EncounterSuggestion.GetLowestLevel(pk, encounter.LevelMin);
+        var location = encounter.Location;
+        var level = encounter.LevelMin;
+        var minimumLevel = EncounterSuggestion.GetLowestLevel(pk, level);
+        var current = Math.Max(minimumLevel, level);
 
-        pk.Met_Level = level;
-        pk.Met_Location = location;
-        pk.CurrentLevel = Math.Max(minimumLevel, level);
+        if (pk.MetLevel == level && pk.MetLocation == location && pk.CurrentLevel == current)
+            return ModifyResult.Skipped;
+
+        pk.MetLevel = level;
+        pk.MetLocation = location;
+        pk.CurrentLevel = current;
 
         return ModifyResult.Modified;
     }
@@ -109,7 +113,7 @@ internal static class BatchModifications
     public static ModifyResult SetMinimumCurrentLevel(BatchInfo info)
     {
         var result = EncounterSuggestion.IterateMinimumCurrentLevel(info.Entity, info.Legal);
-        return result ? ModifyResult.Modified : ModifyResult.Filtered;
+        return result ? ModifyResult.Modified : ModifyResult.Skipped;
     }
 
     /// <summary>
@@ -119,8 +123,11 @@ internal static class BatchModifications
     /// <param name="moves">Moves to apply.</param>
     public static ModifyResult SetMoves(PKM pk, ReadOnlySpan<ushort> moves)
     {
+        Span<ushort> current = stackalloc ushort[4];
+        pk.GetMoves(current);
+        if (current.SequenceEqual(moves))
+            return ModifyResult.Skipped;
         pk.SetMoves(moves);
-        pk.HealPP();
         return ModifyResult.Modified;
     }
 
@@ -128,6 +135,11 @@ internal static class BatchModifications
     {
         Span<int> evs = stackalloc int[6];
         EffortValues.SetMax(evs, pk);
+        Span<int> current = stackalloc int[6];
+
+        pk.GetEVs(current);
+        if (current.SequenceEqual(evs))
+            return ModifyResult.Skipped;
         pk.SetEVs(evs);
         return ModifyResult.Modified;
     }
@@ -144,6 +156,39 @@ internal static class BatchModifications
             pk.SetMaxContestStats(la.EncounterMatch, la.Info.EvoChainsAllGens);
         else
             pk.SetSuggestedContestStats(la.EncounterMatch, la.Info.EvoChainsAllGens);
+        return ModifyResult.Modified;
+    }
+
+    public static ModifyResult SetSuggestedCurrentFriendship(BatchInfo info)
+    {
+        var pk = info.Entity;
+        var value = HistoryVerifier.GetSuggestedFriendshipCurrent(pk, info.Legality.EncounterMatch);
+        if (pk.CurrentFriendship == value)
+            return ModifyResult.Skipped;
+
+        pk.CurrentFriendship = value;
+        return ModifyResult.Modified;
+    }
+
+    public static ModifyResult SetSuggestedOriginalTrainerFriendship(BatchInfo info)
+    {
+        var pk = info.Entity;
+        var value = HistoryVerifier.GetSuggestedFriendshipOT(pk, info.Legality.EncounterMatch);
+        if (pk.OriginalTrainerFriendship == value)
+            return ModifyResult.Skipped;
+
+        pk.OriginalTrainerFriendship = value;
+        return ModifyResult.Modified;
+    }
+
+    public static ModifyResult SetSuggestedHandlingTrainerFriendship(BatchInfo info)
+    {
+        var pk = info.Entity;
+        var value = HistoryVerifier.GetSuggestedFriendshipHT(pk);
+        if (pk.HandlingTrainerFriendship == value)
+            return ModifyResult.Skipped;
+
+        pk.HandlingTrainerFriendship = value;
         return ModifyResult.Modified;
     }
 }

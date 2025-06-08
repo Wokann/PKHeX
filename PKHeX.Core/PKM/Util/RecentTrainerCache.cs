@@ -7,24 +7,24 @@ namespace PKHeX.Core;
 public static class RecentTrainerCache
 {
     private static ITrainerInfo Trainer = new SimpleTrainerInfo();
-    private static IRegionOrigin Trainer67 = new SimpleTrainerInfo(GameVersion.SN);
+    private static IRegionOriginReadOnly Trainer67 = new SimpleTrainerInfo(GameVersion.SN);
 
-    private static IRegionOrigin GetTrainer3DS(ITrainerInfo tr) => tr as IRegionOrigin ?? Trainer67;
+    private static IRegionOriginReadOnly GetTrainer3DS(ITrainerInfo tr) => tr as IRegionOrigin ?? Trainer67;
 
     /// <summary> Most recently loaded <see cref="ITrainerInfo.OT"/>. </summary>
-    public static string OT_Name => Trainer.OT;
+    public static string OriginalTrainerName => Trainer.OT;
 
     /// <summary> Most recently loaded <see cref="ITrainerInfo.Gender"/>. </summary>
-    public static int OT_Gender => Trainer.Gender;
+    public static byte OriginalTrainerGender => Trainer.Gender;
 
     /// <summary> Most recently loaded <see cref="ITrainerInfo.Language"/>. </summary>
     public static int Language => Trainer.Language;
 
     /// <summary> Most recently loaded <see cref="ITrainerInfo.Generation"/>. </summary>
-    public static int Format => Trainer.Generation;
+    public static byte Format => Trainer.Generation;
 
-    /// <summary> Most recently loaded <see cref="ITrainerInfo.Game"/>. </summary>
-    public static int Game => Trainer.Game;
+    /// <summary> Most recently loaded <see cref="ITrainerInfo.Version"/>. </summary>
+    public static GameVersion Version => Trainer.Version;
 
     /// <summary> Most recently loaded <see cref="ITrainerInfo.Context"/>. </summary>
     public static EntityContext Context => Trainer.Context;
@@ -36,18 +36,17 @@ public static class RecentTrainerCache
     public static void SetRecentTrainer(ITrainerInfo trainer)
     {
         Trainer = trainer;
-        if (trainer is IRegionOrigin g67)
+
+        // Update Gen6/7 trainer reference if applicable, otherwise retain whatever was there.
+        if (trainer is IRegionOriginReadOnly g67)
             Trainer67 = g67;
     }
 
     /// <inheritdoc cref="SetConsoleRegionData3DS(IRegionOrigin, ITrainerInfo)"/>
     public static void SetConsoleRegionData3DS(IRegionOrigin pk) => SetConsoleRegionData3DS(pk, Trainer);
 
-    /// <inheritdoc cref="SetFirstCountryRegion(IGeoTrack, ITrainerInfo)"/>
-    public static void SetFirstCountryRegion(IGeoTrack pk) => SetFirstCountryRegion(pk, Trainer);
-
     /// <summary>
-    /// Fetches an <see cref="IRegionOrigin"/> trainer to apply details to the input <see cref="pk"/>.
+    /// Fetches a trainer to apply details to the input <see cref="pk"/>.
     /// </summary>
     /// <param name="pk">Entity to apply details to.</param>
     /// <param name="trainer">Trainer that is receiving the entity.</param>
@@ -60,14 +59,12 @@ public static class RecentTrainerCache
     }
 
     /// <summary>
-    /// Fetches an <see cref="IRegionOrigin"/> trainer to apply details to the input <see cref="pk"/>.
+    /// Fetches a trainer to apply details to the input <see cref="pk"/>.
     /// </summary>
     /// <param name="pk">Entity to apply details to.</param>
-    /// <param name="trainer">Trainer that is receiving the entity.</param>
-    public static void SetFirstCountryRegion(IGeoTrack pk, ITrainerInfo trainer)
+    public static void SetFirstCountryRegion(IGeoTrack pk)
     {
-        var tr = GetTrainer3DS(trainer);
-        pk.Geo1_Country = tr.Country;
-        pk.Geo1_Region = tr.Region;
+        pk.Geo1_Country = pk.Country;
+        pk.Geo1_Region = pk.Region;
     }
 }

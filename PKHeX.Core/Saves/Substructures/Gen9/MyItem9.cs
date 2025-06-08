@@ -7,27 +7,40 @@ namespace PKHeX.Core;
 /// Player item pouches storage
 /// </summary>
 /// <remarks>size=0xBB80 (<see cref="ItemSaveSize"/> items)</remarks>
-public sealed class MyItem9 : MyItem
+public sealed class MyItem9(SAV9SV sav, SCBlock block) : MyItem(sav, block.Raw)
 {
     public const int ItemSaveSize = 3000;
 
-    public MyItem9(SaveFile SAV, SCBlock block) : base(SAV, block.Data) { }
+    private Span<byte> GetItemSpan(ushort itemIndex) => InventoryPouch9.GetItemSpan(Data, itemIndex);
 
-    public int GetItemQuantity(ushort itemIndex)
-    {
-        var ofs = InventoryPouch9.GetItemOffset(itemIndex);
-        var span = Data.AsSpan(ofs, InventoryItem9.SIZE);
-        var item = InventoryItem9.Read(itemIndex, span);
-        return item.Count;
-    }
+    public uint DefaultInitPouch => System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(Data); // Item 0
+
+    /// <summary>
+    /// Deletes the item at the requested <paramref name="itemIndex"/>.
+    /// </summary>
+    /// <remarks>
+    /// Copies item 0 to the requested item index, effectively deleting it.
+    /// Item 0 should always be un-tarnished, so this is a safe operation.
+    /// <see cref="InventoryItem9.PouchInvalid"/> for remarks on Pouch type quirks. This aims to retain consistency within the block.
+    /// </remarks>
+    public void DeleteItem(ushort itemIndex) => GetItemSpan(0).CopyTo(GetItemSpan(itemIndex));
+    public InventoryItem9 GetItem(ushort itemIndex) => InventoryItem9.Read(itemIndex, GetItemSpan(itemIndex));
+
+    public uint GetItemQuantity(ushort itemIndex) => InventoryItem9.GetItemCount(GetItemSpan(itemIndex));
 
     public void SetItemQuantity(ushort itemIndex, int quantity)
     {
-        var ofs = InventoryPouch9.GetItemOffset(itemIndex);
-        var span = Data.AsSpan(ofs, InventoryItem9.SIZE);
+        var pouch = GetPouchIndex(GetType(itemIndex));
+        if (pouch == InventoryItem9.PouchInvalid)
+        {
+            DeleteItem(itemIndex); // don't allow setting items that don't exist
+            return;
+        }
+        var span = GetItemSpan(itemIndex);
         var item = InventoryItem9.Read(itemIndex, span);
         item.Count = quantity;
         item.Pouch = GetPouchIndex(GetType(itemIndex));
+        item.IsObtained = true;
         item.Write(span);
     }
 
@@ -37,8 +50,8 @@ public sealed class MyItem9 : MyItem
 
     private IReadOnlyList<InventoryPouch> ConvertToPouches()
     {
-        var pouches = new[]
-        {
+        InventoryPouch9[] pouches =
+        [
             MakePouch(InventoryType.Medicine),
             MakePouch(InventoryType.Balls),
             MakePouch(InventoryType.BattleItems),
@@ -49,7 +62,7 @@ public sealed class MyItem9 : MyItem
             MakePouch(InventoryType.Ingredients),
             MakePouch(InventoryType.KeyItems),
             MakePouch(InventoryType.Candy),
-        };
+        ];
         return pouches.LoadAll(Data);
     }
 
@@ -69,11 +82,26 @@ public sealed class MyItem9 : MyItem
             foreach (var item in items)
                 hashSet.Add(item);
         }
-        for (ushort i = 0; i < (ushort)SAV.MaxItemID; i++) // even though there are 3000, just overwrite the ones that people will mess up.
+        // even though there are 3000, just overwrite the ones that people will mess up.
+        for (ushort itemIndex = 0; itemIndex < (ushort)SAV.MaxItemID; itemIndex++)
         {
-            if (!hashSet.Contains(i))
-                InventoryItem9.Clear(Data, InventoryPouch9.GetItemOffset(i));
+            if (!hashSet.Contains(itemIndex))
+                DeleteItem(itemIndex);
         }
+    }
+
+    public void ResetToDefault()
+    {
+        var block = Data;
+        var defaultPouch = DefaultInitPouch;
+        ResetToDefault(block, defaultPouch);
+    }
+
+    public static void ResetToDefault(Span<byte> block, uint defaultPouch)
+    {
+        block.Clear();
+        for (int i = 0; i < block.Length; i += InventoryItem9.SIZE)
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(block[i..], defaultPouch);
     }
 
     private static InventoryPouch9 MakePouch(InventoryType type)
@@ -95,6 +123,6 @@ public sealed class MyItem9 : MyItem
         InventoryType.Treasure => InventoryItem9.PouchTreasure,
         InventoryType.Ingredients => InventoryItem9.PouchPicnic,
         InventoryType.Candy => InventoryItem9.PouchMaterial,
-        _ => InventoryItem9.PouchNone,
+        _ => InventoryItem9.PouchInvalid,
     };
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -6,12 +7,11 @@ namespace PKHeX.Core;
 /// <summary>
 /// Inventory Pouch used by <see cref="GameVersion.SWSH"/>
 /// </summary>
-public sealed class InventoryPouch8 : InventoryPouch
+public sealed class InventoryPouch8(InventoryType type, IItemStorage info, int maxCount, int offset, [ConstantExpected] int size)
+    : InventoryPouch(type, info, maxCount, offset, size)
 {
     public bool SetNew { get; set; }
-    private int[] OriginalItems = Array.Empty<int>();
-
-    public InventoryPouch8(InventoryType type, IItemStorage info, int maxCount, int offset, int size) : base(type, info, maxCount, offset, size) { }
+    private int[] OriginalItems = [];
 
     public override InventoryItem8 GetEmpty(int itemID = 0, int count = 0) => new() { Index = itemID, Count = count };
 
@@ -31,8 +31,7 @@ public sealed class InventoryPouch8 : InventoryPouch
 
     public override void SetPouch(Span<byte> data)
     {
-        if (Items.Length != PouchDataSize)
-            throw new ArgumentException("Item array length does not match original pouch size.");
+        ArgumentOutOfRangeException.ThrowIfNotEqual(Items.Length, PouchDataSize);
 
         var span = data[Offset..];
         var items = (InventoryItem8[])Items;

@@ -16,32 +16,36 @@ namespace PKHeX.Core;
 /// <see cref="FilterNotEqual"/>
 /// <see cref="FilterEqual"/>
 /// <see cref="Apply"/>
-public sealed class StringInstruction
+/// <param name="PropertyName">Property to modify.</param>
+/// <param name="PropertyValue">Value to set to the property.</param>
+/// <param name="Comparer">Filter Comparison Type</param>
+public sealed record StringInstruction(string PropertyName, string PropertyValue, InstructionComparer Comparer)
 {
-    /// <summary> Property to modify. </summary>
-    public string PropertyName { get; }
-    /// <summary> Value to set to the property. </summary>
-    public string PropertyValue { get; private set; }
-    /// <summary> Filter Comparison Type </summary>
-    public InstructionComparer Comparer { get; private init; }
+    public string PropertyValue { get; private set; } = PropertyValue;
 
-    public StringInstruction(string name, string value)
-    {
-        PropertyName = name;
-        PropertyValue = value;
-    }
-
-    public void SetScreenedValue(ReadOnlySpan<string> arr)
+    /// <summary>
+    /// Sets the <see cref="PropertyValue"/> to the index of the value in the input <see cref="arr"/>, if it exists.
+    /// </summary>
+    /// <param name="arr">List of values to search for the <see cref="PropertyValue"/>.</param>
+    /// <returns>True if the value was found and set, false otherwise.</returns>
+    public bool SetScreenedValue(ReadOnlySpan<string> arr)
     {
         int index = arr.IndexOf(PropertyValue);
-        if ((uint)index < arr.Length)
-            PropertyValue = index.ToString();
+        if ((uint)index >= arr.Length)
+            return false;
+        PropertyValue = index.ToString();
+        return true;
     }
 
     /// <summary>
     /// Valid prefixes that are recognized for <see cref="InstructionComparer"/> value comparison types.
     /// </summary>
-    public static ReadOnlySpan<char> Prefixes => new[] { Apply, FilterEqual, FilterNotEqual, FilterGreaterThan, FilterGreaterThanOrEqual, FilterLessThan, FilterLessThanOrEqual };
+    public static ReadOnlySpan<char> Prefixes =>
+    [
+        Apply,
+        FilterEqual, FilterNotEqual, FilterGreaterThan, FilterGreaterThanOrEqual, FilterLessThan, FilterLessThanOrEqual,
+    ];
+
     private const char Apply = '.';
     private const char SplitRange = ',';
 
@@ -92,8 +96,7 @@ public sealed class StringInstruction
     public void SetRandomRange(ReadOnlySpan<char> str)
     {
         var index = str.IndexOf(SplitRange);
-        if (index <= 0)
-            throw new ArgumentException($"Invalid Random Range: {str.ToString()}", nameof(str));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(index);
 
         var min = str[..index];
         var max = str[(index + 1)..];
@@ -265,7 +268,7 @@ public sealed class StringInstruction
     {
         if (!TryParseSplitTuple(tuple, out var name, out var value))
             return false;
-        entry = new StringInstruction(name.ToString(), value.ToString()) { Comparer = eval };
+        entry = new StringInstruction(name.ToString(), value.ToString(), eval);
         return true;
     }
 
@@ -286,17 +289,12 @@ public sealed class StringInstruction
 
         value = tuple[(splitIndex + 1)..];
         var noExtra = value.IndexOf(SplitInstruction);
-        if (noExtra != -1)
-            return false;
-
-        return true;
+        return noExtra == -1;
     }
 
     /// <summary>
     /// Gets the <see cref="InstructionComparer"/> from the input <see cref="opCode"/>.
     /// </summary>
-    /// <param name="opCode"></param>
-    /// <returns></returns>
     public static InstructionComparer GetComparer(char opCode) => opCode switch
     {
         FilterEqual => IsEqual,

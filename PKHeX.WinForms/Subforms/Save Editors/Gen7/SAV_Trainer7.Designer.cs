@@ -573,7 +573,6 @@ namespace PKHeX.WinForms
             // CB_Gender
             // 
             CB_Gender.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            CB_Gender.Enabled = false;
             CB_Gender.FormattingEnabled = true;
             CB_Gender.Items.AddRange(new object[] { "♂", "♀" });
             CB_Gender.Location = new System.Drawing.Point(115, 59);
@@ -581,6 +580,7 @@ namespace PKHeX.WinForms
             CB_Gender.Name = "CB_Gender";
             CB_Gender.Size = new System.Drawing.Size(46, 23);
             CB_Gender.TabIndex = 22;
+            CB_Gender.SelectedIndexChanged += UpdateSkinColor;
             // 
             // TB_MBMS
             // 
@@ -1196,7 +1196,7 @@ namespace PKHeX.WinForms
             // NUD_R
             // 
             NUD_R.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            NUD_R.DecimalPlaces = 5;
+            NUD_R.DecimalPlaces = 6;
             NUD_R.Location = new System.Drawing.Point(108, 138);
             NUD_R.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             NUD_R.Maximum = new decimal(new int[] { 99999999, 0, 0, 0 });
@@ -1219,7 +1219,7 @@ namespace PKHeX.WinForms
             // NUD_Z
             // 
             NUD_Z.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            NUD_Z.DecimalPlaces = 5;
+            NUD_Z.DecimalPlaces = 6;
             NUD_Z.Location = new System.Drawing.Point(108, 78);
             NUD_Z.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             NUD_Z.Maximum = new decimal(new int[] { 99999999, 0, 0, 0 });
@@ -1242,7 +1242,7 @@ namespace PKHeX.WinForms
             // NUD_Y
             // 
             NUD_Y.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            NUD_Y.DecimalPlaces = 5;
+            NUD_Y.DecimalPlaces = 6;
             NUD_Y.Location = new System.Drawing.Point(108, 108);
             NUD_Y.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             NUD_Y.Maximum = new decimal(new int[] { 99999999, 0, 0, 0 });
@@ -1255,7 +1255,7 @@ namespace PKHeX.WinForms
             // NUD_X
             // 
             NUD_X.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            NUD_X.DecimalPlaces = 5;
+            NUD_X.DecimalPlaces = 6;
             NUD_X.Location = new System.Drawing.Point(108, 48);
             NUD_X.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             NUD_X.Maximum = new decimal(new int[] { 99999999, 0, 0, 0 });

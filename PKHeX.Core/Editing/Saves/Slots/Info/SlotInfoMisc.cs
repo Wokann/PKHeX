@@ -7,28 +7,17 @@ namespace PKHeX.Core;
 /// </summary>
 public sealed record SlotInfoMisc(Memory<byte> Data, int Slot, bool PartyFormat = false, bool Mutable = false) : ISlotInfo
 {
-    public SlotInfoMisc(SaveFile sav, int slot, int offset, bool party = false) : this(GetBuffer(sav)[offset..], slot, party) { }
-    public SlotInfoMisc(byte[] data, int slot, int offset, bool party = false) : this(data.AsMemory(offset), slot, party) { }
-
-    public SlotOrigin Origin => PartyFormat ? SlotOrigin.Party : SlotOrigin.Box;
+    public required StorageSlotType Type { get; init; }
     public bool CanWriteTo(SaveFile sav) => Mutable;
     public WriteBlockedMessage CanWriteTo(SaveFile sav, PKM pk) => Mutable ? WriteBlockedMessage.None : WriteBlockedMessage.InvalidDestination;
-    public StorageSlotType Type { get; init; }
 
-    private static Memory<byte> GetBuffer(SaveFile sav) => sav switch
-    {
-        SAV4 s => s.GeneralBuffer,
-        SAV3 s3 => s3.Large,
-        _ => sav.Data,
-    };
-
-    public bool WriteTo(SaveFile sav, PKM pk, PKMImportSetting setting = PKMImportSetting.UseDefault)
+    public bool WriteTo(SaveFile sav, PKM pk, EntityImportSettings settings = default)
     {
         var span = Data.Span;
         if (PartyFormat)
-            sav.SetSlotFormatParty(pk, span, setting, setting);
+            sav.SetSlotFormatParty(pk, span, settings);
         else
-            sav.SetSlotFormatStored(pk, span, setting, setting);
+            sav.SetSlotFormatStored(pk, span, settings);
         return true;
     }
 

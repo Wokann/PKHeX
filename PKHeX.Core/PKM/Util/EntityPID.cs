@@ -2,6 +2,9 @@ using System;
 
 namespace PKHeX.Core;
 
+/// <summary>
+/// Logic for creating a PID, mostly for originating in Generations 3-5.
+/// </summary>
 public static class EntityPID
 {
     /// <summary>
@@ -16,26 +19,26 @@ public static class EntityPID
     /// <param name="oldPID">Current PID</param>
     /// <remarks>Used to retain ability bits.</remarks>
     /// <returns>Rerolled PID.</returns>
-    public static uint GetRandomPID(Random rnd, ushort species, int gender, int origin, int nature, byte form, uint oldPID)
+    public static uint GetRandomPID(Random rnd, ushort species, byte gender, GameVersion origin, Nature nature, byte form, uint oldPID)
     {
         // Gen6+ (and VC) PIDs do not tie PID to Nature/Gender/Ability
-        if (origin is 0 or >= 24)
+        if (origin is 0 or >= GameVersion.X)
             return rnd.Rand32();
 
         // Below logic handles Gen3-5.
         // No need to get form specific entry, as Gen3-5 do not have that feature.
         var gt = PersonalTable.B2W2[species].Gender;
-        bool g34 = origin <= 15;
+        bool g34 = origin.IsGen3() || origin.IsGen4();
         uint abilBitVal = g34 ? oldPID & 0x0000_0001 : oldPID & 0x0001_0000;
 
-        bool g3unown = origin <= 5 && species == (int)Species.Unown;
+        bool g3unown = origin is GameVersion.FR or GameVersion.LG && species == (int)Species.Unown;
         bool singleGender = PersonalInfo.IsSingleGender(gt); // single gender, skip gender check
         while (true) // Loop until we find a suitable PID
         {
             uint pid = rnd.Rand32();
 
             // Gen 3/4: Nature derived from PID
-            if (g34 && pid % 25 != nature)
+            if (g34 && pid % 25 != (byte)nature)
                 continue;
 
             // Gen 3 Unown: Letter/form derived from PID
@@ -66,10 +69,10 @@ public static class EntityPID
     }
 
     /// <summary>
-    /// Gets the Unown Forme ID from PID.
+    /// Gets the Unown Form ID from PID.
     /// </summary>
     /// <param name="pid">Personality ID</param>
-    /// <remarks>Should only be used for 3rd Generation origin specimens.</remarks>
+    /// <remarks>Should only be used for FireRed/LeafGreen origin Unown.</remarks>
     public static byte GetUnownForm3(uint pid)
     {
         var value = ((pid & 0x3000000) >> 18) | ((pid & 0x30000) >> 12) | ((pid & 0x300) >> 6) | (pid & 0x3);

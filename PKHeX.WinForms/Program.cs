@@ -32,11 +32,19 @@ internal static class Program
         // Run the application
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+
+        var args = Environment.GetCommandLineArgs();
+        // if an arg is "dark", set the color mode to dark
+        if (args.Length > 1 && args[1] == "dark")
+#pragma warning disable WFO5001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            Application.SetColorMode(SystemColorMode.Dark);
+#pragma warning restore WFO5001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
         var splash = new SplashScreen();
         new Task(() => splash.ShowDialog()).Start();
         new Task(() => EncounterEvent.RefreshMGDB(WinForms.Main.MGDatabasePath)).Start();
         var main = new Main();
-        splash.Invoke(splash.ForceClose);
+        splash.BeginInvoke(splash.ForceClose);
         Application.Run(main);
     }
 
@@ -61,13 +69,15 @@ internal static class Program
 #if !DEBUG
     private static void Error(string msg) => MessageBox.Show(msg, "PKHeX Error", MessageBoxButtons.OK, MessageBoxIcon.Stop);
 
-    // Handle the UI exceptions by showing a dialog box, and asking the user whether or not they wish to abort execution.
+    // Handle the UI exceptions by showing a dialog box, and asking the user if they wish to abort execution.
     private static void UIThreadException(object sender, ThreadExceptionEventArgs t)
     {
         DialogResult result = DialogResult.Cancel;
         try
         {
-            result = ErrorWindow.ShowErrorDialog("An unhandled exception has occurred.\nYou can continue running PKHeX, but please report this error.", t.Exception, true);
+            var e = t.Exception;
+            string errorMessage = GetErrorMessage(e);
+            result = ErrorWindow.ShowErrorDialog(errorMessage, e, true);
         }
         catch (Exception reportingException)
         {
@@ -79,8 +89,18 @@ internal static class Program
             Application.Exit();
     }
 
-    // Handle the UI exceptions by showing a dialog box, and asking the user whether
-    // or not they wish to abort execution.
+    private static string GetErrorMessage(Exception e)
+    {
+        try
+        {
+            if (IsPluginError<IPlugin>(e, out var pluginName))
+                return $"An error occurred in a PKHeX plugin. Please report this error to the plugin author/maintainer.\n{pluginName}";
+        }
+        catch { }
+        return "An error occurred in PKHeX. Please report this error to the PKHeX author.";
+    }
+
+    // Handle the UI exceptions by showing a dialog box, and asking the user if they wish to abort execution.
     // NOTE: This exception cannot be kept from terminating the application - it can only
     // log the event, and inform the user about it.
     private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -92,9 +112,14 @@ internal static class Program
             {
                 Error("You have upgraded PKHeX incorrectly. Please delete PKHeX.Core.dll.");
             }
-            else if (ex != null)
+            else if (IsPkhexCoreMissing(ex))
             {
-                ErrorWindow.ShowErrorDialog("An unhandled exception has occurred.\nPKHeX must now close.", ex, false);
+                Error("You have installed PKHeX incorrectly. Please ensure you have unzipped all files before running.");
+            }
+            else if (ex is not null)
+            {
+                var msg = GetErrorMessage(ex);
+                ErrorWindow.ShowErrorDialog($"{msg}\nPKHeX must now close.", ex, false);
             }
             else
             {
@@ -107,8 +132,33 @@ internal static class Program
         }
     }
 
+    private static bool IsPluginError<T>(Exception exception, out string pluginName)
+    {
+        // Check the stacktrace to see if the namespace is a type that derives from IPlugin
+        pluginName = string.Empty;
+        var stackTrace = new System.Diagnostics.StackTrace(exception);
+        foreach (var frame in stackTrace.GetFrames())
+        {
+            var method = frame.GetMethod();
+            var type = method?.DeclaringType;
+            if (!typeof(T).IsAssignableFrom(type))
+                continue;
+            pluginName = type.Namespace ?? string.Empty;
+            return true;
+        }
+        return false;
+    }
+
     private static void HandleReportingException(Exception? ex, Exception reportingException)
     {
+        try
+        {
+            EmergencyErrorLog(ex, reportingException);
+        }
+        catch
+        {
+            // We've failed to even save the error details to a file. There's nothing else we can do.
+        }
         if (reportingException is FileNotFoundException x && x.FileName?.StartsWith("PKHeX.Core") == true)
         {
             Error("Could not locate PKHeX.Core.dll. Make sure you're running PKHeX together with its code library. Usually caused when all files are not extracted.");
@@ -117,7 +167,6 @@ internal static class Program
         try
         {
             Error("A fatal non-UI error has occurred in PKHeX, and there was a problem displaying the details.  Please report this to the author.");
-            EmergencyErrorLog(ex, reportingException);
         }
         finally
         {
@@ -151,6 +200,11 @@ internal static class Program
         return ex is MissingMethodException or TypeLoadException or TypeInitializationException
             && File.Exists("PKHeX.Core.dll")
             && AssemblyName.GetAssemblyName("PKHeX.Core.dll").Version < CurrentVersion;
+    }
+
+    private static bool IsPkhexCoreMissing(Exception? ex)
+    {
+        return ex is FileNotFoundException { FileName: {} n } && n.Contains("PKHeX.Core");
     }
 #endif
 }

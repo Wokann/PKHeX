@@ -3,12 +3,13 @@ using System;
 namespace PKHeX.Core;
 
 /// <summary>
-/// Group that checks the source of a move in <see cref="GameVersion.Gen1"/>.
+/// Group that checks the source of a move in <see cref="EntityContext.Gen1"/>.
 /// </summary>
 public sealed class LearnGroup1 : ILearnGroup
 {
     public static readonly LearnGroup1 Instance = new();
-    private const int Generation = 1;
+    private const byte Generation = 1;
+    public ushort MaxMoveID => Legal.MaxMoveID_1;
 
     public ILearnGroup? GetPrevious(PKM pk, EvolutionHistory history, IEncounterTemplate enc, LearnOption option) => pk.Context switch
     {
@@ -78,7 +79,7 @@ public sealed class LearnGroup1 : ILearnGroup
             var stage = detail.EvoStage;
             var chain = detail.Generation is 1 ? history.Gen1 : history.Gen2;
             var species2 = chain[stage].Species;
-            if (level2 > level && species2 <= species)
+            if (level2 > level && species2 < species)
                 return true;
         }
 
@@ -91,7 +92,10 @@ public sealed class LearnGroup1 : ILearnGroup
             return;
 
         Span<ushort> moves = stackalloc ushort[4];
-        GetEncounterMoves(enc, moves);
+        if (enc is IMoveset m)
+            m.Moves.CopyTo(moves);
+        else
+            GetEncounterMoves(enc, moves);
 
         // Count the amount of initial moves not present in the current list.
         int count = CountMissing(current, moves);
@@ -133,7 +137,7 @@ public sealed class LearnGroup1 : ILearnGroup
             x.CopyTo(moves);
         else
             GetEncounterMoves(enc, moves);
-        LearnVerifierHistory.MarkInitialMoves(result, current, moves);
+        LearnVerifierHistory.MarkInitialMoves(result, current, moves, enc.Version == GameVersion.YW ? LearnEnvironment.YW : LearnEnvironment.RB);
 
         // Flag empty slots if never visited Gen2 move deleter.
         if (pk is not PK1 pk1)
@@ -147,7 +151,7 @@ public sealed class LearnGroup1 : ILearnGroup
     {
         if (!ParseSettings.AllowGen1Tradeback)
             return false;
-        var rate = pk1.Catch_Rate;
+        var rate = pk1.CatchRate;
         return rate is 0 || GBRestrictions.IsTradebackCatchRate(rate);
     }
 
@@ -168,9 +172,6 @@ public sealed class LearnGroup1 : ILearnGroup
         var yw = LearnSource1YW.Instance;
         if (!yw.TryGetPersonal(evo.Species, evo.Form, out var yp))
             return; // should never happen.
-
-        if (ParseSettings.AllowGen1Tradeback && ParseSettings.AllowGen2MoveReminder(pk))
-            evo = evo with { LevelMin = 1 };
 
         for (int i = result.Length - 1; i >= 0; i--)
         {
@@ -225,9 +226,6 @@ public sealed class LearnGroup1 : ILearnGroup
 
     private static void GetAllMoves(Span<bool> result, PKM pk, EvoCriteria evo, MoveSourceType types)
     {
-        if (ParseSettings.AllowGen1Tradeback && ParseSettings.AllowGen2MoveReminder(pk))
-            evo = evo with { LevelMin = 1 };
-
         LearnSource1YW.Instance.GetAllMoves(result, pk, evo, types);
         LearnSource1RB.Instance.GetAllMoves(result, pk, evo, types);
     }

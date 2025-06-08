@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Text;
 using System.Windows.Forms;
+using PKHeX.Core;
 
 namespace PKHeX.WinForms;
 
@@ -8,31 +9,23 @@ public sealed partial class ErrorWindow : Form
 {
     public static DialogResult ShowErrorDialog(string friendlyMessage, Exception ex, bool allowContinue)
     {
-        var lang = System.Threading.Thread.CurrentThread.CurrentUICulture.TwoLetterISOLanguageName;
-        using var dialog = new ErrorWindow(lang)
-        {
-            ShowContinue = allowContinue,
-            Message = friendlyMessage,
-            Error = ex,
-        };
+        string lang = WinFormsUtil.GetCultureLanguage();
+        using var dialog = new ErrorWindow(lang);
+        dialog.LoadException(ex, friendlyMessage, allowContinue);
         var dialogResult = dialog.ShowDialog();
         if (dialogResult == DialogResult.Abort)
             Environment.Exit(1);
         return dialogResult;
     }
 
-    private ErrorWindow()
+    public ErrorWindow(string? lang = GameLanguage.DefaultLanguage)
     {
         InitializeComponent();
-    }
-
-    private ErrorWindow(string lang) : this()
-    {
-        WinFormsUtil.TranslateInterface(this, lang);
+        WinFormsUtil.TranslateInterface(this, lang ?? WinFormsUtil.GetCultureLanguage());
     }
 
     /// <summary>
-    /// Gets or sets whether or not the "Continue" button is visible.
+    /// Gets or sets the visibility of the "Continue" button.
     /// </summary>
     /// <remarks>For UI exceptions, continuing could be safe.
     /// For application exceptions, continuing is not possible, so the button should not be shown.</remarks>
@@ -62,6 +55,13 @@ public sealed partial class ErrorWindow : Form
             _error = value;
             UpdateExceptionDetailsMessage();
         }
+    }
+
+    public void LoadException(Exception ex, string friendlyMessage, bool allowContinue)
+    {
+        ShowContinue = allowContinue;
+        Message = friendlyMessage;
+        Error = ex;
     }
 
     private void UpdateExceptionDetailsMessage()

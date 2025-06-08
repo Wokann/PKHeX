@@ -12,7 +12,7 @@ public static class NetUtil
         try
         {
             var stream = GetStreamFromURL(url);
-            if (stream == null)
+            if (stream is null)
                 return null;
 
             using var reader = new StreamReader(stream);
@@ -30,6 +30,7 @@ public static class NetUtil
     {
         // The GitHub API will fail if no user agent is provided
         using var client = new HttpClient();
+        client.Timeout = TimeSpan.FromSeconds(3);
         const string agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36";
         client.DefaultRequestHeaders.Add("User-Agent", agent);
         var response = client.GetAsync(url).Result;

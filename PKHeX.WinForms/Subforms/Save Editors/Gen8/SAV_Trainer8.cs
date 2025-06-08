@@ -10,7 +10,7 @@ public partial class SAV_Trainer8 : Form
     private readonly SaveFile Origin;
     private readonly SAV8SWSH SAV;
 
-    public SAV_Trainer8(SaveFile sav)
+    public SAV_Trainer8(SAV8SWSH sav)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
@@ -21,8 +21,8 @@ public partial class SAV_Trainer8 : Form
             TB_OTName.Font = TB_TrainerCardName.Font = FontUtil.GetPKXFont();
         }
 
-        B_MaxCash.Click += (sender, e) => MT_Money.Text = SAV.MaxMoney.ToString();
-        B_MaxWatt.Click += (sender, e) => MT_Watt.Text = MyStatus8.MaxWatt.ToString();
+        B_MaxCash.Click += (_, _) => MT_Money.Text = SAV.MaxMoney.ToString();
+        B_MaxWatt.Click += (_, _) => MT_Watt.Text = MyStatus8.MaxWatt.ToString();
 
         CB_Gender.Items.Clear();
         CB_Gender.Items.AddRange(Main.GenderSymbols.Take(2).ToArray()); // m/f depending on unicode selection
@@ -34,10 +34,9 @@ public partial class SAV_Trainer8 : Form
         GetTextBoxes();
         GetMiscValues();
 
-        TC_Editor.TabPages.Remove(Tab_BadgeMap); // needs more work
-
         ChangeTitleScreenIndex(this, EventArgs.Empty);
         ChangeTrainerCardIndex(this, EventArgs.Empty);
+        CB_Fashion.SelectedIndex = 1;
 
         if (SAV.SaveRevision == 0)
             B_CollectDiglett.Visible = false;
@@ -46,18 +45,22 @@ public partial class SAV_Trainer8 : Form
     }
 
     // private readonly bool Loading;
-    // private bool MapUpdated;
+    private bool MapUpdated;
 
     private void GetComboBoxes()
     {
         CB_Language.InitializeBinding();
         CB_Language.DataSource = GameInfo.LanguageDataSource(SAV.Generation);
+
+        CB_SkinColor.Items.Clear();
+        CB_SkinColor.Items.AddRange(WinFormsTranslator.GetEnumTranslation<PlayerSkinColor8>(Main.CurrentLanguage));
+        CB_SkinColor.SelectedIndex = (int)PlayerSkinColor8Extensions.GetSkinColorFromSkin(SAV.MyStatus.Skin);
     }
 
     private void GetTextBoxes()
     {
         // Get Data
-        CB_Game.SelectedIndex = SAV.Game - (int)GameVersion.SW;
+        CB_Game.SelectedIndex = SAV.Version - GameVersion.SW;
         CB_Gender.SelectedIndex = SAV.Gender;
 
         // Display Data
@@ -71,38 +74,34 @@ public partial class SAV_Trainer8 : Form
         MT_Watt.Text = SAV.MyStatus.Watt.ToString();
         CB_Language.SelectedValue = SAV.Language;
 
-        //NUD_M.Value = SAV.Situation.M;
-        //// Sanity Check Map Coordinates
-        //try
-        //{
-        //    NUD_X.Value = (decimal)SAV.Situation.X;
-        //    NUD_Z.Value = (decimal)SAV.Situation.Z;
-        //    NUD_Y.Value = (decimal)SAV.Situation.Y;
-        //    NUD_R.Value = (decimal)SAV.Situation.R;
-        //}
-        //catch { GB_Map.Enabled = false; }
+        NUD_M.Value = SAV.Coordinates.M;
+        // Sanity Check Map Coordinates
+        try
+        {
+            NUD_X.Value = (decimal)(double)SAV.Coordinates.X;
+            NUD_Z.Value = (decimal)(double)SAV.Coordinates.Z;
+            NUD_Y.Value = (decimal)(double)SAV.Coordinates.Y;
+            NUD_SX.Value = (decimal)(double)SAV.Coordinates.SX;
+            NUD_SZ.Value = (decimal)(double)SAV.Coordinates.SZ;
+            NUD_SY.Value = (decimal)(double)SAV.Coordinates.SY;
+            NUD_R.Value = (decimal)(Math.Atan2(SAV.Coordinates.RZ, SAV.Coordinates.RW) * 360.0 / Math.PI);
+        }
+        catch { GB_Map.Enabled = false; }
 
         // Load Play Time
         MT_Hours.Text = SAV.PlayedHours.ToString();
         MT_Minutes.Text = SAV.PlayedMinutes.ToString();
         MT_Seconds.Text = SAV.PlayedSeconds.ToString();
 
-        //if (SAV.Played.LastSavedDate.HasValue)
-        //{
-        //    CAL_LastSavedDate.Value = SAV.Played.LastSavedDate.Value;
-        //    CAL_LastSavedTime.Value = SAV.Played.LastSavedDate.Value;
-        //}
-        //else
-        //{
-        L_LastSaved.Visible = CAL_LastSavedDate.Visible = CAL_LastSavedTime.Visible = false;
-        //}
+        if (SAV.Played.LastSavedDate.HasValue)
+            CAL_LastSavedDate.Value = CAL_LastSavedTime.Value = SAV.Played.LastSavedDate.Value;
+        else
+            L_LastSaved.Visible = CAL_LastSavedDate.Visible = CAL_LastSavedTime.Visible = false;
 
-        L_Started.Visible = CAL_AdventureStartDate.Visible = CAL_AdventureStartTime.Visible = false;
+        CAL_AdventureStartTime.Visible = false;
+        CAL_AdventureStartDate.Value = new DateTime(SAV.TrainerCard.StartedYear, SAV.TrainerCard.StartedMonth, SAV.TrainerCard.StartedDay);
+
         L_Fame.Visible = CAL_HoFDate.Visible = CAL_HoFTime.Visible = false;
-        // DateUtil.GetDateTime2000(SAV.SecondsToStart, out var date, out var time);
-        // CAL_AdventureStartDate.Value = date;
-        // CAL_AdventureStartTime.Value = time;
-        // 
         // DateUtil.GetDateTime2000(SAV.SecondsToFame, out date, out time);
         // CAL_HoFDate.Value = date;
         // CAL_HoFTime.Value = time;
@@ -137,7 +136,7 @@ public partial class SAV_Trainer8 : Form
 
     private void SaveTrainerInfo()
     {
-        SAV.Game = (byte)(CB_Game.SelectedIndex + (int)GameVersion.SW);
+        SAV.Version = (GameVersion)(CB_Game.SelectedIndex + (int)GameVersion.SW);
         SAV.Gender = (byte)CB_Gender.SelectedIndex;
 
         SAV.Money = Util.ToUInt32(MT_Money.Text);
@@ -156,26 +155,35 @@ public partial class SAV_Trainer8 : Form
         SAV.Misc.BP = (int)NUD_BP.Value;
 
         // Copy Position
-        //if (GB_Map.Enabled && MapUpdated)
-        //{
-        //    SAV.Situation.M = (int)NUD_M.Value;
-        //    SAV.Situation.X = (float)NUD_X.Value;
-        //    SAV.Situation.Z = (float)NUD_Z.Value;
-        //    SAV.Situation.Y = (float)NUD_Y.Value;
-        //    SAV.Situation.R = (float)NUD_R.Value;
-        //    SAV.Situation.UpdateOverworldCoordinates();
-        //}
+        if (GB_Map.Enabled && MapUpdated)
+        {
+            SAV.Coordinates.M = (ulong)NUD_M.Value;
+            SAV.Coordinates.X = (float)NUD_X.Value;
+            SAV.Coordinates.Z = (float)NUD_Z.Value;
+            SAV.Coordinates.Y = (float)NUD_Y.Value;
+            SAV.Coordinates.SX = (float)NUD_SX.Value;
+            SAV.Coordinates.SZ = (float)NUD_SZ.Value;
+            SAV.Coordinates.SY = (float)NUD_SY.Value;
+            var angle = (double)NUD_R.Value * Math.PI / 360.0;
+            SAV.Coordinates.RX = 0;
+            SAV.Coordinates.RZ = (float)Math.Sin(angle);
+            SAV.Coordinates.RY = 0;
+            SAV.Coordinates.RW = (float)Math.Cos(angle);
+        }
 
         // Save PlayTime
         SAV.PlayedHours = ushort.Parse(MT_Hours.Text);
         SAV.PlayedMinutes = ushort.Parse(MT_Minutes.Text) % 60;
         SAV.PlayedSeconds = ushort.Parse(MT_Seconds.Text) % 60;
 
-        //SAV.SecondsToStart = (uint)DateUtil.GetSecondsFrom2000(CAL_AdventureStartDate.Value, CAL_AdventureStartTime.Value);
+        SAV.TrainerCard.StartedYear = (ushort)CAL_AdventureStartDate.Value.Year;
+        SAV.TrainerCard.StartedMonth = (byte)CAL_AdventureStartDate.Value.Month;
+        SAV.TrainerCard.StartedDay = (byte)CAL_AdventureStartDate.Value.Day;
+
         //SAV.SecondsToFame = (uint)DateUtil.GetSecondsFrom2000(CAL_HoFDate.Value, CAL_HoFTime.Value);
-        //
-        //if (SAV.Played.LastSavedDate.HasValue)
-        //    SAV.Played.LastSavedDate = new DateTime(CAL_LastSavedDate.Value.Year, CAL_LastSavedDate.Value.Month, CAL_LastSavedDate.Value.Day, CAL_LastSavedTime.Value.Hour, CAL_LastSavedTime.Value.Minute, 0);
+
+        if (SAV.Played.LastSavedDate.HasValue)
+            SAV.Played.LastSavedDate = CAL_LastSavedDate.Value.Date.AddMinutes(CAL_LastSavedTime.Value.TimeOfDay.TotalMinutes);
     }
 
     private void ClickOT(object sender, MouseEventArgs e)
@@ -185,7 +193,7 @@ public partial class SAV_Trainer8 : Form
         if (ModifierKeys != Keys.Control)
             return;
 
-        var d = new TrashEditor(tb, SAV);
+        var d = new TrashEditor(tb, SAV, SAV.Generation, SAV.Context);
         d.ShowDialog();
         tb.Text = d.FinalString;
     }
@@ -212,7 +220,7 @@ public partial class SAV_Trainer8 : Form
     private void ChangeMapValue(object sender, EventArgs e)
     {
         //if (!Loading)
-        //    MapUpdated = true;
+        MapUpdated = true;
     }
 
     private void ChangeTrainerCardIndex(object sender, EventArgs e)
@@ -239,6 +247,60 @@ public partial class SAV_Trainer8 : Form
         SAV.Blocks.TitleScreen.SetPartyData();
         System.Media.SystemSounds.Asterisk.Play();
         ChangeTitleScreenIndex(this, EventArgs.Empty);
+    }
+
+    private void CB_Gender_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (SAV.Gender != (byte)CB_Gender.SelectedIndex)
+        {
+            SAV.Gender = SAV.MyStatus.GenderAppearance = (byte)CB_Gender.SelectedIndex;
+            ResetAppearance();
+        }
+    }
+
+    private void CB_SkinColor_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        SAV.MyStatus.SetSkinColor((PlayerSkinColor8)CB_SkinColor.SelectedIndex);
+    }
+
+    private void B_Fashion_Click(object sender, EventArgs e)
+    {
+        var prompt = WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Modifying Fashion Items will clear existing fashion unlock data.", "Continue?");
+        if (DialogResult.Yes != prompt)
+            return;
+
+        // Clear Block
+        SAV.Fashion.Clear();
+
+        // Write Payload
+        switch (CB_Fashion.SelectedIndex)
+        {
+            case 0: // Base Fashion
+                SAV.Fashion.Reset();
+                break;
+            case 1: // Full Legal
+                SAV.Fashion.UnlockAllLegal();
+                break;
+            case 2: // Everything
+                SAV.Fashion.UnlockAll();
+                break;
+            default:
+                return;
+        }
+        System.Media.SystemSounds.Asterisk.Play();
+    }
+
+    private void ResetAppearance()
+    {
+        var index = (CB_SkinColor.SelectedIndex & ~0x1) | (CB_Gender.SelectedIndex & 1);
+        CB_SkinColor.SelectedIndex = index;
+        SAV.MyStatus.ResetAppearance((PlayerSkinColor8)index);
+        WinFormsUtil.Alert("Trainer appearance has been reset.");
+    }
+
+    private void B_ResetAppearance_Click(object sender, EventArgs e)
+    {
+        ResetAppearance();
     }
 
     private void B_GetAllDiglett_Click(object sender, EventArgs e)

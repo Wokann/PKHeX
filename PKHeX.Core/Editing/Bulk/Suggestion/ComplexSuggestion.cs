@@ -1,36 +1,32 @@
-﻿using System;
+using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace PKHeX.Core;
 
 /// <inheritdoc cref="ISuggestModification"/>
-public sealed class ComplexSuggestion : ISuggestModification
+public sealed class ComplexSuggestion(
+    [ConstantExpected] string Keyword,
+    Func<ReadOnlySpan<char>, ReadOnlySpan<char>, BatchInfo, ModifyResult> Action)
+    : ISuggestModification
 {
-    public readonly string Keyword;
+    public readonly string Keyword = Keyword;
     public readonly Func<PKM, bool> Criteria = _ => true;
-    public readonly Func<string, string, BatchInfo, ModifyResult> Action;
+    public readonly Func<ReadOnlySpan<char>, ReadOnlySpan<char>, BatchInfo, ModifyResult> Action = Action;
 
     public ComplexSuggestion(
-        string keyword,
+        [ConstantExpected] string Keyword,
         Func<PKM, bool> criteria,
-        Func<string, string, BatchInfo, ModifyResult> action) : this(keyword, action)
+        Func<ReadOnlySpan<char>, ReadOnlySpan<char>, BatchInfo, ModifyResult> action) : this(Keyword, action)
     {
         Criteria = criteria;
     }
 
-    public ComplexSuggestion(
-        string keyword,
-        Func<string, string, BatchInfo, ModifyResult> action)
+    public bool IsMatch(ReadOnlySpan<char> name, ReadOnlySpan<char> value, BatchInfo info)
     {
-        Keyword = keyword;
-        Action = action;
+        return name.SequenceEqual(Keyword) && Criteria(info.Entity);
     }
 
-    public bool IsMatch(string name, string value, BatchInfo info)
-    {
-        return name == Keyword && Criteria(info.Entity);
-    }
-
-    public ModifyResult Modify(string name, string value, BatchInfo info)
+    public ModifyResult Modify(ReadOnlySpan<char> name, ReadOnlySpan<char> value, BatchInfo info)
     {
         return Action(name, value, info);
     }

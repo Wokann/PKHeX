@@ -10,44 +10,90 @@ namespace PKHeX.Core.Tests.Legality;
 public class LegalityTest
 {
     private static readonly string TestPath = TestUtil.GetRepoPath();
-    private static readonly object InitLock = new();
-    private static bool IsInitialized;
-
-    private static void Init()
-    {
-        lock (InitLock)
-        {
-            if (IsInitialized)
-                return;
-            RibbonStrings.ResetDictionary(GameInfo.Strings.ribbons);
-            if (EncounterEvent.Initialized)
-                return;
-            EncounterEvent.RefreshMGDB();
-            IsInitialized = true;
-        }
-    }
-
-    static LegalityTest() => Init();
+    static LegalityTest() => TestUtil.InitializeLegality();
 
     [Theory]
-    [InlineData("censor")]
-    [InlineData("buttnugget")]
-    [InlineData("18넘")]
-    [InlineData("inoffensive", false)]
-    public void CensorsBadWords(string badword, bool value = true)
+    [InlineData("Ass")]
+    [InlineData("Ａｓｓ")]
+    [InlineData("9/11")]
+    [InlineData("９／１１", false)]
+    [InlineData("baise")]
+    [InlineData("baisé", false)]
+    [InlineData("BAISÉ", false)]
+    [InlineData("scheiße")]
+    [InlineData("SCHEISSE", false)]
+    [InlineData("RICCHIONE ")]
+    [InlineData("RICCHIONE", false)]
+    [InlineData("せっくす")]
+    [InlineData("セックス")]
+    [InlineData("ふぁっく", false)]
+    [InlineData("ファック", false)]
+    [InlineData("kofagrigus", false)]
+    [InlineData("cofagrigus", false)]
+    public void CensorsBadWordsGen5(string badword, bool value = true)
     {
-        WordFilter.TryMatch(badword, out _).Should().Be(value, "the word should have been identified as a bad word");
+        var result = WordFilter5.IsFiltered(badword, out _);
+        result.Should().Be(value, $"the word {(value ? "should" : "should not")} have been identified as a bad word");
+    }
+
+    [Theory]
+    [InlineData("kofagrigus")]
+    [InlineData("cofagrigus")]
+    [InlineData("Cofagrigus", false)]
+    public void CensorsBadWordsGen6(string badword, bool value = true)
+    {
+        var result = WordFilter3DS.IsFilteredGen6(badword, out _);
+        result.Should().Be(value, $"the word {(value ? "should" : "should not")} have been identified as a bad word");
+    }
+
+    [Theory]
+    [InlineData("badword")]
+    [InlineData("butt nuggets")]
+    [InlineData("18년")]
+    [InlineData("ふぁっく")]
+    [InlineData("ｇｃｄ")]
+    [InlineData("Ｐ０ＲＮ")]
+    [InlineData("gmail.com")]
+    [InlineData("kofagrigus")]
+    [InlineData("cofagrigus", false)]
+    [InlineData("Cofagrigus", false)]
+    [InlineData("inoffensive", false)]
+    public void CensorsBadWordsGen7(string badword, bool value = true)
+    {
+        var result = WordFilter3DS.IsFilteredGen7(badword, out _);
+        result.Should().Be(value, $"the word {(value ? "should" : "should not")} have been identified as a bad word");
+    }
+
+    [Theory]
+    [InlineData("badword")]
+    [InlineData("butt nuggets")]
+    [InlineData("18넘")]
+    [InlineData("ふぁっく")]
+    [InlineData("ｳﾞｧｷﾞﾅ")]
+    [InlineData("ｵｯﾊﾟｲ")]
+    [InlineData("ﾌｧｯﾞｸ")]
+    [InlineData("ﾌｧﾂﾞｸ", false)]
+    [InlineData("ﾌｧｯｸﾞ", false)]
+    [InlineData("sh!t")]
+    [InlineData("sh！t", false)]
+    [InlineData("abu$e")]
+    [InlineData("kofagrigus")]
+    [InlineData("cofagrigus", false)]
+    [InlineData("Cofagrigus", false)]
+    [InlineData("inoffensive", false)]
+    public void CensorsBadWordsSwitch(string badword, bool value = true)
+    {
+        var result = WordFilterNX.IsFiltered(badword, out _, EntityContext.Gen9);
+        result.Should().Be(value, $"the word {(value ? "should" : "should not")} have been identified as a bad word");
     }
 
     [Theory]
     [InlineData("Legal", true)]
     [InlineData("Illegal", false)]
-    public void TestPublicFiles(string name, bool isValid)
+    public void TestPublicFiles(string subFolder, bool isValid)
     {
-        RibbonStrings.ResetDictionary(GameInfo.Strings.ribbons);
-        var folder = TestUtil.GetRepoPath();
-        folder = Path.Combine(folder, "Legality");
-        VerifyAll(folder, name, isValid);
+        var folder = Path.Combine(TestPath, "Legality");
+        VerifyAll(folder, subFolder, isValid);
     }
 
     [Theory]
@@ -55,18 +101,16 @@ public class LegalityTest
     [InlineData("Illegal", false)]
     [InlineData("PassingHacks", true)] // mad hacks, stuff to be flagged in the future
     [InlineData("FalseFlags", false)] // legal quirks, to be fixed in the future
-    public void TestPrivateFiles(string name, bool isValid)
+    public void TestPrivateFiles(string subFolder, bool isValid)
     {
-        if (!isValid)
-            Init();
         var folder = Path.Combine(TestPath, "Legality", "Private");
-        VerifyAll(folder, name, isValid, false);
+        VerifyAll(folder, subFolder, isValid, false);
     }
 
     // ReSharper disable once UnusedParameter.Local
-    private static void VerifyAll(string folder, string name, bool isValid, bool checkDir = true)
+    private static void VerifyAll(string folder, string subFolder, bool isValid, bool checkDir = true)
     {
-        var path = Path.Combine(folder, name);
+        var path = Path.Combine(folder, subFolder);
         bool exists = Directory.Exists(path);
         if (checkDir)
             exists.Should().BeTrue($"the specified test directory at '{path}' should exist");
@@ -87,10 +131,10 @@ public class LegalityTest
 
             var dn = fi.DirectoryName ?? string.Empty;
             ParseSettings.AllowGBCartEra = dn.Contains("GBCartEra");
-            ParseSettings.AllowGen1Tradeback = dn.Contains("1 Tradeback");
+            ParseSettings.Settings.Tradeback.AllowGen1Tradeback = dn.Contains("1 Tradeback");
             var pk = EntityFormat.GetFromBytes(data, prefer);
             pk.Should().NotBeNull($"the PKM '{new FileInfo(file).Name}' should have been loaded");
-            if (pk == null)
+            if (pk is null)
                 continue;
             var legality = new LegalityAnalysis(pk);
             if (legality.Valid == isValid)
@@ -109,7 +153,7 @@ public class LegalityTest
                 legality.Valid.Should().BeFalse($"because the file '{fn}' should be invalid, but found Valid.");
             }
         }
-        ctr.Should().BeGreaterThan(0);
+        ctr.Should().BeGreaterThan(0, "any amount of files should have been processed from a folder that exists.");
     }
 
     private static IEnumerable<string> GetIllegalLines(LegalityAnalysis legality)
@@ -119,8 +163,8 @@ public class LegalityTest
 
         var info = legality.Info;
         foreach (var m in info.Moves.Where(z => !z.Valid))
-            yield return m.Summary(legality.Info.Entity, legality.Info.EvoChainsAllGens);
+            yield return m.Summary(info.Entity, info.EvoChainsAllGens);
         foreach (var r in info.Relearn.Where(z => !z.Valid))
-            yield return r.Summary(legality.Info.Entity, legality.Info.EvoChainsAllGens);
+            yield return r.Summary(info.Entity, info.EvoChainsAllGens);
     }
 }

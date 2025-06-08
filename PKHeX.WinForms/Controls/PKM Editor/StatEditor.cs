@@ -13,16 +13,25 @@ public partial class StatEditor : UserControl
     public StatEditor()
     {
         InitializeComponent();
-        MT_IVs = new[] { TB_IVHP, TB_IVATK, TB_IVDEF, TB_IVSPE, TB_IVSPA, TB_IVSPD };
-        MT_EVs = new[] { TB_EVHP, TB_EVATK, TB_EVDEF, TB_EVSPE, TB_EVSPA, TB_EVSPD };
-        MT_AVs = new[] { TB_AVHP, TB_AVATK, TB_AVDEF, TB_AVSPE, TB_AVSPA, TB_AVSPD };
-        MT_GVs = new[] { TB_GVHP, TB_GVATK, TB_GVDEF, TB_GVSPE, TB_GVSPA, TB_GVSPD };
-        MT_Stats = new[] { Stat_HP, Stat_ATK, Stat_DEF, Stat_SPE, Stat_SPA, Stat_SPD };
-        L_Stats = new[] { Label_HP, Label_ATK, Label_DEF, Label_SPE, Label_SPA, Label_SPD };
-        MT_Base = new[] { TB_BaseHP, TB_BaseATK, TB_BaseDEF, TB_BaseSPE, TB_BaseSPA, TB_BaseSPD };
+        MT_IVs = [TB_IVHP, TB_IVATK, TB_IVDEF, TB_IVSPE, TB_IVSPA, TB_IVSPD];
+        MT_EVs = [TB_EVHP, TB_EVATK, TB_EVDEF, TB_EVSPE, TB_EVSPA, TB_EVSPD];
+        MT_AVs = [TB_AVHP, TB_AVATK, TB_AVDEF, TB_AVSPE, TB_AVSPA, TB_AVSPD];
+        MT_GVs = [TB_GVHP, TB_GVATK, TB_GVDEF, TB_GVSPE, TB_GVSPA, TB_GVSPD];
+        MT_Stats = [Stat_HP, Stat_ATK, Stat_DEF, Stat_SPE, Stat_SPA, Stat_SPD];
+        L_Stats = [Label_HP, Label_ATK, Label_DEF, Label_SPE, Label_SPA, Label_SPD];
+        MT_Base = [TB_BaseHP, TB_BaseATK, TB_BaseDEF, TB_BaseSPE, TB_BaseSPA, TB_BaseSPD];
 
         TB_BST.ResetForeColor();
         TB_IVTotal.ForeColor = TB_EVTotal.ForeColor = MT_EVs[0].ForeColor;
+
+        foreach (var iv in MT_IVs)
+            iv.MouseWheel += WinFormsUtil.MouseWheelIncrement1;
+        foreach (var ev in MT_EVs)
+            ev.MouseWheel += WinFormsUtil.MouseWheelIncrement4;
+        foreach (var av in MT_AVs)
+            av.MouseWheel += WinFormsUtil.MouseWheelIncrement1;
+        foreach (var gv in MT_GVs)
+            gv.MouseWheel += WinFormsUtil.MouseWheelIncrement1;
     }
 
     public Color EVsInvalid { get; set; } = Color.Red;
@@ -32,10 +41,11 @@ public partial class StatEditor : UserControl
     public Color StatDecreased { get; set; } = Color.Blue;
     public Color StatHyperTrained { get; set; } = Color.LightGreen;
 
-    public IMainEditor MainEditor { private get; set; } = null!;
+    public PKMEditor MainEditor { private get; set; } = null!;
     public bool HaX { get => CHK_HackedStats.Enabled; set => CHK_HackedStats.Enabled = CHK_HackedStats.Visible = value; }
 
     private readonly ToolTip EVTip = new();
+    private StatEditorStatOrder StatOrder;
 
     public bool Valid
     {
@@ -47,7 +57,7 @@ public partial class StatEditor : UserControl
                 return true;
             if (Entity is IAwakened a)
                 return a.AwakeningAllValid();
-            return Convert.ToUInt32(TB_EVTotal.Text) <= 510;
+            return Convert.ToUInt32(TB_EVTotal.Text) <= EffortValues.Max510;
         }
     }
 
@@ -336,7 +346,7 @@ public partial class StatEditor : UserControl
         };
 
         var newNature = request.GetNewNature(index, Entity.StatNature);
-        if (newNature == -1)
+        if (newNature == Nature.Random)
             return;
 
         MainEditor.ChangeNature(newNature);
@@ -371,11 +381,11 @@ public partial class StatEditor : UserControl
         EVTip.SetToolTip(TB_EVTotal, $"Remaining: {510 - evtotal}");
     }
 
-    private Color GetEVTotalColor(int evtotal, Color defaultColor) => evtotal switch
+    private Color GetEVTotalColor(int evtotal, Color defaultColor) => EffortValues.GetGrade(evtotal) switch
     {
-        > 510 => EVsInvalid, // Background turns Red
-        510 => EVsMaxed, // Maximum EVs
-        508 => EVsFishy, // Fishy EVs
+        EffortValueGrade.Illegal => EVsInvalid, // Background turns Red
+        EffortValueGrade.MaxLegal => EVsMaxed, // Maximum EVs
+        EffortValueGrade.MaxEffective => EVsFishy, // Fishy EVs
         _ => defaultColor,
     };
 
@@ -398,8 +408,8 @@ public partial class StatEditor : UserControl
         if (Entity is ITeraType)
         {
             var pi = Entity.PersonalInfo;
-            PB_TeraType1.SetType(pi.Type1);
-            PB_TeraType2.SetType(pi.Type2);
+            PB_TeraType1.SetType(pi.Type1, false); // Personal Info are just regular move types.
+            PB_TeraType2.SetType(pi.Type2, false); // Personal Info are just regular move types.
         }
     }
 
@@ -423,11 +433,27 @@ public partial class StatEditor : UserControl
     {
         Span<int> ivs = stackalloc int[6];
         if (ModifierKeys == Keys.Control)
+        {
             ivs.Fill(Entity.MaxIV);
+        }
         else if (ModifierKeys == Keys.Alt)
+        {
             ivs.Clear();
+        }
         else
-            Entity.SetRandomIVs(ivs);
+        {
+            var pk = Entity;
+            var la = new LegalityAnalysis(pk);
+            var enc = la.EncounterMatch;
+            if (enc is IFlawlessIVCount { FlawlessIVCount: not 0 } fc)
+                pk.SetRandomIVs(ivs, fc.FlawlessIVCount);
+            else if (enc is IFixedIVSet { IVs: { IsSpecified: true } iv })
+                pk.SetRandomIVs(ivs, iv);
+            else if (enc is IFlawlessIVCountConditional c && c.GetFlawlessIVCount(pk) is { Max: not 0 } x)
+                pk.SetRandomIVs(ivs, Util.Rand.Next(x.Min, x.Max + 1));
+            else
+                pk.SetRandomIVs(ivs);
+        }
 
         LoadIVs(ivs);
         if (Entity is IGanbaru g)
@@ -470,7 +496,7 @@ public partial class StatEditor : UserControl
             L_Characteristic.Text = GameInfo.Strings.characteristics[characteristic];
     }
 
-    public string UpdateNatureModification(int nature)
+    public string UpdateNatureModification(Nature nature)
     {
         // Reset Label Colors
         foreach (var l in L_Stats)
@@ -488,7 +514,7 @@ public partial class StatEditor : UserControl
         return $"+{incr.Text} / -{decr.Text}".Replace(":", "");
     }
 
-    public void SetATKIVGender(int gender)
+    public void SetATKIVGender(byte gender)
     {
         Entity.SetAttackIVFromGender(gender);
         TB_IVATK.Text = Entity.IV_ATK.ToString();
@@ -593,40 +619,61 @@ public partial class StatEditor : UserControl
             tb.ResetBackColor();
     }
 
-    public void ToggleInterface(PKM pk, int gen)
+    private void SetStatOrder(StatEditorStatOrder order)
     {
-        FLP_StatsTotal.Visible = gen >= 3;
-        FLP_Characteristic.Visible = gen >= 3;
-        FLP_HPType.Visible = gen <= 7 || pk is PB8;
+        if (order == StatOrder)
+            return;
+
+        // https://stackoverflow.com/a/30219698
+        // WinForms hack to create the handles and avoid Z-order changing on visibility toggle.
+        // Otherwise, our stat ordering may be incorrect if we change it more than once.
+        foreach (Control ctrl in FLP_Stats.Controls)
+            _ = ctrl.Handle;
+
+        // In Generation 1, Special Defense and Special Attack are combined.
+        // Additionally, Speed is shown before Special.
+        const int baseIndex = 1;
+        if (order == StatEditorStatOrder.Gen1Special)
+        {
+            FLP_SpD.Visible = Label_SPA.Visible = false;
+            Label_SPC.Visible = true;
+            FLP_Stats.Controls.SetChildIndex(FLP_Spe, baseIndex + 3); // Speed
+        }
+        else if (order == StatEditorStatOrder.Current)
+        {
+            FLP_SpD.Visible = Label_SPA.Visible = true;
+            Label_SPC.Visible = false;
+            FLP_Stats.Controls.SetChildIndex(FLP_Spe, baseIndex + 5); // Speed
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(order), order, null);
+        }
+
+        StatOrder = order;
+    }
+
+    public void ToggleInterface(PKM pk, byte format)
+    {
+        FLP_StatsTotal.Visible = format >= 3;
+        FLP_Characteristic.Visible = format >= 3;
+        FLP_HPType.Visible = format <= 7 || pk is PB8;
         FLP_TeraType.Visible = FLP_TeraInner.Visible = pk is ITeraType;
-        Label_HiddenPowerPower.Visible = gen <= 5;
-        FLP_DynamaxLevel.Visible = gen == 8;
+        Label_HiddenPowerPower.Visible = format <= 5;
+        FLP_DynamaxLevel.Visible = format == 8;
         FLP_AlphaNoble.Visible = pk is PA8;
 
-        switch (gen)
+        SetStatOrder(format == 1 ? StatEditorStatOrder.Gen1Special : StatEditorStatOrder.Current);
+
+        switch (format)
         {
-            case 1:
-                FLP_SpD.Visible = false;
-                Label_SPA.Visible = false;
-                Label_SPC.Visible = true;
+            case 1 or 2:
                 TB_IVHP.Enabled = false;
                 SetEVMaskSize(Stat_HP.Size, "00000", MT_EVs);
-                break;
-            case 2:
-                FLP_SpD.Visible = true;
-                Label_SPA.Visible = true;
-                Label_SPC.Visible = false;
-                TB_IVHP.Enabled = false;
-                SetEVMaskSize(Stat_HP.Size, "00000", MT_EVs);
-                TB_EVSPD.Enabled = TB_IVSPD.Enabled = false;
                 break;
             default:
-                FLP_SpD.Visible = true;
-                Label_SPA.Visible = true;
-                Label_SPC.Visible = false;
                 TB_IVHP.Enabled = true;
                 SetEVMaskSize(TB_EVTotal.Size, "000", MT_EVs);
-                TB_EVSPD.Enabled = TB_IVSPD.Enabled = true;
                 break;
         }
 
@@ -637,6 +684,8 @@ public partial class StatEditor : UserControl
         Label_EVs.Visible = TB_EVTotal.Visible = BTN_RandomEVs.Visible = !showAV;
         foreach (var mtb in MT_EVs)
             mtb.Visible = !showAV;
+
+        FLP_PKMEditors.PerformLayout();
 
         var showGV = pk is IGanbaru;
         Label_GVs.Visible = showGV;
@@ -655,10 +704,18 @@ public partial class StatEditor : UserControl
 
     private const string TeraOverrideNone = "---";
     private const byte TeraOverrideNoneValue = TeraTypeUtil.OverrideNone;
+    private const byte TeraStellarValue = TeraTypeUtil.Stellar;
+    private const byte TeraDisplayIndex = TeraTypeUtil.StellarTypeDisplayStringIndex;
 
     private void L_TeraTypeOriginal_Click(object sender, EventArgs e)
     {
         var pi = Entity.PersonalInfo;
+        if (!Entity.SV)
+        {
+            var expect = TeraTypeUtil.GetTeraTypeImport(pi.Type1, pi.Type2);
+            SetOriginalTeraType((byte)expect);
+            return;
+        }
         var current = WinFormsUtil.GetIndex(CB_TeraTypeOriginal);
         var update = pi.Type1 == current ? pi.Type2 : pi.Type1;
         SetOriginalTeraType(update);
@@ -681,13 +738,14 @@ public partial class StatEditor : UserControl
         CB_TeraTypeOriginal.InitializeBinding();
         CB_TeraTypeOverride.InitializeBinding();
 
-        var types = GameInfo.Strings.types;
-        CB_HPType.DataSource = Util.GetCBList(types.AsSpan(1, 16));
+        var types = GameInfo.Strings.types.AsSpan();
+        CB_HPType.DataSource = Util.GetCBList(types.Slice(1, HiddenPower.TypeCount));
 
-        var tera = Util.GetCBList(types);
+        var tera = Util.GetCBList(types[..TeraDisplayIndex]);
         tera.Insert(0, new(TeraOverrideNone, TeraOverrideNoneValue));
-        CB_TeraTypeOriginal.DataSource = new BindingSource(tera, null);
-        CB_TeraTypeOverride.DataSource = new BindingSource(tera, null);
+        tera.Add(new(types[TeraDisplayIndex], TeraStellarValue));
+        CB_TeraTypeOriginal.DataSource = new BindingSource(tera, string.Empty);
+        CB_TeraTypeOverride.DataSource = new BindingSource(tera, string.Empty);
 
         ChangingFields = false;
     }
@@ -695,16 +753,16 @@ public partial class StatEditor : UserControl
     private void CHK_Gigantamax_CheckedChanged(object sender, EventArgs e)
     {
         if (!ChangingFields)
-            ((PKMEditor)MainEditor).UpdateSprite();
+            MainEditor.UpdateSprite();
     }
 
     private void CHK_IsAlpha_CheckedChanged(object sender, EventArgs e)
     {
         if (!ChangingFields)
-            ((PKMEditor)MainEditor).UpdateSprite();
+            MainEditor.UpdateSprite();
     }
 
-    private void L_TeraTypeOverride_Click(object sender, EventArgs e) => CB_TeraTypeOverride.SelectedValue = (int)TeraOverrideNoneValue;
+    private void L_TeraTypeOverride_Click(object sender, EventArgs e) => CB_TeraTypeOverride.SelectedValue = Entity.SV ? (int)TeraOverrideNoneValue : CB_TeraTypeOriginal.SelectedValue!;
 
     private void ChangeTeraType(object sender, EventArgs e)
     {
@@ -726,7 +784,7 @@ public partial class StatEditor : UserControl
             type = original;
         PB_TeraType.Image = TypeSpriteUtil.GetTypeSpriteGem(type);
         if (!ChangingFields)
-            ((PKMEditor)MainEditor).UpdateSprite();
+            MainEditor.UpdateSprite();
     }
 
     public void CenterSubEditors()
@@ -739,14 +797,39 @@ public sealed class TypePictureBox : PictureBox
 {
     private byte Type;
 
-    public void SetType(byte type) => BackColor = TypeColor.GetTypeSpriteColor(Type = type);
+    public void SetType(byte type, bool tera) => BackColor = tera
+        ? TypeColor.GetTeraSpriteColor(Type = type)
+        : TypeColor.GetTypeSpriteColor(Type = type);
+
     private readonly ToolTip Tip = new() { InitialDelay = 500, ReshowDelay = 500, ShowAlways = true };
 
     // Show a tooltip when hovered.
     protected override void OnMouseHover(EventArgs e)
     {
         base.OnMouseHover(e);
-        var name = GameInfo.Strings.types[Type];
+        var index = Type;
+        if (index == TeraTypeUtil.Stellar)
+            index = TeraTypeUtil.StellarTypeDisplayStringIndex;
+        var name = GameInfo.Strings.types[index];
         Tip.SetToolTip(this, name);
     }
+}
+
+/// <summary>
+/// Stat display order for a stat editor.
+/// </summary>
+public enum StatEditorStatOrder
+{
+    /// <summary>
+    /// Stat order for everything after Generation 1.
+    /// </summary>
+    /// <remarks>
+    /// Default load state for a GUI.
+    /// </remarks>
+    Current = 0,
+
+    /// <summary>
+    /// Stat order for Generation 1; Speed before Special.
+    /// </summary>
+    Gen1Special,
 }

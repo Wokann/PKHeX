@@ -8,17 +8,16 @@ namespace PKHeX.Core;
 /// Generation 3 <see cref="SaveFile"/> object for <see cref="GameVersion.RS"/>.
 /// </summary>
 /// <inheritdoc cref="SAV3" />
-public sealed class SAV3RS : SAV3, IGen3Hoenn
+public sealed class SAV3RS : SAV3, IGen3Hoenn, IDaycareRandomState<ushort>
 {
     // Configuration
-    protected override SAV3RS CloneInternal() => new(Write());
-    public override GameVersion Version { get => GameVersion.RS; protected set { } }
+    protected override SAV3RS CloneInternal() => new(GetFinalData()[..]) { Language = Language };
+    public override GameVersion Version { get; set; } = GameVersion.RS; // allow mutation
     public override PersonalTable3 Personal => PersonalTable.RS;
 
     public override int EventFlagCount => 8 * 288;
     public override int EventWorkCount => 0x100;
     protected override int DaycareSlotSize => SIZE_STORED;
-    public override int DaycareSeedSize => 4; // 16bit
     protected override int EggEventFlag => 0x86;
     protected override int BadgeFlagStart => 0x807;
 
@@ -28,17 +27,11 @@ public sealed class SAV3RS : SAV3, IGen3Hoenn
     protected override int EventFlag => 0x1220;
     protected override int EventWork => 0x1340;
 
-    private void Initialize()
-    {
-        // small
-        PokeDex = 0x18;
+    protected override int PokeDex => 0x18; // small
+    protected override int DaycareOffset => 0x2F9C; // large
 
-        // large
-        DaycareOffset = 0x2F9C;
-
-        // storage
-        Box = 0;
-    }
+    // storage
+    private void Initialize() => Box = 0;
 
     #region Small
     public override bool NationalDex
@@ -95,31 +88,34 @@ public sealed class SAV3RS : SAV3, IGen3Hoenn
     {
         const int max = 99;
         var info = ItemStorage3RS.Instance;
-        return new InventoryPouch3[]
-        {
+        return
+        [
             new(InventoryType.Items, info, max, OFS_PouchHeldItem, (OFS_PouchKeyItem - OFS_PouchHeldItem) / 4),
             new(InventoryType.KeyItems, info, 1, OFS_PouchKeyItem, (OFS_PouchBalls - OFS_PouchKeyItem) / 4),
             new(InventoryType.Balls, info, max, OFS_PouchBalls, (OFS_PouchTMHM - OFS_PouchBalls) / 4),
             new(InventoryType.TMHMs, info, max, OFS_PouchTMHM, (OFS_PouchBerry - OFS_PouchTMHM) / 4),
             new(InventoryType.Berries, info, 999, OFS_PouchBerry, 46),
             new(InventoryType.PCItems, info, 999, OFS_PCItem, (OFS_PouchHeldItem - OFS_PCItem) / 4),
-        };
+        ];
     }
+
+    private Span<byte> PokeBlockData => Large.AsSpan(0x7F8, PokeBlock3Case.SIZE);
 
     public PokeBlock3Case PokeBlocks
     {
-        get => new(Large, 0x7F8);
-        set => SetData(Large.AsSpan(0x7F8), value.Write());
+        get => new(PokeBlockData);
+        set => value.Write(PokeBlockData);
     }
 
     protected override int SeenOffset2 => 0x938;
 
     public DecorationInventory3 Decorations => new(Large.AsSpan(0x26A0, DecorationInventory3.SIZE));
 
+    private Span<byte> SwarmData => Large.AsSpan(0x2AFC, Swarm3.SIZE);
     public Swarm3 Swarm
     {
-        get => new(Large.Slice(0x2AFC, Swarm3.SIZE));
-        set => SetData(Large.AsSpan(0x2AFC), value.Data);
+        get => new(SwarmData.ToArray());
+        set => SetData(SwarmData, value.Data);
     }
 
     private void ClearSwarm() => Large.AsSpan(0x2AFC, Swarm3.SIZE).Clear();
@@ -141,9 +137,12 @@ public sealed class SAV3RS : SAV3, IGen3Hoenn
 
     protected override int MailOffset => 0x2B4C;
 
-    protected override int GetDaycareEXPOffset(int slot) => GetDaycareSlotOffset(0, 2) + (2 * 0x38) + (4 * slot); // consecutive vals, after both consecutive slots & 2 mail
-    public override string GetDaycareRNGSeed(int loc) => ReadUInt16LittleEndian(Large.AsSpan(GetDaycareEXPOffset(2))).ToString("X4");
-    public override void SetDaycareRNGSeed(int loc, string seed) => WriteUInt16LittleEndian(Large.AsSpan(GetDaycareEXPOffset(2)), (ushort)Util.GetHexValue(seed));
+    protected override int GetDaycareEXPOffset(int slot) => GetDaycareSlotOffset(2) + (2 * 0x38) + (4 * slot); // consecutive vals, after both consecutive slots & 2 mail
+    ushort IDaycareRandomState<ushort>.Seed
+    {
+        get => ReadUInt16LittleEndian(Large.AsSpan(GetDaycareEXPOffset(2)));
+        set => WriteUInt16LittleEndian(Large.AsSpan(GetDaycareEXPOffset(2)), value);
+    }
 
     protected override int ExternalEventData => 0x311B;
 
@@ -151,26 +150,32 @@ public sealed class SAV3RS : SAV3, IGen3Hoenn
     private const int OFFSET_EBERRY = 0x3160;
     private const int SIZE_EBERRY = 0x530;
 
-    public override byte[] GetEReaderBerry() => Large.Slice(OFFSET_EBERRY, SIZE_EBERRY);
-    public override void SetEReaderBerry(ReadOnlySpan<byte> data) => data.CopyTo(Large.AsSpan(OFFSET_EBERRY));
-
-    public override string EBerryName => GetString(Large.AsSpan(OFFSET_EBERRY, 7));
-    public override bool IsEBerryEngima => Large[OFFSET_EBERRY] is 0 or 0xFF;
+    public override Span<byte> EReaderBerry() => Large.AsSpan(OFFSET_EBERRY, SIZE_EBERRY);
     #endregion
 
     #region eTrainer
-    public override byte[] GetEReaderTrainer() => Small.Slice(0x498, 0xBC);
-    public override void SetEReaderTrainer(ReadOnlySpan<byte> data) => data.CopyTo(Small.AsSpan(0x498));
+    public override Span<byte> EReaderTrainer() => Small.AsSpan(0x498, 0xBC);
     #endregion
 
-    public override Gen3MysteryData MysteryData
-    {
-        get => new MysteryEvent3RS(Large.Slice(0x3690, MysteryEvent3.SIZE));
-        set => SetData(Large.AsSpan(0x3690), value.Data);
-    }
+    private Span<byte> MysterySpan => Large.AsSpan(0x3690, MysteryEvent3.SIZE);
+    public override Gen3MysteryData MysteryData { get => new MysteryEvent3(MysterySpan.ToArray()); set => SetData(MysterySpan, value.Data); }
 
-    public RecordMixing3Gift RecordMixingGift { get => new(Large.Slice(0x3A7C, RecordMixing3Gift.SIZE)); set => SetData(Large.AsSpan(0x3A7C), value.Data); }
+    private Span<byte> RecordSpan => Large.AsSpan(0x3A7C, RecordMixing3Gift.SIZE);
+    public RecordMixing3Gift RecordMixingGift { get => new(RecordSpan.ToArray()); set => SetData(RecordSpan, value.Data); }
 
     protected override int SeenOffset3 => 0x3A8C;
+
+    private Memory<byte> SecretBaseData => Large.AsMemory(0x1A08, SecretBaseManager3.BaseCount * SecretBase3.SIZE);
+    public SecretBaseManager3 SecretBases => new(SecretBaseData);
+
+    private const int Painting = 0x2EFC;
+    private const int CountPaintings = 5;
+    private Span<byte> GetPaintingSpan(int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, CountPaintings, nameof(index));
+        return Large.AsSpan(Painting + (Paintings3.SIZE * index), Paintings3.SIZE * CountPaintings);
+    }
+    public Paintings3 GetPainting(int index) => new(GetPaintingSpan(index).ToArray(), Japanese);
+    public void SetPainting(int index, Paintings3 value) => value.Data.CopyTo(GetPaintingSpan(index));
     #endregion
 }

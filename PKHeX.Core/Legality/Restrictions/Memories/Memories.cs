@@ -8,8 +8,8 @@ namespace PKHeX.Core;
 /// </summary>
 public static class Memories
 {
-    private static ReadOnlySpan<byte> ArgTypes => new byte[]
-    {
+    private static ReadOnlySpan<byte> ArgTypes =>
+    [
         0, 1, 1, 1, 1, 5, 2, 3, 0, 3,
         0, 0, 4, 3, 3, 5, 4, 3, 3, 1,
         0, 3, 0, 0, 1, 3, 5, 0, 0, 3,
@@ -19,7 +19,7 @@ public static class Memories
         3, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         1, 3, 3, 0, 0, 3, 0, 0, 0, 0,
         4, 4, 3, 3, 5, 0, 1, 3, 5, 4,
-    };
+    ];
 
     public static MemoryArgType GetMemoryArgType(byte memory, int memoryGen)
     {
@@ -32,14 +32,6 @@ public static class Memories
             return MemoryArgType.GeneralLocation;
         return (MemoryArgType)type;
     }
-
-    public static EntityContext GetContextHandler(EntityContext current) => current switch
-    {
-        EntityContext.Gen7 => EntityContext.Gen6,
-        EntityContext.Gen8a => EntityContext.Gen8,
-        EntityContext.Gen8b => EntityContext.Gen8,
-        _ => current,
-    };
 
     public static MemoryContext GetContext(EntityContext context) => context.Generation() switch
     {

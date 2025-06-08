@@ -6,14 +6,15 @@ namespace PKHeX.Core;
 /// <summary>
 /// Generation 8 <see cref="SaveFile"/> object for <see cref="GameVersion.PLA"/> games.
 /// </summary>
-public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRevision
+public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRevision, IBoxDetailName, IBoxDetailWallpaper
 {
-    protected internal override string ShortSummary => $"{OT} ({Version}) - {LastSaved.LastSavedTime}";
+    protected internal override string ShortSummary => $"{OT} ({Version}) - {LastSaved.DisplayValue}";
     public override string Extension => string.Empty;
+    public override IReadOnlyList<string> PKMExtensions => EntityFileExtension.GetExtensionsHOME();
 
     public SAV8LA(byte[] data) : this(SwishCrypto.Decrypt(data)) { }
 
-    private SAV8LA(IReadOnlyList<SCBlock> blocks) : base(Array.Empty<byte>())
+    private SAV8LA(IReadOnlyList<SCBlock> blocks) : base([])
     {
         AllBlocks = blocks;
         Blocks = new SaveBlockAccessor8LA(this);
@@ -23,7 +24,7 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
 
     public SAV8LA()
     {
-        AllBlocks = Meta8.GetBlankDataLA();
+        AllBlocks = BlankBlocks8a.GetBlankBlocks();
         Blocks = new SaveBlockAccessor8LA(this);
         SaveRevision = Blocks.DetectRevision();
         Initialize();
@@ -38,8 +39,12 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
         _ => throw new ArgumentOutOfRangeException(nameof(SaveRevision)),
     };
 
-    public override string GetString(ReadOnlySpan<byte> data) => StringConverter8.GetString(data);
-    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option) => StringConverter8.SetString(destBuffer, value, maxLength, option);
+    public override string GetString(ReadOnlySpan<byte> data)
+        => StringConverter8.GetString(data);
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+        => StringConverter8.LoadString(data, destBuffer);
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+        => StringConverter8.SetString(destBuffer, value, maxLength, option);
 
     public override void CopyChangesFrom(SaveFile sav)
     {
@@ -60,10 +65,10 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
 
     public override PA8 BlankPKM => new();
     public override Type PKMType => typeof(PA8);
-    public override int MaxEV => 252;
-    public override int Generation => 8;
+    public override int MaxEV => EffortValues.Max252;
+    public override byte Generation => 8;
     public override EntityContext Context => EntityContext.Gen8a;
-    public override int MaxStringLengthOT => 12;
+    public override int MaxStringLengthTrainer => 12;
     public override int MaxStringLengthNickname => 12;
 
     public override bool ChecksumsValid => true;
@@ -72,16 +77,12 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
     public override uint ID32 { get => MyStatus.ID32; set => MyStatus.ID32 = value; }
     public override ushort TID16 { get => MyStatus.TID16; set => MyStatus.TID16 = value; }
     public override ushort SID16 { get => MyStatus.SID16; set => MyStatus.SID16 = value; }
-    public override int Game { get => MyStatus.Game; set => MyStatus.Game = value; }
-    public override int Gender { get => MyStatus.Gender; set => MyStatus.Gender = value; }
+    public override GameVersion Version { get => (GameVersion)MyStatus.Game; set => MyStatus.Game = (byte)value; }
+    public override byte Gender { get => MyStatus.Gender; set => MyStatus.Gender = value; }
     public override int Language { get => MyStatus.Language; set => MyStatus.Language = value; }
     public override string OT { get => MyStatus.OT; set => MyStatus.OT = value; }
 
-    public override GameVersion Version => Game switch
-    {
-        (int)GameVersion.PLA => GameVersion.PLA,
-        _ => GameVersion.Invalid,
-    };
+    public override bool IsVersionValid() => Version is GameVersion.PLA;
 
     protected override void SetChecksums() { } // None!
     protected override byte[] GetFinalData() => SwishCrypto.Encrypt(AllBlocks);
@@ -101,7 +102,7 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
     public override ushort MaxSpeciesID => Legal.MaxSpeciesID_8a;
     public override int MaxItemID => Legal.MaxItemID_8a;
     public override int MaxBallID => Legal.MaxBallID_8a;
-    public override int MaxGameID => Legal.MaxGameID_HOME;
+    public override GameVersion MaxGameID => Legal.MaxGameID_HOME;
     public override int MaxAbilityID => Legal.MaxAbilityID_8a;
 
     #region Blocks
@@ -117,8 +118,9 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
     public BoxLayout8a BoxLayout => Blocks.BoxLayout;
     public MyItem8a Items => Blocks.Items;
     public Epoch1970Value AdventureStart => Blocks.AdventureStart;
-    public LastSaved8a LastSaved => Blocks.LastSaved;
-    public PlayTime8a Played => Blocks.Played;
+    public Coordinates8a Coordinates => Blocks.Coordinates;
+    public Epoch1900DateTimeValue LastSaved => Blocks.LastSaved;
+    public PlayTime8b Played => Blocks.Played;
     public AreaSpawnerSet8a AreaSpawners => new(Blocks.GetBlock(SaveBlockAccessor8LA.KSpawners));
     #endregion
 
@@ -126,18 +128,18 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
     public override uint Money { get => (uint)Blocks.GetBlockValue(SaveBlockAccessor8LA.KMoney); set => Blocks.SetBlockValue(SaveBlockAccessor8LA.KMoney, value); }
     public override int MaxMoney => 9_999_999;
 
-    public override int PlayedHours { get => Played.PlayedHours; set => Played.PlayedHours = (ushort)value; }
-    public override int PlayedMinutes { get => Played.PlayedMinutes; set => Played.PlayedMinutes = (byte)value; }
-    public override int PlayedSeconds { get => Played.PlayedSeconds; set => Played.PlayedSeconds = (byte)value; }
+    public override int PlayedHours { get => Played.PlayedHours; set => Played.PlayedHours = value; }
+    public override int PlayedMinutes { get => Played.PlayedMinutes; set => Played.PlayedMinutes = value; }
+    public override int PlayedSeconds { get => Played.PlayedSeconds; set => Played.PlayedSeconds = value; }
 
     protected override Span<byte> BoxBuffer => BoxInfo.Data;
     protected override Span<byte> PartyBuffer => PartyInfo.Data;
 
+    public override bool HasPokeDex => true;
     private void Initialize()
     {
         Box = 0;
         Party = 0;
-        PokeDex = 0;
     }
 
     public override int GetPartyOffset(int slot) => Party + (SIZE_PARTY * slot);
@@ -151,7 +153,7 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
     {
         var pa8 = (PA8)pk;
         // Apply to this Save File
-        pa8.Trade(this);
+        pa8.UpdateHandler(this);
         pa8.RefreshChecksum();
     }
 
@@ -187,19 +189,17 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
     public override IReadOnlyList<InventoryPouch> Inventory { get => Items.Inventory; set => Items.Inventory = value; }
 
     #region Boxes
-    public override bool HasBoxWallpapers => false;
-    public override bool HasNamableBoxes => true;
     public override int CurrentBox { get => BoxLayout.CurrentBox; set => BoxLayout.CurrentBox = value; }
     public override int BoxesUnlocked { get => (byte)Blocks.GetBlockValue(SaveBlockAccessor8LA.KBoxesUnlocked); set => Blocks.SetBlockValue(SaveBlockAccessor8LA.KBoxesUnlocked, (byte)value); }
 
     public override byte[] BoxFlags
     {
-        get => new[]
-        {
+        get =>
+        [
             Convert.ToByte(Blocks.GetBlock(SaveBlockAccessor8LA.KUnlockedSecretBox01).Type - 1),
             Convert.ToByte(Blocks.GetBlock(SaveBlockAccessor8LA.KUnlockedSecretBox02).Type - 1),
             Convert.ToByte(Blocks.GetBlock(SaveBlockAccessor8LA.KUnlockedSecretBox03).Type - 1),
-        };
+        ];
         set
         {
             if (value.Length != 3)
@@ -212,10 +212,10 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
     }
 
     public override int GetBoxOffset(int box) => Box + (SIZE_BOXSLOT * box * 30);
-    public override string GetBoxName(int box) => BoxLayout.GetBoxName(box);
-    public override void SetBoxName(int box, ReadOnlySpan<char> value) => BoxLayout.SetBoxName(box, value);
+    public string GetBoxName(int box) => BoxLayout[box];
+    public void SetBoxName(int box, ReadOnlySpan<char> value) => BoxLayout.SetBoxName(box, value);
 
-    public override int GetBoxWallpaper(int box)
+    public int GetBoxWallpaper(int box)
     {
         if ((uint)box >= BoxCount)
             return box;
@@ -223,7 +223,7 @@ public sealed class SAV8LA : SaveFile, ISaveBlock8LA, ISCBlockArray, ISaveFileRe
         return b.Data[box];
     }
 
-    public override void SetBoxWallpaper(int box, int value)
+    public void SetBoxWallpaper(int box, int value)
     {
         if ((uint)box >= BoxCount)
             return;

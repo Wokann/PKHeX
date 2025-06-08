@@ -3,13 +3,14 @@ using System;
 namespace PKHeX.Core;
 
 /// <summary>
-/// Group that checks the source of a move in <see cref="GameVersion.Gen8"/>.
+/// Group that checks the source of a move in <see cref="EntityContext.Gen8"/>.
 /// </summary>
 public sealed class LearnGroup8 : ILearnGroup
 {
     public static readonly LearnGroup8 Instance = new();
-    private const int Generation = 8;
+    private const byte Generation = 8;
     private const EntityContext Context = EntityContext.Gen8;
+    public ushort MaxMoveID => Legal.MaxMoveID_8;
 
     public ILearnGroup? GetPrevious(PKM pk, EvolutionHistory history, IEncounterTemplate enc, LearnOption option)
     {
@@ -45,10 +46,16 @@ public sealed class LearnGroup8 : ILearnGroup
 
         CheckSharedMoves(result, current, evos[0]);
 
-        if (option is not LearnOption.Current && types.HasFlag(MoveSourceType.Encounter) && pk.IsOriginalMovesetDeleted() && enc is EncounterEgg { Generation: Generation } egg)
+        if (option.IsPast() && types.HasFlag(MoveSourceType.Encounter) && pk.IsOriginalMovesetDeleted() && enc is EncounterEgg8 egg)
             CheckEncounterMoves(result, current, egg);
 
-        return MoveResult.AllParsed(result);
+        if (MoveResult.AllParsed(result))
+            return true;
+
+        var home = LearnGroupHOME.Instance;
+        if (option != LearnOption.HOME && home.HasVisited(pk, history))
+            return home.Check(result, current, pk, history, enc, types);
+        return false;
     }
 
     private static void CheckSharedMoves(Span<MoveResult> result, ReadOnlySpan<ushort> current, EvoCriteria evo)
@@ -65,15 +72,15 @@ public sealed class LearnGroup8 : ILearnGroup
                 continue;
             var move = current[i];
             if (eggMoves.Contains(move))
-                result[i] = new(LearnMethod.Shared);
+                result[i] = new(LearnMethod.Shared, game.Environment);
         }
     }
 
-    private static void CheckEncounterMoves(Span<MoveResult> result, ReadOnlySpan<ushort> current, EncounterEgg egg)
+    private static void CheckEncounterMoves(Span<MoveResult> result, ReadOnlySpan<ushort> current, EncounterEgg8 egg)
     {
-        ILearnSource game = LearnSource8SWSH.Instance;
+        var game = LearnSource8SWSH.Instance;
         var eggMoves = game.GetEggMoves(egg.Species, egg.Form);
-        var levelMoves = game.GetInheritMoves(egg.Species, egg.Form);
+        var levelMoves = ((ILearnSource)game).GetInheritMoves(egg.Species, egg.Form);
 
         for (var i = result.Length - 1; i >= 0; i--)
         {
@@ -81,11 +88,11 @@ public sealed class LearnGroup8 : ILearnGroup
                 continue;
             var move = current[i];
             if (eggMoves.Contains(move))
-                result[i] = new(LearnMethod.EggMove);
+                result[i] = new(LearnMethod.EggMove, game.Environment);
             else if (levelMoves.Contains(move))
-                result[i] = new(LearnMethod.InheritLevelUp);
+                result[i] = new(LearnMethod.InheritLevelUp, game.Environment);
             else if (move is (int)Move.VoltTackle && egg.CanHaveVoltTackle)
-                result[i] = new(LearnMethod.SpecialEgg);
+                result[i] = new(LearnMethod.SpecialEgg, game.Environment);
         }
     }
 
@@ -143,6 +150,10 @@ public sealed class LearnGroup8 : ILearnGroup
 
         foreach (var evo in evos)
             GetAllMoves(result, pk, evo, types, option);
+
+        var home = LearnGroupHOME.Instance;
+        if (option != LearnOption.HOME && home.HasVisited(pk, history))
+            home.GetAllMoves(result, pk, history, enc, types);
     }
 
     private static void GetAllMoves(Span<bool> result, PKM pk, EvoCriteria evo, MoveSourceType types, LearnOption option)

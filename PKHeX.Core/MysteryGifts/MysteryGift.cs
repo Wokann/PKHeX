@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -7,16 +6,20 @@ namespace PKHeX.Core;
 /// <summary>
 /// Mystery Gift Template File
 /// </summary>
-public abstract class MysteryGift : IEncounterable, IMoveset, IRelearn, ITrainerID32, IFatefulEncounterReadOnly
+public abstract class MysteryGift : IEncounterable, IMoveset, ITrainerID32, IFatefulEncounterReadOnly, IEncounterMatch
 {
     /// <summary>
-    /// Determines whether or not the given length of bytes is valid for a mystery gift.
+    /// Determines whether the given length of bytes is valid for a mystery gift.
     /// </summary>
     /// <param name="len">Length, in bytes, of the data of which to determine validity.</param>
-    /// <returns>A boolean indicating whether or not the given length is valid for a mystery gift.</returns>
-    public static bool IsMysteryGift(long len) => Sizes.Contains((int)len);
-
-    private static readonly HashSet<int> Sizes = new() { WA8.Size, WB8.Size, WC8.Size, WC6Full.Size, WC6.Size, PGF.Size, PGT.Size, PCD.Size };
+    /// <returns>A boolean indicating whether the given length is valid for a mystery gift.</returns>
+    public static bool IsMysteryGift(long len) => len is
+        // WC9.Size or SAME AS WA8
+        WA8.Size or WB8.Size or WC8.Size or
+        WC6Full.Size or WC6.Size or
+        PGF.Size or PGT.Size or
+        PCD.Size
+    ;
 
     /// <summary>
     /// Converts the given data to a <see cref="MysteryGift"/>.
@@ -32,15 +35,14 @@ public abstract class MysteryGift : IEncounterable, IMoveset, IRelearn, ITrainer
         PGF.Size when Equals(ext, ".pgf") => new PGF(data),
         WC6.Size when Equals(ext, ".wc6") => new WC6(data),
         WC7.Size when Equals(ext, ".wc7") => new WC7(data),
-        WB7.Size when Equals(ext, ".wb7") => new WB7(data),
         WR7.Size when Equals(ext, ".wr7") => new WR7(data),
+        WB7.Size when Equals(ext, ".wb7", ".wb7full") => new WB7(data),
         WC8.Size when Equals(ext, ".wc8", ".wc8full") => new WC8(data),
         WB8.Size when Equals(ext, ".wb8") => new WB8(data),
         WA8.Size when Equals(ext, ".wa8") => new WA8(data),
         WC9.Size when Equals(ext, ".wc9") => new WC9(data),
 
-        PGF.SizeFull when Equals(ext, ".wc5full") => new PGF(data),
-        WB7.SizeFull when Equals(ext, ".wb7full") => new WB7(data),
+        WC5Full.Size when Equals(ext, ".wc5full") => new WC5Full(data).Gift,
         WC6Full.Size when Equals(ext, ".wc6full") => new WC6Full(data).Gift,
         WC7Full.Size when Equals(ext, ".wc7full") => new WC7Full(data).Gift,
         _ => null,
@@ -65,19 +67,20 @@ public abstract class MysteryGift : IEncounterable, IMoveset, IRelearn, ITrainer
         // WC8/WC5Full: WC8 0x2CF always 0, WC5Full 0x2CF contains card checksum
         WC8.Size => data[0x2CF] == 0 ? new WC8(data) : new PGF(data),
 
-        // WA8/WC9: WA8 CardType >0 for wa8, 0 for wc9.
+        // WA8/WC9: WA8 CardType >0 for WA8, 0 for WC9.
         WA8.Size => data[0xF] > 0 ? new WA8(data) : new WC9(data),
 
         // WC6/WC7: Check year
         WC6.Size => ReadUInt32LittleEndian(data.AsSpan(0x4C)) / 10000 < 2000 ? new WC7(data) : new WC6(data),
-        // WC6Full/WC7Full: 0x205 has 3 * 0x46 for gen6, now only 2.
+        // WC6Full/WC7Full: 0x205 has 3 * 0x46 for Gen6, now only 2.
         WC6Full.Size => data[0x205] == 0 ? new WC7Full(data).Gift : new WC6Full(data).Gift,
         _ => null,
     };
 
     public string Extension => GetType().Name.ToLowerInvariant();
     public string FileName => $"{CardHeader}.{Extension}";
-    public abstract int Generation { get; }
+    public abstract byte Generation { get; }
+    public abstract GameVersion Version { get; }
     public abstract EntityContext Context { get; }
     public abstract bool FatefulEncounter { get; }
 
@@ -117,14 +120,8 @@ public abstract class MysteryGift : IEncounterable, IMoveset, IRelearn, ITrainer
     /// </summary>
     public string LongName => $"{Name} ({Type})";
 
-    public virtual GameVersion Version
-    {
-        get => GameUtil.GetVersion(Generation);
-        set { }
-    }
-
     // Properties
-    public virtual ushort Species { get => 0; set { } }
+    public abstract ushort Species { get; set; }
     public abstract AbilityPermission Ability { get; }
     public abstract bool GiftUsed { get; set; }
     public abstract string CardTitle { get; set; }
@@ -141,8 +138,6 @@ public abstract class MysteryGift : IEncounterable, IMoveset, IRelearn, ITrainer
 
     // Search Properties
     public virtual Moveset Moves { get => default; set { } }
-    public virtual Moveset Relearn { get => default; set { } }
-    public virtual int[] IVs { get => Array.Empty<int>(); set { } }
     public virtual bool HasFixedIVs => true;
     public virtual void GetIVs(Span<int> value) { }
     public virtual bool IsShiny => false;
@@ -156,25 +151,24 @@ public abstract class MysteryGift : IEncounterable, IMoveset, IRelearn, ITrainer
     public virtual bool IsEgg { get => false; set { } }
     public virtual int HeldItem { get => -1; set { } }
     public virtual int AbilityType { get => -1; set { } }
-    public abstract int Gender { get; set; }
+    public abstract byte Gender { get; set; }
     public abstract byte Form { get; set; }
     public abstract uint ID32 { get; set; }
     public abstract ushort TID16 { get; set; }
     public abstract ushort SID16 { get; set; }
-    public abstract string OT_Name { get; set; }
-    public abstract int Location { get; set; }
+    public abstract string OriginalTrainerName { get; set; }
+    public abstract ushort Location { get; set; }
 
     public abstract byte Level { get; set; }
     public byte LevelMin => Level;
     public byte LevelMax => Level;
-    public abstract int Ball { get; set; }
-    public virtual bool EggEncounter => IsEgg;
-    public abstract int EggLocation { get; set; }
+    public abstract byte Ball { get; set; }
+    public abstract ushort EggLocation { get; set; }
 
     protected virtual bool IsMatchEggLocation(PKM pk)
     {
-        var expect = EggEncounter ? EggLocation : pk is PB8 ? Locations.Default8bNone : 0;
-        return pk.Egg_Location == expect;
+        var expect = IsEgg ? EggLocation : pk is PB8 ? Locations.Default8bNone : 0;
+        return pk.EggLocation == expect;
     }
 
     public Ball FixedBall => (Ball)Ball;

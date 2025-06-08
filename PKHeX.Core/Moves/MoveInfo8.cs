@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace PKHeX.Core;
 
@@ -8,8 +7,8 @@ namespace PKHeX.Core;
 /// </summary>
 internal static class MoveInfo8
 {
-    public static ReadOnlySpan<byte> MovePP_SWSH => new byte[]
-    {
+    public static ReadOnlySpan<byte> PP =>
+    [
         00, 35, 25, 10, 15, 20, 20, 15, 15, 15, 35, 30, 05, 10, 20, 30, 35, 35, 20, 15,
         20, 20, 25, 20, 30, 05, 10, 15, 15, 15, 25, 20, 05, 35, 15, 20, 20, 10, 15, 30,
         35, 20, 20, 30, 25, 40, 20, 15, 20, 20, 20, 30, 25, 15, 30, 25, 05, 15, 10, 05,
@@ -52,26 +51,26 @@ internal static class MoveInfo8
         05, 05, 05, 10, 15, 40, 10, 10, 10, 15, 10, 10, 10, 10, 05, 05, 05, 10, 05, 20,
         10, 10, 05, 20, 20, 10, 10, 05, 05, 05, 40, 10, 20, 10, 10, 10, 10, 05, 05, 15,
         05, 10, 10, 10, 05, 05, 05,
-    };
+    ];
+
     /// <summary>
-    /// Moves that are kill
+    /// Bitflag indexes of moves that are not usable in game.
     /// </summary>
-    public static readonly HashSet<ushort> DummiedMoves_SWSH = new()
-    {
-        002, 003, 004, 013, 026, 027, 041, 049, 082, 096,
-        099, 112, 117, 119, 121, 125, 128, 131, 132, 134,
-        140, 145, 146, 148, 149, 159, 169, 171, 185, 193,
-        216, 218, 222, 228, 237, 265, 274, 287, 289, 290,
-        293, 300, 301, 302, 316, 318, 320, 324, 327, 346,
-        357, 358, 363, 373, 376, 377, 378, 381, 382, 386,
-        426, 429, 431, 443, 445, 456, 466, 477, 481, 485,
-        498, 507, 516, 531, 537, 563, 569, 622, 623, 624,
-        625, 626, 627, 628, 629, 630, 631, 632, 633, 634,
-        635, 636, 637, 638, 639, 640, 641, 642, 643, 644,
-        645, 646, 647, 648, 649, 650, 651, 652, 653, 654,
-        655, 656, 657, 658, 671, 695, 696, 697, 698, 699,
-        700, 701, 702, 703, 719, 723, 724, 725, 726, 727,
-        728, 729, 730, 731, 732, 733, 734, 735, 736, 737,
-        738, 739, 740, 741,
-    };
+    /// <remarks>
+    /// This is a bitflag array, where each bit represents a move. If the bit is set, the move is not usable in game.
+    /// Instead of allocating a hashset, this is a more efficient method (no allocation) with O(1) lookup (faster than HashSet's O(1) lookup).
+    /// </remarks>
+    public static ReadOnlySpan<byte> DummiedMoves => // 144 moves (288 bytes) => 93 bytes.
+    [
+        0x1C, 0x20, 0x00, 0x0C, 0x00, 0x02, 0x02, 0x00, 0x00, 0x00,
+        0x04, 0x00, 0x09, 0x00, 0xA1, 0x22, 0x19, 0x10, 0x36, 0xC0,
+        0x40, 0x0A, 0x00, 0x02, 0x02, 0x00, 0x00, 0x45, 0x10, 0x20,
+        0x00, 0x00, 0x00, 0x02, 0x04, 0x80, 0x66, 0x70, 0x00, 0x50,
+        0x91, 0x00, 0x00, 0x04, 0x64, 0x08, 0x20, 0x67, 0x84, 0x00,
+        0x00, 0x00, 0x00, 0xA4, 0x00, 0x28, 0x03, 0x01, 0x07, 0x20,
+        0x22, 0x00, 0x04, 0x08, 0x10, 0x00, 0x08, 0x02, 0x08, 0x00,
+        0x08, 0x02, 0x00, 0x00, 0x02, 0x01, 0x00, 0xE2, 0xFF, 0xFF,
+        0xFF, 0xFF, 0x07, 0x82, 0x01, 0x40, 0x84, 0xFF, 0x00, 0x80,
+        0xF8, 0xFF, 0x3F,
+    ];
 }

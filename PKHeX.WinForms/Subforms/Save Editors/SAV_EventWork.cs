@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -11,7 +12,7 @@ namespace PKHeX.WinForms;
 public sealed partial class SAV_EventWork : Form
 {
     private readonly SAV7b Origin;
-    private readonly IEventVar<int> SAV;
+    private readonly EventWork7b SAV;
     private readonly SplitEventEditor<int> Editor;
 
     public SAV_EventWork(SAV7b sav)
@@ -81,8 +82,8 @@ public sealed partial class SAV_EventWork : Form
                     Checked = f.Flag,
                     AutoSize = true,
                 };
-                lbl.Click += (sender, e) => chk.Checked ^= true;
-                chk.CheckedChanged += (s, e) => f.Flag = chk.Checked;
+                lbl.Click += (_, _) => chk.Checked ^= true;
+                chk.CheckedChanged += (_, _) => f.Flag = chk.Checked;
                 tlp.Controls.Add(chk, 0, i);
                 tlp.Controls.Add(lbl, 1, i);
                 i++;
@@ -133,12 +134,12 @@ public sealed partial class SAV_EventWork : Form
                     DropDownWidth = Width + 100,
                 };
                 cb.InitializeBinding();
-                cb.DataSource = new BindingSource(f.Options.Select(z => new ComboItem(z.Text, z.Value)).ToList(), null);
+                cb.DataSource = new BindingSource(f.Options.ConvertAll(z => new ComboItem(z.Text, z.Value)), string.Empty);
                 cb.SelectedValue = f.Value;
                 if (cb.SelectedIndex < 0)
                     cb.SelectedIndex = 0;
 
-                cb.SelectedValueChanged += (s, e) =>
+                cb.SelectedValueChanged += (_, _) =>
                 {
                     if (editing)
                         return;
@@ -153,7 +154,7 @@ public sealed partial class SAV_EventWork : Form
                     }
                     editing = false;
                 };
-                nud.ValueChanged += (s, e) =>
+                nud.ValueChanged += (_, _) =>
                 {
                     if (editing)
                         return;
@@ -170,7 +171,7 @@ public sealed partial class SAV_EventWork : Form
                 tlp.Controls.Add(nud, 2, i);
                 {
                     var match = f.Options.FirstOrDefault(z => z.Value == f.Value);
-                    if (match != null)
+                    if (match is not null)
                     {
                         cb.SelectedValue = match.Value;
                         nud.Enabled = false;
@@ -220,7 +221,7 @@ public sealed partial class SAV_EventWork : Form
 
     private void ChangeSAV()
     {
-        if (TB_NewSAV.Text.Length > 0 && TB_OldSAV.Text.Length > 0)
+        if (TB_NewSAV.Text.Length != 0 && TB_OldSAV.Text.Length != 0)
             DiffSaves();
     }
 
@@ -240,7 +241,7 @@ public sealed partial class SAV_EventWork : Form
         ChangeSAV();
     }
 
-    private static string[] GetStringList(GameVersion game, string type)
+    private static string[] GetStringList(GameVersion game, [ConstantExpected] string type)
     {
         var gamePrefix = GetGameFilePrefix(game);
         return GameLanguage.GetStrings(gamePrefix, GameInfo.CurrentLanguage, type);
@@ -277,7 +278,7 @@ public sealed partial class SAV_EventWork : Form
             return;
         }
 
-        RTB_Diff.Lines = diff7b.Summarize().ToArray();
+        RTB_Diff.Lines = [.. diff7b.Summarize()];
     }
 
     private static void Main_DragEnter(object? sender, DragEventArgs? e)

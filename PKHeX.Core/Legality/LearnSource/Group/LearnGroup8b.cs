@@ -3,13 +3,14 @@ using System;
 namespace PKHeX.Core;
 
 /// <summary>
-/// Group that checks the source of a move in <see cref="GameVersion.BDSP"/>.
+/// Group that checks the source of a move in <see cref="EntityContext.Gen8b"/>.
 /// </summary>
 public sealed class LearnGroup8b : ILearnGroup
 {
     public static readonly LearnGroup8b Instance = new();
-    private const int Generation = 8;
+    private const byte Generation = 8;
     private const EntityContext Context = EntityContext.Gen8b;
+    public ushort MaxMoveID => Legal.MaxMoveID_8b;
 
     public ILearnGroup? GetPrevious(PKM pk, EvolutionHistory history, IEncounterTemplate enc, LearnOption option) => null;
     public bool HasVisited(PKM pk, EvolutionHistory history) => history.HasVisitedBDSP;
@@ -26,7 +27,13 @@ public sealed class LearnGroup8b : ILearnGroup
 
         CheckSharedMoves(result, current, evos[0]);
 
-        return MoveResult.AllParsed(result);
+        if (MoveResult.AllParsed(result))
+            return true;
+
+        var home = LearnGroupHOME.Instance;
+        if (option != LearnOption.HOME && home.HasVisited(pk, history))
+            return home.Check(result, current, pk, history, enc, types);
+        return false;
     }
 
     private static void CheckSharedMoves(Span<MoveResult> result, ReadOnlySpan<ushort> current, EvoCriteria evo)
@@ -43,7 +50,7 @@ public sealed class LearnGroup8b : ILearnGroup
                 continue;
             var move = current[i];
             if (eggMoves.Contains(move))
-                result[i] = new(LearnMethod.Shared);
+                result[i] = new(LearnMethod.Shared, game.Environment);
         }
     }
 
@@ -90,6 +97,10 @@ public sealed class LearnGroup8b : ILearnGroup
 
         foreach (var evo in history.Gen8b)
             GetAllMoves(result, pk, evo, types, option);
+
+        var home = LearnGroupHOME.Instance;
+        if (option != LearnOption.HOME && home.HasVisited(pk, history))
+            home.GetAllMoves(result, pk, history, enc, types);
     }
 
     private static void GetAllMoves(Span<bool> result, PKM pk, EvoCriteria evo, MoveSourceType types, LearnOption option)

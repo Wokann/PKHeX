@@ -8,12 +8,12 @@ namespace PKHeX.Core;
 /// <summary>
 /// Exposes information about how moves are learned in <see cref="SWSH"/>.
 /// </summary>
-public sealed class LearnSource8SWSH : ILearnSource<PersonalInfo8SWSH>, IEggSource
+public sealed class LearnSource8SWSH : ILearnSource<PersonalInfo8SWSH>, IEggSource, IHomeSource
 {
     public static readonly LearnSource8SWSH Instance = new();
     private static readonly PersonalTable8SWSH Personal = PersonalTable.SWSH;
-    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_swsh.pkl"), "ss"));
-    private static readonly EggMoves7[] EggMoves = EggMoves7.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("eggmove_swsh.pkl"), "ss"));
+    private static readonly Learnset[] Learnsets = LearnsetReader.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("lvlmove_swsh.pkl"), "ss"u8));
+    private static readonly EggMoves7[] EggMoves = EggMoves7.GetArray(BinLinkerAccessor.Get(Util.GetBinaryResource("eggmove_swsh.pkl"), "ss"u8));
     private const int MaxSpecies = Legal.MaxSpeciesID_8_R2;
     private const LearnEnvironment Game = SWSH;
 
@@ -39,7 +39,7 @@ public sealed class LearnSource8SWSH : ILearnSource<PersonalInfo8SWSH>, IEggSour
     public ReadOnlySpan<ushort> GetEggMoves(ushort species, byte form)
     {
         if (species > MaxSpecies)
-            return ReadOnlySpan<ushort>.Empty;
+            return [];
         return EggMoves.GetFormEggMoves(species, form);
     }
 
@@ -48,9 +48,8 @@ public sealed class LearnSource8SWSH : ILearnSource<PersonalInfo8SWSH>, IEggSour
         if (types.HasFlag(MoveSourceType.LevelUp))
         {
             var learn = GetLearnset(evo.Species, evo.Form);
-            var level = learn.GetLevelLearnMove(move);
-            if (level != -1 && level <= evo.LevelMax)
-                return new(LevelUp, Game, (byte)level);
+            if (learn.TryGetLevelLearnMove(move, out var level) && level <= evo.LevelMax)
+                return new(LevelUp, Game, level);
         }
 
         if (types.HasFlag(MoveSourceType.SharedEggMove) && GetIsSharedEggMove(pi, move))
@@ -74,21 +73,24 @@ public sealed class LearnSource8SWSH : ILearnSource<PersonalInfo8SWSH>, IEggSour
         return default;
     }
 
-    private static bool GetIsEnhancedTutor(EvoCriteria evo, ISpeciesForm current, ushort move, LearnOption option) => evo.Species switch
+    private static bool GetIsEnhancedTutor<T1, T2>(T1 evo, T2 current, ushort move, LearnOption option)
+        where T1 : ISpeciesForm
+        where T2 : ISpeciesForm
+        => evo.Species switch
     {
         (int)Species.Necrozma => move switch
         {
-            (int)Move.SunsteelStrike => (option == LearnOption.AtAnyTime || current.Form == 1), // Sun w/ Solgaleo
-            (int)Move.MoongeistBeam => (option == LearnOption.AtAnyTime || current.Form == 2), // Moon w/ Lunala
+            (int)Move.SunsteelStrike => option.IsPast() || current.Form == 1, // Sun w/ Solgaleo
+            (int)Move.MoongeistBeam =>  option.IsPast() || current.Form == 2, // Moon w/ Lunala
             _ => false,
         },
         (int)Species.Rotom => move switch
         {
-            (int)Move.Overheat  => option == LearnOption.AtAnyTime || current.Form == 1,
-            (int)Move.HydroPump => option == LearnOption.AtAnyTime || current.Form == 2,
-            (int)Move.Blizzard  => option == LearnOption.AtAnyTime || current.Form == 3,
-            (int)Move.AirSlash  => option == LearnOption.AtAnyTime || current.Form == 4,
-            (int)Move.LeafStorm => option == LearnOption.AtAnyTime || current.Form == 5,
+            (int)Move.Overheat  => option.IsPast() || current.Form == 1,
+            (int)Move.HydroPump => option.IsPast() || current.Form == 2,
+            (int)Move.Blizzard  => option.IsPast() || current.Form == 3,
+            (int)Move.AirSlash  => option.IsPast() || current.Form == 4,
+            (int)Move.LeafStorm => option.IsPast() || current.Form == 5,
             _ => false,
         },
         _ => false,
@@ -98,32 +100,37 @@ public sealed class LearnSource8SWSH : ILearnSource<PersonalInfo8SWSH>, IEggSour
     {
         var baseSpecies = pi.HatchSpecies;
         var baseForm = pi.HatchFormIndexEverstone;
-        return GetEggMoves(baseSpecies, baseForm).IndexOf(move) != -1;
+        return GetEggMoves(baseSpecies, baseForm).Contains(move);
     }
 
     private static bool GetIsTR(PersonalInfo8SWSH info, PKM pk, EvoCriteria evo, ushort move, LearnOption option)
     {
-        if (pk is not ITechRecord tr)
-            return false;
-
         var index = info.RecordPermitIndexes.IndexOf(move);
         if (index == -1)
             return false;
         if (!info.GetIsLearnTR(index))
             return false;
 
-        if (tr.GetMoveRecordFlag(index))
-            return true;
+        if (pk is PK8 pk8)
+        {
+            if (pk8.GetMoveRecordFlag(index))
+                return true;
+            if (!option.IsFlagCheckRequired())
+                return true;
+        }
+        else
+        {
+            if (option != LearnOption.Current)
+                return true;
+        }
 
-        if (option != LearnOption.Current && !pk.SWSH && pk.IsOriginalMovesetDeleted())
-            return true;
         if (index == 12 && evo is { Species: (int)Species.Calyrex, Form: 0 }) // TR12
             return true; // Agility Calyrex without TR glitch.
 
         return false;
     }
 
-    public void GetAllMoves(Span<bool> result, PKM pk, EvoCriteria evo, MoveSourceType types = MoveSourceType.All)
+    public void GetAllMoves(Span<bool> result, PKM _, EvoCriteria evo, MoveSourceType types = MoveSourceType.All)
     {
         if (!TryGetPersonal(evo.Species, evo.Form, out var pi))
             return;
@@ -162,12 +169,37 @@ public sealed class LearnSource8SWSH : ILearnSource<PersonalInfo8SWSH>, IEggSour
         if (types.HasFlag(MoveSourceType.EnhancedTutor))
         {
             var species = evo.Species;
-            if (species is (int)Species.Rotom && pk.Form is not 0)
+            if (species is (int)Species.Rotom && evo.Form is not 0)
                 result[MoveTutor.GetRotomFormMove(evo.Form)] = true;
-            else if (species is (int)Species.Necrozma && pk.Form is 1) // Sun
+            else if (species is (int)Species.Necrozma && evo.Form is 1) // Sun
                 result[(int)Move.SunsteelStrike] = true;
-            else if (species is (int)Species.Necrozma && pk.Form is 2) // Moon
+            else if (species is (int)Species.Necrozma && evo.Form is 2) // Moon
                 result[(int)Move.MoongeistBeam] = true;
         }
+    }
+
+    public LearnEnvironment Environment => Game;
+    public MoveLearnInfo GetCanLearnHOME(PKM pk, EvoCriteria evo, ushort move, MoveSourceType types = MoveSourceType.All)
+    {
+        if (!TryGetPersonal(evo.Species, evo.Form, out var pi))
+            return default;
+
+        if (types.HasFlag(MoveSourceType.LevelUp))
+        {
+            var learn = GetLearnset(evo.Species, evo.Form);
+            if (learn.TryGetLevelLearnMove(move, out var level))
+                return new(LevelUp, Game, level);
+        }
+
+        if (types.HasFlag(MoveSourceType.SharedEggMove) && GetIsSharedEggMove(pi, move))
+            return new(Shared, Game);
+
+        if (types.HasFlag(MoveSourceType.Machine) && pi.GetIsLearnTM(move))
+            return new(TMHM, Game);
+
+        if (types.HasFlag(MoveSourceType.TechnicalRecord) && GetIsTR(pi, pk, evo, move, LearnOption.HOME))
+            return new(TMHM, Game);
+
+        return default;
     }
 }

@@ -1,115 +1,32 @@
 using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace PKHeX.Core;
 
 /// <summary>
 /// Miscellaneous setup utility for legality checking <see cref="IEncounterTemplate"/> data sources.
 /// </summary>
-internal static class EncounterUtil
+public static class EncounterUtil
 {
-    internal static ReadOnlySpan<byte> Get(string resource) => Util.GetBinaryResource($"encounter_{resource}.pkl");
-    internal static BinLinkerAccessor Get(string resource, string ident) => BinLinkerAccessor.Get(Get(resource), ident);
+    /// <summary> Magic value to indicate the form is dynamic and should not be used literally. </summary>
+    public const byte FormDynamic = FormVivillon;
+    /// <summary> Magic value to indicate the form is set by the save file and can be one of many within the permitted range. </summary>
+    public const byte FormVivillon = 30;
+    /// <summary> Magic value to indicate the form is random and can be one of many within the permitted range. </summary>
+    public const byte FormRandom = 31;
 
     /// <summary>
-    /// Gets the relevant <see cref="EncounterStatic"/> objects that appear in the relevant game.
+    /// Gets a raw chunk of data from the specified resource.
     /// </summary>
-    /// <param name="source">Table of valid encounters that appear for the game pairing</param>
-    /// <param name="game">Game to filter for</param>
-    /// <returns>Array of encounter objects that can be encountered in the input game</returns>
-    internal static T[] GetEncounters<T>(T[] source, GameVersion game) where T : IVersion
-    {
-        return Array.FindAll(source, s => s.Version.Contains(game));
-    }
+    public static ReadOnlySpan<byte> Get([ConstantExpected] string resource)
+        => Util.GetBinaryResource($"encounter_{resource}.pkl");
 
     /// <summary>
-    /// Gets the relevant <see cref="EncounterStatic"/> objects that appear in the relevant game.
+    /// Gets an index-able accessor for the specified resource.
     /// </summary>
-    /// <param name="source">Table of valid encounters that appear for the game pairing</param>
-    /// <param name="exclude">Game to filter out</param>
-    /// <returns>Array of encounter objects that can be encountered in the input game</returns>
-    internal static T[] GetEncounters<T>(T[][] source, GameVersion exclude) where T : EncounterStatic
-    {
-        var count = 0;
-        foreach (T[] arr in source)
-            count += arr.Length;
-
-        var temp = new T[count];
-        count = 0;
-        foreach (var arr in source)
-        {
-            foreach (var enc in arr)
-            {
-                if (enc.Version != exclude)
-                    temp[count++] = enc;
-            }
-        }
-        Array.Resize(ref temp, count);
-        return temp;
-    }
-
-    internal static T? GetMinByLevel<T>(EvoCriteria[] chain, IEnumerable<T> possible) where T : class, IEncounterTemplate
-    {
-        // MinBy grading: prefer species-form match, select lowest min level encounter.
-        // Minimum allocation :)
-        T? result = null;
-        int min = int.MaxValue;
-
-        foreach (var enc in possible)
-        {
-            int m = int.MaxValue;
-            foreach (var evo in chain)
-            {
-                bool specDiff = enc.Species != evo.Species || enc.Form != evo.Form;
-                var val = (Convert.ToInt32(specDiff) << 16) | enc.LevelMin;
-                if (val < m)
-                    m = val;
-            }
-
-            if (m >= min)
-                continue;
-            min = m;
-            result = enc;
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Loads the language string lists into the <see cref="T"/> objects.
-    /// </summary>
-    /// <typeparam name="T">Encounter template type</typeparam>
-    /// <param name="table">Trade templates</param>
-    /// <param name="strings">Localization strings, grouped by language.</param>
-    /// <remarks>
-    /// The first half of strings in the language resource array are <see cref="EncounterTrade.Nicknames"/>
-    /// The second half of strings in the language resource strings are <see cref="EncounterTrade.TrainerNames"/>
-    /// </remarks>
-    internal static void MarkEncounterTradeStrings<T>(T[] table, ReadOnlySpan<string[]> strings) where T : EncounterTrade
-    {
-        uint languageCount = (uint)strings[1].Length / 2;
-        for (uint i = 0; i < languageCount; i++)
-        {
-            var t = table[i];
-            t.Nicknames = GetNamesForLanguage(strings, i);
-            t.TrainerNames = GetNamesForLanguage(strings, languageCount + i);
-        }
-    }
-
-    /// <summary>
-    /// Loads the language string lists into the <see cref="T"/> objects.
-    /// </summary>
-    /// <typeparam name="T">Encounter template type</typeparam>
-    /// <param name="table">Trade templates</param>
-    /// <param name="strings">Localization strings, grouped by language.</param>
-    internal static void MarkEncounterTradeNicknames<T>(T[] table, ReadOnlySpan<string[]> strings) where T : EncounterTrade
-    {
-        for (uint i = 0; i < table.Length; i++)
-        {
-            var t = table[i];
-            t.Nicknames = GetNamesForLanguage(strings, i);
-        }
-    }
+    public static BinLinkerAccessor Get([ConstantExpected] string resource, [Length(2, 2)] ReadOnlySpan<byte> ident)
+        => BinLinkerAccessor.Get(Get(resource), ident);
 
     /// <summary>
     /// Grabs the localized names for individual templates for all languages from the specified <see cref="index"/> of the <see cref="names"/> list.
@@ -117,7 +34,7 @@ internal static class EncounterUtil
     /// <param name="names">Arrays of strings grouped by language</param>
     /// <param name="index">Index to grab from the language arrays</param>
     /// <returns>Row of localized strings for the template.</returns>
-    private static string[] GetNamesForLanguage(ReadOnlySpan<string[]> names, uint index)
+    public static string[] GetNamesForLanguage(ReadOnlySpan<string[]> names, uint index)
     {
         var result = new string[names.Length];
         for (int i = 0; i < result.Length; i++)
@@ -126,5 +43,94 @@ internal static class EncounterUtil
             result[i] = index < arr.Length ? arr[index] : string.Empty;
         }
         return result;
+    }
+
+    /// <summary>
+    /// Applies the encounter moves for the given level and version to the provided PKM.
+    /// </summary>
+    /// <typeparam name="T">Entity type</typeparam>
+    /// <param name="pk">Entity to apply the moves to</param>
+    /// <param name="version">Version to apply the moves from</param>
+    /// <param name="level">Level to apply the moves at</param>
+    public static void SetEncounterMoves<T>(T pk, GameVersion version, byte level) where T : PKM
+    {
+        var source = GameData.GetLearnSource(version);
+        SetEncounterMoves(pk, source, level);
+    }
+
+    private static void SetEncounterMoves<TEntity, TSource>(TEntity pk, TSource source, byte level)
+        where TEntity : PKM
+        where TSource : ILearnSource
+    {
+        Span<ushort> moves = stackalloc ushort[4];
+        source.SetEncounterMoves(pk.Species, pk.Form, level, moves);
+        pk.SetMoves(moves);
+    }
+
+    /// <summary>
+    /// Gets a Generation 1-3 trainer name ensuring each character is present in the game's available character set.
+    /// </summary>
+    /// <remarks>Only falls back to a valid Name if the language is incompatible with the trainer's language. Doesn't sanity check otherwise.</remarks>
+    /// <param name="tr">Trainer to apply the name from</param>
+    /// <param name="lang">Language to apply the name in</param>
+    public static string GetTrainerName(ITrainerInfo tr, int lang) => lang switch
+    {
+        (int)LanguageID.Japanese => tr.Language == 1 ? tr.OT : TrainerName.GameFreakJPN,
+        _ => tr.Language == 1 ? TrainerName.GameFreakINT : tr.OT,
+    };
+
+    /// <summary>
+    /// Gets a random DV16 value.
+    /// </summary>
+    /// <param name="rand">Random number generator to use</param>
+    /// <param name="isShiny">Optional Shiny flag to match</param>
+    /// <param name="type">Optional Hidden Power type to match</param>
+    /// <returns>Value between 0 and 65535 (inclusive)</returns>
+    public static ushort GetRandomDVs(Random rand, bool isShiny, sbyte type)
+    {
+        if (isShiny)
+        {
+            // If the DVs can be Shiny as well as match the Hidden Power type, return the Shiny DVs.
+            const ushort dv16 = 0x2AAA;
+            var modified = HiddenPower.SetTypeGB(type, dv16);
+            if (ShinyUtil.GetIsShinyGB(modified))
+                return modified;
+            // Fallback to a random DV if the Shiny DVs don't match the Hidden Power type.
+            // Requesting Hidden Power is more relevant for battle legality.
+        }
+        var result = (ushort)rand.Next(ushort.MaxValue + 1);
+        if (HiddenPower.IsInvalidType(type))
+            return result;
+
+        while (true)
+        {
+            if (HiddenPower.GetTypeGB(result) == type)
+                return result;
+            result = (ushort)rand.Next(ushort.MaxValue + 1);
+        }
+    }
+
+    /// <summary>
+    /// Mashes the IVs into a DV16 value.
+    /// </summary>
+    public static ushort GetDV16(in IndividualValueSet actual)
+    {
+        ushort result = 0;
+        result |= (ushort)(actual.SPA << 0);
+        result |= (ushort)(actual.SPE << 4);
+        result |= (ushort)(actual.DEF << 8);
+        result |= (ushort)(actual.ATK << 12);
+        return result;
+    }
+
+    /// <summary>
+    /// Gets the Generation 1 personal info for a Species.
+    /// </summary>
+    /// <param name="version">Pivot version</param>
+    /// <param name="species">Species to get the personal info for</param>
+    public static PersonalInfo1 GetPersonal1(GameVersion version, ushort species)
+    {
+        var pt = version == GameVersion.YW ? PersonalTable.Y : PersonalTable.RB;
+        return pt[species];
     }
 }

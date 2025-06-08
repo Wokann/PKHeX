@@ -3,12 +3,13 @@ using System;
 namespace PKHeX.Core;
 
 /// <summary>
-/// Group that checks the source of a move in <see cref="GameVersion.Gen7b"/>.
+/// Group that checks the source of a move in <see cref="EntityContext.Gen7b"/>.
 /// </summary>
 public sealed class LearnGroup7b : ILearnGroup
 {
     public static readonly LearnGroup7b Instance = new();
-    private const int Generation = 7;
+    private const byte Generation = 7;
+    public ushort MaxMoveID => Legal.MaxMoveID_7b;
 
     public ILearnGroup? GetPrevious(PKM pk, EvolutionHistory history, IEncounterTemplate enc, LearnOption option) => null;
     public bool HasVisited(PKM pk, EvolutionHistory history) => history.HasVisitedLGPE;

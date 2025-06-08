@@ -42,7 +42,7 @@ public static class RibbonApplicator
     /// <summary>
     /// Parses the Entity for all ribbons, then fixes any ribbon that was invalid.
     /// </summary>
-    public static void FixInvalidRibbons(RibbonVerifierArguments args)
+    public static void FixInvalidRibbons(in RibbonVerifierArguments args)
     {
         Span<RibbonResult> result = stackalloc RibbonResult[RibbonVerifier.MaxRibbonCount];
         var count = RibbonVerifier.GetRibbonResults(args, result);
@@ -50,7 +50,7 @@ public static class RibbonApplicator
             ribbon.Fix(args);
     }
 
-    private static void SetAllRibbonState(RibbonVerifierArguments args, bool desiredState)
+    private static void SetAllRibbonState(in RibbonVerifierArguments args, bool desiredState)
     {
         for (RibbonIndex3 r = 0; r < RibbonIndex3.MAX_COUNT; r++)
             r.Fix(args, desiredState);
@@ -59,7 +59,7 @@ public static class RibbonApplicator
 
         if (desiredState)
         {
-            // Skip Marks, don't set them.
+            // Skip personality marks (Encounter specific, never required); don't set them.
             for (RibbonIndex r = 0; r <= RibbonIndex.MasterRank; r++)
                 r.Fix(args, desiredState);
             for (RibbonIndex r = RibbonIndex.Hisui; r < RibbonIndex.MAX_COUNT; r++)
@@ -75,6 +75,7 @@ public static class RibbonApplicator
 
     private static void InvertDeadlockContest(IRibbonSetCommon6 c6, bool desiredState)
     {
+        // Contest Star is a deadlock ribbon with the Master ribbons, as it needs all five Master ribbons to be true.
         if (desiredState)
             c6.RibbonContestStar = c6.HasAllContestRibbons();
     }

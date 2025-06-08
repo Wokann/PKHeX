@@ -12,33 +12,49 @@ public partial class SAV_Raid9 : Form
     private readonly SAV9SV SAV;
     private readonly RaidSpawnList9 Raids;
 
-    public SAV_Raid9(SaveFile sav, RaidSpawnList9 raid)
+    public SAV_Raid9(SAV9SV sav, TeraRaidOrigin raidOrigin)
     {
         InitializeComponent();
         WinFormsUtil.TranslateInterface(this, Main.CurrentLanguage);
         SAV = (SAV9SV)(Origin = sav).Clone();
-        Raids = raid;
-        CB_Raid.Items.AddRange(Enumerable.Range(1, raid.CountUsed).Select(z => (object)$"Raid {z:000}").ToArray());
+        Raids = raidOrigin switch
+        {
+            TeraRaidOrigin.Paldea => SAV.RaidPaldea,
+            TeraRaidOrigin.Kitakami => SAV.RaidKitakami,
+            TeraRaidOrigin.BlueberryAcademy => SAV.RaidBlueberry,
+            _ => throw new ArgumentOutOfRangeException($"Raid Origin {raidOrigin} is not valid for Scarlet and Violet"),
+        };
+        CB_Raid.Items.AddRange(Enumerable.Range(1, Raids.CountUsed).Select(z => (object)$"Raid {z:000}").ToArray());
         CB_Raid.SelectedIndex = 0;
+        LoadSeeds();
+    }
 
-        TB_SeedToday.Text = Raids.CurrentSeed.ToString("X16");
-        TB_SeedTomorrow.Text = Raids.TomorrowSeed.ToString("X16");
+    private void LoadSeeds()
+    {
+        if (Raids.HasSeeds)
+        {
+            TB_SeedToday.Text = Raids.CurrentSeed.ToString("X16");
+            TB_SeedTomorrow.Text = Raids.TomorrowSeed.ToString("X16");
 
-        TB_SeedToday.Validated += UpdateStringSeed;
-        TB_SeedTomorrow.Validated += UpdateStringSeed;
+            TB_SeedToday.Validated += UpdateStringSeed;
+            TB_SeedTomorrow.Validated += UpdateStringSeed;
+        }
+        else
+        {
+            L_SeedCurrent.Visible = false;
+            L_SeedTomorrow.Visible = false;
+            TB_SeedToday.Visible = false;
+            TB_SeedTomorrow.Visible = false;
+        }
     }
 
     private void LoadRaid(int index) => PG_Raid.SelectedObject = Raids.GetRaid(index);
 
-    private void B_Cancel_Click(object sender, EventArgs e)
-    {
-        // We've been editing the original save file blocks. Restore the clone's data.
-        Origin.CopyChangesFrom(SAV);
-        Close();
-    }
+    private void B_Cancel_Click(object sender, EventArgs e) => Close();
 
     private void B_Save_Click(object sender, EventArgs e)
     {
+        Origin.CopyChangesFrom(SAV);
         ValidateChildren();
         Validate();
         Close();

@@ -34,18 +34,23 @@ public static class LearnPossible
     {
         if (pk.IsOriginalMovesetDeleted())
             return;
-        if (enc is EncounterSlot8GO g)
+        if (enc is EncounterSlot8GO { OriginFormat: PogoImportFormat.PK7 or PogoImportFormat.PB7 } g)
         {
             Span<ushort> initial = stackalloc ushort[4];
-            g.GetInitialMoves(pk.Met_Level, initial);
+            g.GetInitialMoves(pk.MetLevel, initial);
             SetAll(initial, result);
         }
         else if (enc.Generation >= 6)
         {
-            result[pk.RelearnMove1] = true;
-            result[pk.RelearnMove2] = true;
-            result[pk.RelearnMove3] = true;
-            result[pk.RelearnMove4] = true;
+            static void AddIfInRange(ushort move, Span<bool> result)
+            {
+                if (move < result.Length)
+                    result[move] = true;
+            }
+            AddIfInRange(pk.RelearnMove1, result);
+            AddIfInRange(pk.RelearnMove2, result);
+            AddIfInRange(pk.RelearnMove3, result);
+            AddIfInRange(pk.RelearnMove4, result);
         }
     }
 
@@ -58,7 +63,7 @@ public static class LearnPossible
     private static void IterateAndFlag(Span<bool> result, PKM pk, IEncounterTemplate enc, EvolutionHistory history, MoveSourceType types)
     {
         // Similar to the iteration when validating a set of currently known moves, iterate backwards.
-        // Instead of checking if a single move can be learned, get an enumerable of moves and flag.
+        // Instead of checking if a single move can be learned, get an iterable chain of sources and flag for each.
         // Keep iterating backwards, as an older game may have an exclusive move.
         var game = LearnGroupUtil.GetCurrentGroup(pk);
         while (true)

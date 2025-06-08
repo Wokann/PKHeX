@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using static System.Buffers.Binary.BinaryPrimitives;
 
 namespace PKHeX.Core;
@@ -16,40 +17,50 @@ public static class GeniusCrypto
 
     public static void Decrypt(ReadOnlySpan<byte> input, Span<byte> output, Span<ushort> keys)
     {
-        if (keys.Length != 4)
-            throw new ArgumentOutOfRangeException(nameof(keys));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, 4);
 
+        var in16 = MemoryMarshal.Cast<byte, ushort>(input);
+        var out16 = MemoryMarshal.Cast<byte, ushort>(output);
         int i = 0;
         do
         {
             foreach (var key in keys)
             {
-                ushort value = ReadUInt16BigEndian(input[i..]);
+                var value = in16[i];
+                if (BitConverter.IsLittleEndian)
+                    value = ReverseEndianness(value);
                 value -= key;
-                WriteUInt16BigEndian(output[i..], value);
-                i += 2;
+                if (BitConverter.IsLittleEndian)
+                    value = ReverseEndianness(value);
+                out16[i] = value;
+                i++;
             }
             AdvanceKeys(keys);
-        } while (i != input.Length);
+        } while (i != in16.Length);
     }
 
     public static void Encrypt(ReadOnlySpan<byte> input, Span<byte> output, Span<ushort> keys)
     {
-        if (keys.Length != 4)
-            throw new ArgumentOutOfRangeException(nameof(keys));
+        ArgumentOutOfRangeException.ThrowIfNotEqual(keys.Length, 4);
 
+        var in16 = MemoryMarshal.Cast<byte, ushort>(input);
+        var out16 = MemoryMarshal.Cast<byte, ushort>(output);
         int i = 0;
         do
         {
             foreach (var key in keys)
             {
-                ushort value = ReadUInt16BigEndian(input[i..]);
+                var value = in16[i];
+                if (BitConverter.IsLittleEndian)
+                    value = ReverseEndianness(value);
                 value += key;
-                WriteUInt16BigEndian(output[i..], value);
-                i += 2;
+                if (BitConverter.IsLittleEndian)
+                    value = ReverseEndianness(value);
+                out16[i] = value;
+                i++;
             }
             AdvanceKeys(keys);
-        } while (i != input.Length);
+        } while (i != in16.Length);
     }
 
     private static void AdvanceKeys(Span<ushort> keys)

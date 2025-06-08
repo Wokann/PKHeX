@@ -6,8 +6,13 @@ namespace PKHeX.Core;
 public enum GCVersion : byte
 {
     None = 0,
-    FR = 1,
-    LG = 2,
+    FR = 1, // RD
+    LG = 2, // GN
+    // BU = 3,
+    // YW = 4,
+    // GD = 5,
+    // SV = 6,
+    // C = 7,
     S = 8,
     R = 9,
     E = 10,
@@ -59,6 +64,6 @@ public static class GCVersionExtensions
         GCVersion.FR => GameVersion.FR,
         GCVersion.LG => GameVersion.LG,
         GCVersion.CXD => GameVersion.CXD,
-        _ => GameVersion.Unknown,
+        _ => GameVersion.Invalid,
     };
 }

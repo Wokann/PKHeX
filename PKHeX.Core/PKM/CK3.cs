@@ -4,53 +4,63 @@ using static System.Buffers.Binary.BinaryPrimitives;
 namespace PKHeX.Core;
 
 /// <summary> Generation 3 <see cref="PKM"/> format, exclusively for Pokémon Colosseum. </summary>
-public sealed class CK3 : G3PKM, IShadowCapture
+public sealed class CK3(byte[] Data) : G3PKM(Data), IShadowCapture, ISeparateIVs, IGCRegion
 {
-    public override ReadOnlySpan<ushort> ExtraBytes => new ushort[]
-    {
+    public CK3() : this(new byte[PokeCrypto.SIZE_3CSTORED]) { }
+
+    public override ReadOnlySpan<ushort> ExtraBytes =>
+    [
         0x11, 0x12, 0x13,
         0x61, 0x62, 0x63, 0x64,
         0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xDA, 0xDB,
         0xE4, 0xE5, 0xE6, 0xE7, 0xCE,
-        0xFB, // not fateful -- what is it?
         0xD7, // index within party
         // 0xFC onwards unused? no, it's some pointers and values used by the game?
-    };
+    ];
 
     public override int SIZE_PARTY => PokeCrypto.SIZE_3CSTORED;
     public override int SIZE_STORED => PokeCrypto.SIZE_3CSTORED;
     public override EntityContext Context => EntityContext.Gen3;
     public override PersonalInfo3 PersonalInfo => PersonalTable.RS[Species];
-    public CK3(byte[] data) : base(data) { }
-    public CK3() : this(new byte[PokeCrypto.SIZE_3CSTORED]) { }
     public override CK3 Clone() => new((byte[])Data.Clone());
 
     // Trash Bytes
-    public override Span<byte> OT_Trash => Data.AsSpan(0x18, 22);
-    public override Span<byte> Nickname_Trash => Data.AsSpan(0x2E, 22);
-    public Span<byte> NicknameCopy_Trash => Data.AsSpan(0x44, 22);
+    public override Span<byte> OriginalTrainerTrash => Data.AsSpan(0x18, 22);
+    public Span<byte> NicknameDisplayTrash => Data.AsSpan(0x2E, 22);
+    public override Span<byte> NicknameTrash => Data.AsSpan(0x44, 22);
+    public override int TrashCharCountTrainer => 11;
+    public override int TrashCharCountNickname => 11;
 
     // Future Attributes
     public override ushort SpeciesInternal { get => ReadUInt16BigEndian(Data.AsSpan(0x00)); set => WriteUInt16BigEndian(Data.AsSpan(0x00), value); } // raw access
     public override ushort Species { get => SpeciesConverter.GetNational3(SpeciesInternal); set => SpeciesInternal = SpeciesConverter.GetInternal3(value); }
     // 02-04 unused
     public override uint PID { get => ReadUInt32BigEndian(Data.AsSpan(0x04)); set => WriteUInt32BigEndian(Data.AsSpan(0x04), value); }
-    public override int Version { get => GetGBAVersionID(Data[0x08]); set => Data[0x08] = GetGCVersionID(value); }
-    public int CurrentRegion { get => Data[0x09]; set => Data[0x09] = (byte)value; }
-    public int OriginalRegion { get => Data[0x0A]; set => Data[0x0A] = (byte)value; }
+    public override GameVersion Version { get => GetGBAVersionID((GCVersion)Data[0x08]); set => Data[0x08] = (byte)GetGCVersionID(value); }
+    public GCRegion CurrentRegion { get => (GCRegion)Data[0x09]; set => Data[0x09] = (byte)value; }
+    public GCRegion OriginalRegion { get => (GCRegion)Data[0x0A]; set => Data[0x0A] = (byte)value; }
     public override int Language { get => Core.Language.GetMainLangIDfromGC(Data[0x0B]); set => Data[0x0B] = Core.Language.GetGCLangIDfromMain((byte)value); }
-    public override int Met_Location { get => ReadUInt16BigEndian(Data.AsSpan(0x0C)); set => WriteUInt16BigEndian(Data.AsSpan(0x0C), (ushort)value); }
-    public override int Met_Level { get => Data[0x0E]; set => Data[0x0E] = (byte)value; }
-    public override int Ball { get => Data[0x0F]; set => Data[0x0F] = (byte)value; }
-    public override int OT_Gender { get => Data[0x10]; set => Data[0x10] = (byte)value; }
+    public override ushort MetLocation { get => ReadUInt16BigEndian(Data.AsSpan(0x0C)); set => WriteUInt16BigEndian(Data.AsSpan(0x0C), value); }
+    public override byte MetLevel { get => Data[0x0E]; set => Data[0x0E] = value; }
+    public override byte Ball { get => Data[0x0F]; set => Data[0x0F] = value; }
+    public override byte OriginalTrainerGender { get => Data[0x10]; set => Data[0x10] = value; }
     public override uint ID32 { get => ReadUInt32BigEndian(Data.AsSpan(0x14)); set => WriteUInt32BigEndian(Data.AsSpan(0x14), value); }
     public override ushort SID16 { get => ReadUInt16BigEndian(Data.AsSpan(0x14)); set => WriteUInt16BigEndian(Data.AsSpan(0x14), value); }
     public override ushort TID16 { get => ReadUInt16BigEndian(Data.AsSpan(0x16)); set => WriteUInt16BigEndian(Data.AsSpan(0x16), value); }
-    public override string OT_Name { get => StringConverter3GC.GetString(OT_Trash); set => StringConverter3GC.SetString(OT_Trash, value, 10, StringConverterOption.None); }
-    public override string Nickname { get => StringConverter3GC.GetString(Nickname_Trash); set { StringConverter3GC.SetString(Nickname_Trash, value, 10, StringConverterOption.None); NicknameCopy = value; } }
-    public string NicknameCopy { get => StringConverter3GC.GetString(NicknameCopy_Trash); set => StringConverter3GC.SetString(NicknameCopy_Trash, value, 10, StringConverterOption.None); }
+    public override string OriginalTrainerName { get => GetString(OriginalTrainerTrash); set => SetString(OriginalTrainerTrash, value, 10, StringConverterOption.None); }
+    public string NicknameDisplay { get => GetString(NicknameDisplayTrash); set => SetString(NicknameDisplayTrash, value, 10, StringConverterOption.None); }
+    public override string Nickname { get => GetString(NicknameTrash); set { SetString(NicknameTrash, value, 10, StringConverterOption.None); ResetNicknameDisplay(); } }
+
+    public void ResetNicknameDisplay()
+    {
+        var current = NicknameDisplayTrash;
+        NicknameTrash.CopyTo(current);
+        if (CurrentRegion == GCRegion.NTSC_J)
+            current[10..].Clear(); // clamp to 5 chars at most
+    }
+
     public override uint EXP { get => ReadUInt32BigEndian(Data.AsSpan(0x5C)); set => WriteUInt32BigEndian(Data.AsSpan(0x5C), value); }
-    public override int Stat_Level { get => Data[0x60]; set => Data[0x60] = (byte)value; }
+    public override byte Stat_Level { get => Data[0x60]; set => Data[0x60] = value; }
 
     // 0x64-0x77 are battle/status related
     public override int Status_Condition { get; set; } // where are we
@@ -108,6 +118,14 @@ public sealed class CK3 : G3PKM, IShadowCapture
         set => WriteUInt16BigEndian(Data.AsSpan(0xA2), (ushort)(value & 0xFF)); }
 
     // IVs
+    // Big Endian! Shift offset by 1 when interacting with a single byte.
+    byte ISeparateIVs.IV_HP  { get => Data[0xA4 + 1]; set => Data[0xA4 + 1] = value; }
+    byte ISeparateIVs.IV_ATK { get => Data[0xA6 + 1]; set => Data[0xA6 + 1] = value; }
+    byte ISeparateIVs.IV_DEF { get => Data[0xA8 + 1]; set => Data[0xA8 + 1] = value; }
+    byte ISeparateIVs.IV_SPA { get => Data[0xAA + 1]; set => Data[0xAA + 1] = value; }
+    byte ISeparateIVs.IV_SPD { get => Data[0xAC + 1]; set => Data[0xAC + 1] = value; }
+    byte ISeparateIVs.IV_SPE { get => Data[0xAE + 1]; set => Data[0xAE + 1] = value; }
+
     public override int IV_HP {
         get => Math.Min((ushort)31, ReadUInt16BigEndian(Data.AsSpan(0xA4)));
         set => WriteUInt16BigEndian(Data.AsSpan(0xA4), (ushort)(value & 0x1F)); }
@@ -132,23 +150,23 @@ public sealed class CK3 : G3PKM, IShadowCapture
         get => Math.Min((ushort)31, ReadUInt16BigEndian(Data.AsSpan(0xAE)));
         set => WriteUInt16BigEndian(Data.AsSpan(0xAE), (ushort)(value & 0x1F)); }
 
-    public override int OT_Friendship {
-        get => Math.Min((ushort)0xFF, ReadUInt16BigEndian(Data.AsSpan(0xB0)));
+    public override byte OriginalTrainerFriendship {
+        get => (byte)Math.Min((ushort)0xFF, ReadUInt16BigEndian(Data.AsSpan(0xB0)));
         set => WriteUInt16BigEndian(Data.AsSpan(0xB0), (ushort)(value & 0xFF));
     }
 
     // Contest
-    public override byte CNT_Cool   { get => Data[0xB2]; set => Data[0xB2] = value; }
-    public override byte CNT_Beauty { get => Data[0xB3]; set => Data[0xB3] = value; }
-    public override byte CNT_Cute   { get => Data[0xB4]; set => Data[0xB4] = value; }
-    public override byte CNT_Smart  { get => Data[0xB5]; set => Data[0xB5] = value; }
-    public override byte CNT_Tough  { get => Data[0xB6]; set => Data[0xB6] = value; }
+    public override byte ContestCool   { get => Data[0xB2]; set => Data[0xB2] = value; }
+    public override byte ContestBeauty { get => Data[0xB3]; set => Data[0xB3] = value; }
+    public override byte ContestCute   { get => Data[0xB4]; set => Data[0xB4] = value; }
+    public override byte ContestSmart  { get => Data[0xB5]; set => Data[0xB5] = value; }
+    public override byte ContestTough  { get => Data[0xB6]; set => Data[0xB6] = value; }
     public override byte RibbonCountG3Cool   { get => Data[0xB7]; set => Data[0xB7] = value; }
     public override byte RibbonCountG3Beauty { get => Data[0xB8]; set => Data[0xB8] = value; }
     public override byte RibbonCountG3Cute   { get => Data[0xB9]; set => Data[0xB9] = value; }
     public override byte RibbonCountG3Smart  { get => Data[0xBA]; set => Data[0xBA] = value; }
     public override byte RibbonCountG3Tough  { get => Data[0xBB]; set => Data[0xBB] = value; }
-    public override byte CNT_Sheen { get => Data[0xBC]; set => Data[0xBC] = value; }
+    public override byte ContestSheen { get => Data[0xBC]; set => Data[0xBC] = value; }
 
     // Ribbons
     public override bool RibbonChampionG3       { get => Data[0xBD] == 1; set => Data[0xBD] = value ? (byte)1 : (byte)0; }
@@ -167,21 +185,55 @@ public sealed class CK3 : G3PKM, IShadowCapture
     public override bool Unused2                { get => ((Data[0xC9] >> 1) & 1) == 1; set => Data[0xC9] = (byte)((Data[0xC9] & ~2) | (value ? 2 : 0)); }
     public override bool Unused3                { get => ((Data[0xC9] >> 2) & 1) == 1; set => Data[0xC9] = (byte)((Data[0xC9] & ~4) | (value ? 4 : 0)); }
     public override bool Unused4                { get => ((Data[0xC9] >> 3) & 1) == 1; set => Data[0xC9] = (byte)((Data[0xC9] & ~8) | (value ? 8 : 0)); }
-    public override bool FatefulEncounter       { get => ((Data[0xC9] >> 4) & 1) == 1; set => Data[0xC9] = (byte)((Data[0xC9] &~16) | (value ?16 : 0)); }
+    private bool FatefulEncounterJPN            { get => ((Data[0xC9] >> 4) & 1) == 1; set => Data[0xC9] = (byte)((Data[0xC9] &~16) | (value ?16 : 0)); }
     public override int RibbonCount => Data.AsSpan(0xBD, 12).Count<byte>(1) + RibbonCountG3Cool + RibbonCountG3Beauty + RibbonCountG3Cute + RibbonCountG3Smart + RibbonCountG3Tough;
 
-    public override int PKRS_Strain { get => Data[0xCA] & 0xF; set => Data[0xCA] = (byte)(value & 0xF); }
+    public override int PokerusStrain { get => Data[0xCA] & 0xF; set => Data[0xCA] = (byte)(value & 0xF); }
     public override bool IsEgg { get => Data[0xCB] == 1; set => Data[0xCB] = value ? (byte)1 : (byte)0; }
     public override bool AbilityBit { get => Data[0xCC] == 1; set => Data[0xCC] = value ? (byte)1 : (byte)0; }
     public override bool Valid { get => Data[0xCD] == 0; set => Data[0xCD] = !value ? (byte)1 : (byte)0; }
 
-    public override int MarkValue { get => SwapBits(Data[0xCF], 1, 2); set => Data[0xCF] = (byte)SwapBits(value, 1, 2); }
-    public override int PKRS_Days { get => Math.Max((sbyte)Data[0xD0], (sbyte)0); set => Data[0xD0] = (byte)(value == 0 ? 0xFF : value & 0xF); }
+    public override byte MarkingValue { get => (byte)SwapBits(Data[0xCF], 1, 2); set => Data[0xCF] = (byte)SwapBits(value, 1, 2); }
+    public override int PokerusDays { get => Math.Max((sbyte)Data[0xD0], (sbyte)0); set => Data[0xD0] = (byte)(value == 0 ? 0xFF : value & 0xF); }
 
     public int PartySlot { get => Data[0xD7]; set => Data[0xD7] = (byte)value; } // or not; only really used while in party?
     public ushort ShadowID { get => ReadUInt16BigEndian(Data.AsSpan(0xD8)); set => WriteUInt16BigEndian(Data.AsSpan(0xD8), value); }
     public int Purification { get => ReadInt32BigEndian(Data.AsSpan(0xDC)); set => WriteInt32BigEndian(Data.AsSpan(0xDC), value); }
     public uint EXP_Shadow { get => ReadUInt32BigEndian(Data.AsSpan(0xC0)); set => WriteUInt32BigEndian(Data.AsSpan(0xC0), value); }
+
+    private bool FatefulEncounterINT { get => ((Data[0xFB] >> 0) & 1) == 1; set => Data[0xFB] = (byte)((Data[0xFB] & ~1) | (value ? 1 : 0)); }
+
+    public override bool FatefulEncounter
+    {
+        // Property reads depend on the save file language, and we aren't differentiating via file.
+        // set based on language, resolve when setting to actual save
+        // treat both as False (more likely to be flagged invalid by legality checks)
+        get => FatefulEncounterJPN != FatefulEncounterINT;
+        set => ForceCorrectFatefulState(Japanese, value);
+    }
+
+    /// <summary>
+    /// Sets the Fateful Encounter flag to the correct value for the given language format.
+    /// </summary>
+    /// <param name="japanese">Is saved to a Japanese language save file</param>
+    /// <param name="value">Fateful Encounter state</param>
+    public void ForceCorrectFatefulState(bool japanese, bool value)
+    {
+        FatefulEncounterJPN = japanese && value;
+        FatefulEncounterINT = !japanese && value;
+    }
+
+    /// <summary>
+    /// Checks if the Fateful Encounter flag states are valid for the given language format.
+    /// </summary>
+    /// <param name="japanese">Is saved to a Japanese language save file</param>
+    /// <returns>True if the other-language Fateful Encounter flag is not set</returns>
+    public bool IsFatefulValid(bool japanese)
+    {
+        if (japanese)
+            return !FatefulEncounterINT;
+        return !FatefulEncounterJPN;
+    }
 
     public const int Purified = -100;
     public bool IsShadow => ShadowID != 0 && Purification != Purified;
@@ -191,8 +243,65 @@ public sealed class CK3 : G3PKM, IShadowCapture
     public PK3 ConvertToPK3()
     {
         var pk = ConvertTo<PK3>();
+        StringConverter3GC.RemapGlyphs3GBA(NicknameTrash, CurrentRegion, Language, pk.NicknameTrash);
+        StringConverter3GC.RemapGlyphs3GBA(OriginalTrainerTrash, CurrentRegion, Language, pk.OriginalTrainerTrash);
         pk.FlagHasSpecies = pk.SpeciesInternal != 0; // Update Flag
         pk.RefreshChecksum();
         return pk;
     }
+
+    // render original string if possible
+    public override string GetString(ReadOnlySpan<byte> data)
+    {
+        var current = CurrentRegion;
+        if (current == GCRegion.NoRegion)
+            return StringConverter3GC.GetString(data); // don't bother
+        var language = Language;
+        var expect = language == 1 ? GCRegion.NTSC_J : GCRegion.NTSC_U;
+        if (current == expect)
+            return StringConverter3GC.GetString(data); // no remap needed
+
+        Span<byte> remap = stackalloc byte[data.Length];
+        data.CopyTo(remap);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(remap, current, expect, language);
+        return StringConverter3GC.GetString(remap);
+    }
+
+    public override int LoadString(ReadOnlySpan<byte> data, Span<char> destBuffer)
+    {
+        var current = CurrentRegion;
+        if (current == GCRegion.NoRegion)
+            return StringConverter3GC.LoadString(data, destBuffer); // don't bother
+        var language = Language;
+        var expect = language == 1 ? GCRegion.NTSC_J : GCRegion.NTSC_U;
+        if (current == expect)
+            return StringConverter3GC.LoadString(data, destBuffer); // no remap needed
+
+        Span<byte> remap = stackalloc byte[data.Length];
+        data.CopyTo(remap);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(remap, current, expect, language);
+        return StringConverter3GC.LoadString(remap, destBuffer);
+    }
+
+    public override int SetString(Span<byte> destBuffer, ReadOnlySpan<char> value, int maxLength, StringConverterOption option)
+    {
+        var language = Language;
+        var current = CurrentRegion;
+        if (current == GCRegion.NoRegion)
+            return StringConverter3GC.SetString(destBuffer, value, maxLength, option); // don't bother
+        var expect = language == 1 ? GCRegion.NTSC_J : GCRegion.NTSC_U;
+        if (current == expect)
+            return StringConverter3GC.SetString(destBuffer, value, maxLength, option); // no remap needed
+
+        Span<byte> remap = stackalloc byte[destBuffer.Length];
+        destBuffer.CopyTo(remap);
+        StringConverter3GC.RemapGlyphsBetweenRegions3GC(remap, expect, current, language);
+        return StringConverter3GC.SetString(remap, value, maxLength, option);
+    }
+
+    public override int GetStringTerminatorIndex(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetTerminatorIndex(data, StringConverter3GC.TerminatorBigEndian);
+    public override int GetStringLength(ReadOnlySpan<byte> data)
+        => TrashBytesUTF16.GetStringLength(data, StringConverter3GC.TerminatorBigEndian);
+    public override int GetBytesPerChar() => 2;
 }
