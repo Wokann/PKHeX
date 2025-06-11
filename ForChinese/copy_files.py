@@ -6,77 +6,188 @@ import re
 def parse_macro_dependencies(config_file):
     """
     解析完整的C风格宏依赖配置文件
+    使用严格的状态机准确跟踪条件块嵌套关系
     支持: #ifdef, #ifndef, #elif, #else, #endif, #define
+    彻底解决条件组和 #elif 解析问题
     """
-    dependencies = {}  # 存储宏依赖关系: {base_macro: [dependent_macros]}
+    dependencies = {
+        'ifdef': {},
+        'ifndef': {},
+        'elif_else_groups': []
+    }
     
     if not os.path.exists(config_file):
         print(f"警告: 宏配置文件 {config_file} 不存在，使用空配置")
         return dependencies
     
     with open(config_file, 'r', encoding='utf-8') as f:
-        content = f.read()
+        lines = f.readlines()
     
-    # 匹配所有 #ifdef-#endif 块
-    pattern = r'#ifdef\s+(\w+)\s*([\s\S]*?)#endif'
-    matches = re.findall(pattern, content)
+    # 状态变量
+    condition_stack = []       # 存储 (type, macro) 元组
+    current_group = []         # 当前条件组 [ (type, macro, deps), ... ]
+    current_block_type = None  # 当前块类型: ifdef, ifndef, elif, else
+    current_macro = None       # 当前块的宏名
+    current_deps = []          # 当前块的宏定义列表
     
-    for base_macro, block_content in matches:
-        # 提取块内所有 #define 指令
-        define_pattern = r'#define\s+(\w+)'
-        dependent_macros = re.findall(define_pattern, block_content)
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith(('//', '/*')):
+            continue
         
-        if dependent_macros:
-            dependencies[base_macro] = dependent_macros
+        # 保存当前块
+        def save_current_block():
+            nonlocal current_deps, current_block_type, current_macro
+            if current_deps and current_block_type:
+                current_group.append((current_block_type, current_macro, current_deps))
+                current_deps = []
+        
+        # 处理 #ifdef
+        if line.startswith('#ifdef'):
+            save_current_block()
+            parts = line.split()
+            if len(parts) >= 2:
+                current_macro = parts[1]
+                current_block_type = 'ifdef'
+                condition_stack.append(('ifdef', current_macro))
+                current_group = []  # 开始新条件组
+        
+        # 处理 #ifndef
+        elif line.startswith('#ifndef'):
+            save_current_block()
+            parts = line.split()
+            if len(parts) >= 2:
+                current_macro = parts[1]
+                current_block_type = 'ifndef'
+                condition_stack.append(('ifndef', current_macro))
+                current_group = []
+        
+        # 处理 #elif
+        elif line.startswith('#elif'):
+            save_current_block()
+            # 支持两种格式: #elif defined(MACRO) 和 #elif MACRO
+            match = re.search(r'#elif\s+(?:defined\(\s*(\w+)\s*\)|(\w+))', line)
+            if match:
+                current_macro = match.group(1) or match.group(2)
+                current_block_type = 'elif'
+        
+        # 处理 #else
+        elif line.startswith('#else'):
+            save_current_block()
+            current_macro = None
+            current_block_type = 'else'
+        
+        # 处理 #endif
+        elif line.startswith('#endif'):
+            save_current_block()
+            if condition_stack:
+                top_type, top_macro = condition_stack.pop()
+                # 独立的 ifdef/ifndef 块
+                if not condition_stack and len(current_group) == 1:
+                    block_type, block_macro, deps = current_group[0]
+                    if block_type in ('ifdef', 'ifndef'):
+                        dependencies[block_type][block_macro] = deps
+                        current_group = []
+                # 条件组结束
+                elif not condition_stack and current_group:
+                    dependencies['elif_else_groups'].append(current_group)
+                    current_group = []
+            current_block_type = None
+            current_macro = None
+        
+        # 收集 #define 指令
+        defines = re.findall(r'#define\s+(\w+)', line)
+        current_deps.extend(defines)
     
-    # 处理 #ifndef 块
-    ifndef_pattern = r'#ifndef\s+(\w+)\s*([\s\S]*?)#endif'
-    ifndef_matches = re.findall(ifndef_pattern, content)
+    # 处理最后一个块
+    save_current_block()
+    if current_group:
+        dependencies['elif_else_groups'].append(current_group)
     
-    for base_macro, block_content in ifndef_matches:
-        dependent_macros = re.findall(define_pattern, block_content)
-        if dependent_macros:
-            dependencies[base_macro] = dependent_macros
+    # 输出解析结果
+    print(f"从配置文件解析了 {len(dependencies['ifdef'])} 个 #ifdef 依赖关系")
+    for base, deps in dependencies['ifdef'].items():
+        print(f"  #ifdef {base} -> {', '.join(deps)}")
     
-    # 处理 #elif 块 (简单版本，假设 #elif 直接跟在 #ifdef 后面)
-    elif_pattern = r'#ifdef\s+(\w+)\s*([\s\S]*?)#elif\s+defined\(\s*(\w+)\s*\)\s*([\s\S]*?)(?=#else|#endif)'
-    elif_matches = re.findall(elif_pattern, content)
+    print(f"从配置文件解析了 {len(dependencies['ifndef'])} 个 #ifndef 依赖关系")
+    for base, deps in dependencies['ifndef'].items():
+        print(f"  #ifndef {base} -> {', '.join(deps)}")
     
-    for _, _, elif_macro, elif_content in elif_matches:
-        dependent_macros = re.findall(define_pattern, elif_content)
-        if dependent_macros:
-            dependencies.setdefault(elif_macro, []).extend(dependent_macros)
-    
-    # 处理 #else 块 (简单版本，假设 #else 直接跟在 #ifdef 后面)
-    else_pattern = r'#ifdef\s+(\w+)\s*([\s\S]*?)#else\s*([\s\S]*?)#endif'
-    else_matches = re.findall(else_pattern, content)
-    
-    for _, _, else_content in else_matches:
-        dependent_macros = re.findall(define_pattern, else_content)
-        if dependent_macros:
-            dependencies.setdefault("__ELSE_BLOCK__", []).extend(dependent_macros)
-    
-    print(f"从配置文件解析了 {len(dependencies)} 个宏依赖关系")
-    for base, deps in dependencies.items():
-        print(f"  {base} -> {', '.join(deps)}")
+    print(f"从配置文件解析了 {len(dependencies['elif_else_groups'])} 个 #elif/#else 组")
+    for i, group in enumerate(dependencies['elif_else_groups']):
+        print(f"  组 {i+1}:")
+        for cond_type, macro, deps in group:
+            if cond_type == 'else':
+                print(f"    #else -> {', '.join(deps)}")
+            else:
+                print(f"    #{cond_type} {macro} -> {', '.join(deps)}")
     
     return dependencies
 
 def resolve_macro_dependencies(base_macros, dependency_map):
     """
     解析宏依赖关系，返回所有需要启用的宏
+    正确处理 #ifdef 和 #ifndef 的不同语义
+    正确处理 #elif 的互斥性
     """
     enabled_macros = set(base_macros)
     stack = list(base_macros)
     
+    # 从配置文件中获取不同类型的依赖关系
+    ifdef_deps = dependency_map.get('ifdef', {})
+    ifndef_deps = dependency_map.get('ifndef', {})
+    elif_else_groups = dependency_map.get('elif_else_groups', [])
+    
+    # 处理 #ifdef 依赖 - 如果宏被启用，则启用其依赖的宏
     while stack:
         current_macro = stack.pop()
         
-        if current_macro in dependency_map:
-            for dependent_macro in dependency_map[current_macro]:
+        # 处理 #ifdef 依赖
+        if current_macro in ifdef_deps:
+            for dependent_macro in ifdef_deps[current_macro]:
                 if dependent_macro not in enabled_macros:
                     enabled_macros.add(dependent_macro)
                     stack.append(dependent_macro)
+    
+    # 处理 #ifndef 依赖 - 如果宏未被启用，则启用其依赖的宏
+    for macro, deps in ifndef_deps.items():
+        if macro not in enabled_macros:  # 关键逻辑：如果宏未被启用
+            for dep in deps:
+                if dep not in enabled_macros:
+                    enabled_macros.add(dep)
+                    stack.append(dep)
+    
+    # 处理 #elif/#else 组 - 只启用第一个条件为真的块中的宏
+    for group in elif_else_groups:
+        condition_met = False
+        
+        for cond_type, macro, deps in group:
+            if condition_met:
+                continue  # 已经有条件为真，跳过后续条件
+            
+            if cond_type == 'ifdef':
+                if macro in enabled_macros:
+                    condition_met = True
+                    for dep in deps:
+                        if dep not in enabled_macros:
+                            enabled_macros.add(dep)
+                            stack.append(dep)
+            
+            elif cond_type == 'elif':
+                if macro in enabled_macros:
+                    condition_met = True
+                    for dep in deps:
+                        if dep not in enabled_macros:
+                            enabled_macros.add(dep)
+                            stack.append(dep)
+            
+            elif cond_type == 'else':
+                # #else 总是在最后，并且只有在前面的条件都不满足时才会执行
+                if not condition_met:
+                    for dep in deps:
+                        if dep not in enabled_macros:
+                            enabled_macros.add(dep)
+                            stack.append(dep)
     
     return list(enabled_macros)
 
