@@ -1010,6 +1010,21 @@
 密勒顿
 波荡水
 铁斑叶
+裹蜜虫
+斯魔茶
+来悲粗茶
+够赞狗
+愿增猿
+吉雉鸡
+厄诡椪
+铝钢桥龙
+蜜集大蛇
+破空焰
+猛雷鼓
+铁磐岩
+铁头壳
+太乐巴戈斯
+桃歹郎
 [ELSE]
 Egg
 Bulbasaur
@@ -2022,4 +2037,19 @@ Koraidon
 Miraidon
 Walking Wake
 Iron Leaves
+Dipplin
+Poltchageist
+Sinistcha
+Okidogi
+Munkidori
+Fezandipiti
+Ogerpon
+Archaludon
+Hydrapple
+Gouging Fire
+Raging Bolt
+Iron Boulder
+Iron Crown
+Terapagos
+Pecharunt
 [/END]

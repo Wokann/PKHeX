@@ -1,16 +1,17 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace PKHeX.Core;
 
 /// <summary>
 /// Mainline format for Generation 1 &amp; 2 <see cref="PKM"/> objects.
 /// </summary>
-/// <remarks>This format stores <see cref="PKM.Nickname"/> and <see cref="PKM.OT_Name"/> in buffers separate from the rest of the details.</remarks>
+/// <remarks>This format stores <see cref="PKM.Nickname"/> and <see cref="PKM.OriginalTrainerName"/> in buffers separate from the rest of the details.</remarks>
 public abstract class GBPKML : GBPKM
 {
     internal const int StringLengthJapanese = 6;
     internal const int StringLengthNotJapan = 11;
-    public sealed override int MaxStringLengthOT => Japanese ? 5 : 7;
+    public sealed override int MaxStringLengthTrainer => Japanese ? 5 : 7;
     public sealed override int MaxStringLengthNickname => Japanese ? 5 : 10;
     public sealed override bool Japanese => RawOT.Length == StringLengthJapanese;
 
@@ -18,18 +19,20 @@ public abstract class GBPKML : GBPKM
     private readonly byte[] RawNickname;
 
     // Trash Bytes
-    public sealed override Span<byte> Nickname_Trash => RawNickname;
-    public sealed override Span<byte> OT_Trash => RawOT;
+    public sealed override Span<byte> NicknameTrash => RawNickname;
+    public sealed override Span<byte> OriginalTrainerTrash => RawOT;
+    public override int TrashCharCountTrainer => RawOT.Length;
+    public override int TrashCharCountNickname => RawNickname.Length;
 
-    protected GBPKML(int size, bool jp = false) : base(size)
+    protected GBPKML([ConstantExpected] int size, bool jp = false) : base(size)
     {
         int strLen = jp ? StringLengthJapanese : StringLengthNotJapan;
 
         // initialize string buffers
         RawOT = new byte[strLen];
         RawNickname = new byte[strLen];
-        OT_Trash.Fill(StringConverter12.G1TerminatorCode);
-        Nickname_Trash.Fill(StringConverter12.G1TerminatorCode);
+        OriginalTrainerTrash.Fill(StringConverter1.TerminatorCode);
+        NicknameTrash.Fill(StringConverter1.TerminatorCode);
     }
 
     protected GBPKML(byte[] data, bool jp = false) : base(data)
@@ -39,91 +42,67 @@ public abstract class GBPKML : GBPKM
         // initialize string buffers
         RawOT = new byte[strLen];
         RawNickname = new byte[strLen];
-        OT_Trash.Fill(StringConverter12.G1TerminatorCode);
-        Nickname_Trash.Fill(StringConverter12.G1TerminatorCode);
+        OriginalTrainerTrash.Fill(StringConverter1.TerminatorCode);
+        NicknameTrash.Fill(StringConverter1.TerminatorCode);
     }
 
-    public override void SetNotNicknamed(int language) => GetNonNickname(language, RawNickname);
+    public override void SetNotNicknamed(int language)
+    {
+        GetNonNickname(language, RawNickname);
+        _isnicknamed = false;
+    }
 
-    protected override void GetNonNickname(int language, Span<byte> data)
+    protected override int GetNonNickname(int language, Span<byte> data)
     {
         var name = SpeciesName.GetSpeciesNameGeneration(Species, language, Format);
-        SetString(name, data, data.Length, StringConverterOption.Clear50);
+        int length = SetString(data, name, data.Length, StringConverterOption.Clear50);
 [GEN1_Y_EN_CKN]
         // 此程序会将0xF2转码为0xE8，由于ckn版皮卡丘美版汉化编码不兼容原编码，故直接跳过该判定。
-        //if (Korean)
-            return;
-
-        // Decimal point<->period fix
-        foreach (ref var c in data)
-        {
-            if (c == 0xF2)
-                c = 0xE8;
-        }
+        // if (!Korean) // Decimal point<->period fix
+        //     data.Replace<byte>(0xF2, 0xE8);
 [ELSEIF GEN123_EN]
         // 新1~2代美版汉化编码兼容原编码，在保留原转码程序基础上，添加对汉字编码的识别跳过。
-        if (Korean)
-            return;
-
-        // Decimal point<->period fix
-        for (int i = 0; i < data.Length; i++)
-        {
-            var c = data[i];
-            if(!Japanese && c >= 0x01 && c <= 0x2E && c != 0x14 && c != 0x15 && c != 0x16 && c != 0x17 && c != 0x20 && c != 0x21 && c != 0x22 && c != 0x23 && c != 0x24 && c != 0x25 && c != 0x26 && c != 0x27)
+        if (!Korean) {
+            // Decimal point<->period fix
+            for (int i = 0; i < data.Length; i++)
             {
-                i = i + 2;
-                c = data[i];
+                var c = data[i];
+                if(!Japanese && c >= 0x01 && c <= 0x2E && c != 0x14 && c != 0x15 && c != 0x16 && c != 0x17 && c != 0x20 && c != 0x21 && c != 0x22 && c != 0x23 && c != 0x24 && c != 0x25 && c != 0x26 && c != 0x27)
+                {
+                    i = i + 2;
+                    c = data[i];
+                }
+                if (c == 0xF2)
+                    c = 0xE8;
             }
-            if (c == 0xF2)
-                c = 0xE8;
         }
 [ELSE]
-        if (Korean)
-            return;
-
-        // Decimal point<->period fix
-        foreach (ref var c in data)
-        {
-            if (c == 0xF2)
-                c = 0xE8;
-        }
+        if (!Korean) // Decimal point<->period fix
+            data.Replace<byte>(0xF2, 0xE8);
 [/END]
-    }
-
-    private string GetString(ReadOnlySpan<byte> span)
-    {
-        if (Korean)
-            return StringConverter2KOR.GetString(span);
-        return StringConverter12.GetString(span, Japanese);
-    }
-
-    private int SetString(ReadOnlySpan<char> value, Span<byte> destBuffer, int maxLength, StringConverterOption option = StringConverterOption.None)
-    {
-        if (Korean)
-            return StringConverter2KOR.SetString(destBuffer, value, maxLength, option);
-        return StringConverter12.SetString(destBuffer, value, maxLength, Japanese, option);
+        return length;
     }
 
     public sealed override string Nickname
     {
-        get => GetString(Nickname_Trash);
+        get => GetString(NicknameTrash);
         set
         {
             if (!IsNicknamed && Nickname == value)
                 return;
 
-            SetStringKeepTerminatorStyle(value, Nickname_Trash);
+            SetStringKeepTerminatorStyle(value, NicknameTrash);
         }
     }
 
-    public sealed override string OT_Name
+    public sealed override string OriginalTrainerName
     {
-        get => GetString(OT_Trash);
+        get => GetString(OriginalTrainerTrash);
         set
         {
-            if (value == OT_Name)
+            if (value == OriginalTrainerName)
                 return;
-            SetStringKeepTerminatorStyle(value, OT_Trash);
+            SetStringKeepTerminatorStyle(value, OriginalTrainerTrash);
         }
     }
 
@@ -132,6 +111,6 @@ public abstract class GBPKML : GBPKM
         // Reset the destination buffer based on the termination style of the existing string.
         bool zeroed = exist.Contains<byte>(0);
         StringConverterOption converterOption = (zeroed) ? StringConverterOption.ClearZero : StringConverterOption.Clear50;
-        SetString(value, exist, value.Length, converterOption);
+        SetString(exist, value, value.Length, converterOption);
     }
 }
