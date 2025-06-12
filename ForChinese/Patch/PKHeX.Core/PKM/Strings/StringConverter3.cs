@@ -222,8 +222,7 @@ public static class StringConverter3
         for (; i < data.Length; i++)
         {
             var value = data[i];
-            var c = value switch
-            {
+            var c = value switch {
                 QuoteLeftByte => GetQuoteLeft(language),
                 QuoteRightByte => GetQuoteRight(language),
                 _ => table[value],
