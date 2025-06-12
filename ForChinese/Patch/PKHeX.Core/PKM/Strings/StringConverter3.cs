@@ -189,9 +189,10 @@ public static class StringConverter3
             }
             else
             {
+                var chr = c;
                 if (!jp)
-                    c = StringConverter4Util.UnNormalizeGenderSymbol(chr);
-                if (!TryGetIndex(table, c, language, out var b))
+                    chr = StringConverter4Util.UnNormalizeGenderSymbol(chr);
+                if (!TryGetIndex(table, chr, language, out var b))
                     break;
                 if (i + 1 > buffer.Length)
                     break; // adding 1 character will overflow requested buffer cap
