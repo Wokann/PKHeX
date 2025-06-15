@@ -40,7 +40,7 @@ public partial class SAV_Database : Form
     private readonly string Viewed;
     private const int MAXFORMAT = Latest.Generation;
     private readonly SummaryPreviewer ShowSet = new();
-    private CancellationTokenSource cts = new();
+    private readonly CancellationTokenSource cts = new();
 
     public SAV_Database(PKMEditor f1, SAVEditor saveditor)
     {
@@ -241,7 +241,7 @@ public partial class SAV_Database : Form
         PKM pk = PKME_Tabs.PreparePKM();
         Directory.CreateDirectory(DatabasePath);
 
-        string path = Path.Combine(DatabasePath, Util.CleanFileName(pk.FileName));
+        string path = Path.Combine(DatabasePath, PathUtil.CleanFileName(pk.FileName));
 
         if (File.Exists(path))
         {
@@ -286,9 +286,10 @@ public partial class SAV_Database : Form
 
         var comboAny = new ComboItem(MsgAny, -1);
 
-        var species = new List<ComboItem>(GameInfo.SpeciesDataSource);
-        species.RemoveAt(0);
-        species.Insert(0, comboAny);
+        var species = new List<ComboItem>(GameInfo.SpeciesDataSource)
+        {
+            [0] = comboAny // Replace (None) with "Any"
+        };
         CB_Species.DataSource = species;
 
         var items = new List<ComboItem>(GameInfo.ItemDataSource);
@@ -419,7 +420,7 @@ public partial class SAV_Database : Form
 
         foreach (var folder in otherPaths)
         {
-            if (!SaveUtil.GetSavesFromFolder(token, folder.Path, otherDeep, out var paths, folder.IgnoreBackupFiles))
+            if (!SaveUtil.GetSavesFromFolder(folder.Path, otherDeep, token, out var paths, folder.IgnoreBackupFiles))
                 continue;
 
             Parallel.ForEach(paths, file => TryAddPKMsFromSaveFilePath(dbTemp, file));
@@ -509,7 +510,7 @@ public partial class SAV_Database : Form
         Directory.CreateDirectory(path);
 
         foreach (var pk in Results.Select(z => z.Entity))
-            File.WriteAllBytes(Path.Combine(path, Util.CleanFileName(pk.FileName)), pk.DecryptedPartyData);
+            File.WriteAllBytes(Path.Combine(path, PathUtil.CleanFileName(pk.FileName)), pk.DecryptedPartyData);
     }
 
     private void Menu_Import_Click(object sender, EventArgs e)

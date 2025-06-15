@@ -17,9 +17,12 @@ public abstract class PKM : ISpeciesForm, ITrainerID32, IGeneration, IShiny, ILa
     public abstract int SIZE_STORED { get; }
     public string Extension => GetType().Name.ToLowerInvariant();
     public abstract PersonalInfo PersonalInfo { get; }
+
+    /// <summary>
+    /// Bytes in the data structure that are unused, either as alignment padding, or were reserved and never used.
+    /// </summary>
     public virtual ReadOnlySpan<ushort> ExtraBytes => [];
 
-    // Internal Attributes set on creation
     public readonly byte[] Data; // Raw Storage
 
     protected PKM(byte[] data) => Data = data;
@@ -283,8 +286,8 @@ public abstract class PKM : ISpeciesForm, ITrainerID32, IGeneration, IShiny, ILa
     public bool SM => Version is SN or MN;
     public bool USUM => Version is US or UM;
     public bool GO => Version is GameVersion.GO;
-    public bool VC1 => Version is >= RD and <= YW;
-    public bool VC2 => Version is >= GD and <= C;
+    public bool VC1 => Version is RD or GN or BU or YW;
+    public bool VC2 => Version is GD or SI or C;
     public bool LGPE => Version is GP or GE;
     public bool SWSH => Version is SW or SH;
     public virtual bool BDSP => Version is BD or SP;
@@ -364,6 +367,7 @@ public abstract class PKM : ISpeciesForm, ITrainerID32, IGeneration, IShiny, ILa
 
     public int[] IVs
     {
+        [Obsolete($"Use the {nameof(GetIVs)} method with stackalloc to not allocate.")]
         get => [IV_HP, IV_ATK, IV_DEF, IV_SPE, IV_SPA, IV_SPD];
         set => SetIVs(value);
     }
@@ -408,6 +412,7 @@ public abstract class PKM : ISpeciesForm, ITrainerID32, IGeneration, IShiny, ILa
     }
 
     /// <inheritdoc cref="GetIVs(Span{int})"/>
+    /// <remarks>Returns the combined 30-bit representation commonly used as IV32.</remarks>
     public uint GetIVs()
     {
         uint iv32 = 0;
@@ -466,6 +471,12 @@ public abstract class PKM : ISpeciesForm, ITrainerID32, IGeneration, IShiny, ILa
         set => SetMoves(value);
     }
 
+    /// <summary>
+    /// Tries to add a move to the moveset of the PKM.
+    /// </summary>
+    /// <param name="move">Move ID to add.</param>
+    /// <param name="pushOut">If the current moveset is full, whether to push out the oldest move (index 0) to add the new one.</param>
+    /// <returns></returns>
     public bool AddMove(ushort move, bool pushOut = true)
     {
         if (move == 0 || move >= MaxMoveID || HasMove(move))
@@ -483,6 +494,9 @@ public abstract class PKM : ISpeciesForm, ITrainerID32, IGeneration, IShiny, ILa
         return true;
     }
 
+    /// <summary>
+    /// Count of non-zero moves in the moveset.
+    /// </summary>
     public int MoveCount => Convert.ToInt32(Move1 != 0) + Convert.ToInt32(Move2 != 0) + Convert.ToInt32(Move3 != 0) + Convert.ToInt32(Move4 != 0);
 
     public void GetMoves(Span<ushort> value)

@@ -59,7 +59,7 @@ public sealed class LegendsArceusVerifier : Verifier
 
     private static void CheckLearnset(LegalityAnalysis data, PA8 pa)
     {
-        var moveCount = GetMoveCount(pa);
+        var moveCount = pa.MoveCount;
         if (moveCount == 4)
             return;
 
@@ -166,16 +166,6 @@ public sealed class LegendsArceusVerifier : Verifier
         return ctr;
     }
 
-    private static int GetMoveCount(PA8 pa)
-    {
-        var count = 0;
-        if (pa.Move1 != 0) count++;
-        if (pa.Move2 != 0) count++;
-        if (pa.Move3 != 0) count++;
-        if (pa.Move4 != 0) count++;
-        return count;
-    }
-
     private void CheckMastery(LegalityAnalysis data, PA8 pa)
     {
         var permit = pa.Permit;
@@ -224,7 +214,7 @@ public sealed class LegendsArceusVerifier : Verifier
         // Check if the move can be learned in the learnset...
         // Changing forms do not have separate tutor permissions, so we don't need to bother with form changes.
         // Level up movepools can grant moves for mastery at lower levels for earlier evolutions... find the minimum.
-        int level = 101;
+        byte level = 101;
         foreach (var evo in data.Info.EvoChainsAllGens.Gen8a)
         {
             var moveset = LearnSource8LA.Instance.GetLearnset(evo.Species, evo.Form);

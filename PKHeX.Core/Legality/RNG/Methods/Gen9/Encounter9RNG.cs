@@ -32,6 +32,7 @@ public static class Encounter9RNG
         return false;
     }
 
+    /// <inheritdoc cref="TryApply32{TEnc}(TEnc, PK9, in ulong, in GenerateParam9, EncounterCriteria)"/>
     public static bool TryApply64<TEnc>(this TEnc enc, PK9 pk, in ulong init, in GenerateParam9 param, EncounterCriteria criteria)
         where TEnc : ISpeciesForm, IGemType
     {
@@ -90,12 +91,12 @@ public static class Encounter9RNG
         if (!ignoreIVs && !criteria.IsIVsCompatibleSpeedLast(ivs))
             return false;
 
-        pk.IV_HP = ivs[0];
-        pk.IV_ATK = ivs[1];
-        pk.IV_DEF = ivs[2];
-        pk.IV_SPA = ivs[3];
-        pk.IV_SPD = ivs[4];
-        pk.IV_SPE = ivs[5];
+        pk.IV32 = (uint)ivs[0] |
+                  (uint)(ivs[1] << 05) |
+                  (uint)(ivs[2] << 10) |
+                  (uint)(ivs[5] << 15) | // speed is last in the array, but in the middle of the 32bit value
+                  (uint)(ivs[3] << 20) |
+                  (uint)(ivs[4] << 25);
 
         int ability = enc.Ability switch
         {
@@ -299,11 +300,11 @@ public static class Encounter9RNG
 
     public static byte GetGender(in byte ratio, in ulong rand100) => ratio switch
     {
-        0x1F => rand100 < 12 ? (byte)1 : (byte)0, // 12.5%
-        0x3F => rand100 < 25 ? (byte)1 : (byte)0, // 25%
-        0x7F => rand100 < 50 ? (byte)1 : (byte)0, // 50%
-        0xBF => rand100 < 75 ? (byte)1 : (byte)0, // 75%
-        0xE1 => rand100 < 89 ? (byte)1 : (byte)0, // 87.5%
+        EntityGender.VM => rand100 < 12 ? (byte)1 : (byte)0, // 12.5%
+        EntityGender.MM => rand100 < 25 ? (byte)1 : (byte)0, // 25%
+        EntityGender.HH => rand100 < 50 ? (byte)1 : (byte)0, // 50%
+        EntityGender.MF => rand100 < 75 ? (byte)1 : (byte)0, // 75%
+        EntityGender.VF => rand100 < 89 ? (byte)1 : (byte)0, // 87.5%
 
         _ => throw new ArgumentOutOfRangeException(nameof(ratio)),
     };

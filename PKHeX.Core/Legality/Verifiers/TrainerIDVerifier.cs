@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using static PKHeX.Core.LegalityCheckStrings;
 
 namespace PKHeX.Core;
@@ -12,11 +11,12 @@ public sealed class TrainerIDVerifier : Verifier
 
     public override void Verify(LegalityAnalysis data)
     {
-        var pk = data.Entity;
-        if (!TrainerNameVerifier.IsPlayerOriginalTrainer(data.EncounterMatch))
+        var enc = data.EncounterMatch;
+        if (!TrainerNameVerifier.IsPlayerOriginalTrainer(enc))
             return; // already verified
 
-        if (pk.BDSP)
+        var pk = data.Entity;
+        if (enc.Context is EntityContext.Gen8b)
         {
             // Game loops to ensure a nonzero full-ID
             // int.MaxValue cannot be yielded by Unity's Random.Range[min, max)
@@ -29,23 +29,17 @@ public sealed class TrainerIDVerifier : Verifier
         }
         else if (pk.Version == GameVersion.CXD)
         {
-            var enc = data.EncounterMatch;
-            if (enc is EncounterShadow3Colo or EncounterShadow3XD or EncounterSlot3XD)
-                VerifyTrainerID_CXD(data, pk);
+            VerifyTrainerID_CXD(data, pk);
         }
         else if (pk.Version is GameVersion.R or GameVersion.S)
         {
-            var enc = data.EncounterMatch;
             // If the trainer ID is that of the player, verify it is possible
             // For eggs, the version does not update on hatch, so it truly is from R/S.
-            // All encounters with fixed TID/SID are 32-bit locked anyway, but a 16-bit TID interface check is sufficient.
-            if (enc is not ITrainerID16ReadOnly)
-            {
-                // Eggs from R/S that are traded to Emerald can obtain the Emerald TID/SID without updating version.
-                // Flag it as fishy for manual inspection. If it matches an Emerald trainer, it's fine.
-                var severity = enc is EncounterEgg3 && !pk.IsEgg ? Severity.Fishy : Severity.Invalid;
-                VerifyTrainerID_RS(data, pk, severity);
-            }
+
+            // Eggs from R/S that are traded to Emerald can obtain the Emerald TID/SID without updating version.
+            // Flag it as fishy for manual inspection. If it matches an Emerald trainer, it's fine.
+            var severity = enc is EncounterEgg3 && !pk.IsEgg ? Severity.Fishy : Severity.Invalid;
+            VerifyTrainerID_RS(data, pk, severity);
         }
         else if (pk.VC)
         {
@@ -89,13 +83,24 @@ public sealed class TrainerIDVerifier : Verifier
         return true;
     }
 
-    private static void VerifyTrainerID_CXD<T>(LegalityAnalysis data, T tr) where T : ITrainerID32
+    private static void VerifyTrainerID_CXD<T>(LegalityAnalysis data, T tr) where T : ITrainerID32ReadOnly
     {
+        var severity = Severity.Invalid;
+        if (data.EncounterOriginal is (EncounterSlot3XD or EncounterShadow3XD or EncounterStatic3XD))
+        {
+            // XD does not do the random Poké Ball sequence on naming menu for PAL copies of the game.
+            var lang = (LanguageID)data.Entity.Language;
+            if (lang > LanguageID.English) // definitely PAL
+                return;
+            if (lang is LanguageID.English)
+                severity = Severity.Fishy; // can be PAL or US, let user verify.
+            // japanese will stay Invalid
+        }
         if (!MethodCXD.TryGetSeedTrainerID(tr.TID16, tr.SID16, out _))
-            data.AddLine(GetInvalid(LTrainerIDNoSeed, CheckIdentifier.Trainer));
+            data.AddLine(Get(LTrainerIDNoSeed, severity, CheckIdentifier.Trainer));
     }
 
-    private static void VerifyTrainerID_RS<T>(LegalityAnalysis data, T tr, Severity severity = Severity.Invalid) where T : ITrainerID32
+    private static void VerifyTrainerID_RS<T>(LegalityAnalysis data, T tr, Severity severity = Severity.Invalid) where T : ITrainerID32ReadOnly
     {
         if (!MethodH.TryGetSeedTrainerID(tr.TID16, tr.SID16, out _))
             data.AddLine(Get(LTrainerIDNoSeed, severity, CheckIdentifier.Trainer));
